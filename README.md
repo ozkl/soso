@@ -31,8 +31,7 @@ QEMU has multiboot implementation so you can try the kernel with QEMU without cr
 
 ![Soso](screenshots/soso1.png)
 
-By creating an image, it is possible to put some userspace programs and also it is possible to run Soso on real hardware!
-
 # creating an image
+By creating an image, it is possible to put some userspace programs and also it is possible to run Soso on real hardware!
 
 TODO
