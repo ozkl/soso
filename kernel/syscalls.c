@@ -276,7 +276,7 @@ int syscall_exit()
 
 void* syscall_sbrk(uint32 increment)
 {
-    Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
+    //Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
 
     Process* process = getCurrentThread()->owner;
     if (process)

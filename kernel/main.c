@@ -387,6 +387,43 @@ void userProcessShell()
     trigger_syscall_exit();
 }
 
+int executeFile(const char *path, char *const argv[], char *const envp[], FileSystemNode* tty)
+{
+    int result = -1;
+
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
+        if (node)
+        {
+            File* f = open_fs(node, 0);
+            if (f)
+            {
+                void* image = kmalloc(node->length);
+
+                int32 bytesRead = read_fs(f, node->length, image);
+
+                if (bytesRead > 0)
+                {
+                    Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, tty);
+
+                    if (newProcess)
+                    {
+                        result = newProcess->pid;
+                    }
+                }
+                close_fs(f);
+
+                kfree(image);
+            }
+
+        }
+    }
+
+    return result;
+}
+
 int kmain(struct Multiboot *mboot_ptr)
 {
     int stack = 5;
@@ -417,10 +454,10 @@ int kmain(struct Multiboot *mboot_ptr)
     }
     Screen_PrintF("\n");
 
-    initializeTasking();
-
     initializeVFS();
     initializeDevFS();
+
+    initializeTasking();
 
     initialiseSyscalls();
     Screen_PrintF("System calls initialized!\n");
@@ -439,17 +476,41 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeFatFileSystem();
 
+    createKernelThread(kernelThreadMemInfo);
+
+    Screen_PrintF("System started!\n");
+
+    char* argv[] = {"shell", NULL};
+    char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
+
     uint32 initrdSize = 0;
     uint8* initrdLocation = locateInitrd(mboot_ptr, &initrdSize);
     if (initrdLocation == NULL)
     {
         Screen_PrintF("Initrd not found!\n");
+
+        Screen_PrintF("Starting kernel-shell (userspace) on TTY1 and TTY2\n");
+
+        createUserProcessFromFunction("shell", userProcessShell, argv, envp, NULL, getFileSystemNode("/dev/tty1"));
+        createUserProcessFromFunction("shell", userProcessShell, argv, envp, NULL, getFileSystemNode("/dev/tty2"));
     }
     else
     {
         Screen_PrintF("Initrd found at %x (%d bytes)\n", initrdLocation, initrdSize);
         memcpy((uint8*)*(uint32*)getFileSystemNode("/dev/ramdisk1")->privateNodeData, initrdLocation, initrdSize);
-        BOOL r = mountFileSystem("/dev/ramdisk1", "/initrd", "fat", 0, 0);
+        BOOL mountSuccess = mountFileSystem("/dev/ramdisk1", "/initrd", "fat", 0, 0);
+
+        if (mountSuccess)
+        {
+            Screen_PrintF("Starting shell on TTY1 and TTY2\n");
+
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty1"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty2"));
+        }
+        else
+        {
+            Screen_PrintF("Mounting initrd failed!\n");
+        }
     }
 
     //createKernelThread(kernelThread2);
@@ -459,19 +520,8 @@ int kmain(struct Multiboot *mboot_ptr)
     //createUserProcessFromFunction("testExecve", userProcessTestExecve, getFileSystemNode("/dev/tty1"));
 
 
-
     //createKernelThread(kernelThread3);
-    createKernelThread(kernelThreadMemInfo);
 
-    char* argv[] = {"shell", NULL};
-    char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
-
-    //createUserProcessFromFunction("userProcess2", userProcess2, getFileSystemNode("/dev/tty2"));
-    createUserProcessFromFunction("shell", userProcessShell, argv, envp, NULL, getFileSystemNode("/dev/tty1"));
-    createUserProcessFromFunction("shell", userProcessShell, argv, envp, NULL, getFileSystemNode("/dev/tty2"));
-    //createUserProcessFromFunction("shell", userProcessShell, getFileSystemNode("/dev/tty3"));
-
-    Screen_PrintF("System started!\n");
 
     enableScheduler();
 

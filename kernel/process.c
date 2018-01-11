@@ -37,6 +37,7 @@ void initializeTasking()
     strcpy(process->name, "[kernel]");
     process->pid = generateProcessId();
     process->pd = (uint32*) KERN_PAGE_DIRECTORY;
+    process->workingDirectory = getFileSystemRootNode();
 
     gKernelProcess = process;
 
