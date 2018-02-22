@@ -148,11 +148,12 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
     char targetPath[128];
 
     FileSystemNode *n = node;
-    int charIndex = 127;
-    targetPath[charIndex] = '\0';
+    int charIndex = 126;
+    memset(targetPath, 0, 128);
     while (NULL == n->mountSource)
     {
         int length = strlen(n->name);
+
         charIndex -= length;
 
         if (charIndex < 2)
@@ -244,8 +245,8 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     char targetPath[128];
 
     FileSystemNode *n = node;
-    int charIndex = 127;
-    targetPath[charIndex] = '\0';
+    int charIndex = 126;
+    memset(targetPath, 0, 128);
     int length = strlen(name);
     charIndex -= length;
     strcpyNonNull(targetPath + charIndex, name);
@@ -423,8 +424,8 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
     char targetPath[128];
 
     FileSystemNode *n = node;
-    int charIndex = 127;
-    targetPath[charIndex] = '\0';
+    int charIndex = 126;
+    memset(targetPath, 0, 128);
     while (NULL == n->mountSource)
     {
         int length = strlen(n->name);
@@ -494,8 +495,8 @@ static BOOL open(File *file, uint32 flags)
     char targetPath[128];
 
     FileSystemNode *n = node;
-    int charIndex = 127;
-    targetPath[charIndex] = '\0';
+    int charIndex = 126;
+    memset(targetPath, 0, 128);
     while (NULL == n->mountSource)
     {
         int length = strlen(n->name);
