@@ -342,140 +342,6 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     return process;
 }
-#include "serial.h"
-int32 forkProcess()
-{
-    Thread* parentThread = gCurrentThread;
-
-    //yield(1);
-    //Contents of yield copied to below to keep ebp and esp same when return from scheduler
-    //I mean there is no function below (enableInterrupts() , disableInterrupts() , halt() are just macros)
-    parentThread->yield = 1;
-    parentThread->state = TS_YIELD;
-    enableInterrupts();
-    while (parentThread->yield > 0)
-    {
-        halt();
-    }
-    disableInterrupts();
-
-    uint32 esp, ebp;
-    asm volatile("mov %%esp, %0" : "=r"(esp));
-    asm volatile("mov %%ebp, %0" : "=r"(ebp));
-
-    Screen_PrintF("SYSCALL: current: ebp:%x esp:%x\n", ebp, esp);
-
-    Screen_PrintF("SYSCALL: from regs: ebp:%x esp:%x kesp:%x\n", parentThread->regs.ebp, parentThread->regs.esp, parentThread->kstack.esp0);
-
-    Process* process = (Process*)kmalloc(sizeof(Process));
-    memset((uint8*)process, 0, sizeof(Process));
-    strcpy(process->name, parentThread->owner->name);
-    process->pid = generateProcessId();
-    process->pd = copyPd(parentThread->owner->pd);
-    process->tty = parentThread->owner->tty;
-    process->parent = parentThread->owner;
-    process->workingDirectory = parentThread->owner->workingDirectory;
-
-
-    Thread* thread = (Thread*)kmalloc(sizeof(Thread));
-    memset((uint8*)thread, 0, sizeof(Thread));
-
-    thread->owner = process;
-
-    thread->threadId = generateThreadId();
-
-    thread->userMode = 1;
-
-    thread->state = TS_RUN;
-
-    thread->regs = parentThread->regs;
-
-    thread->regs.cr3 = (uint32) process->pd;
-
-    thread->kstack.ss0 = parentThread->kstack.ss0;
-    uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
-    //thread->miniAllocations[0] = (uint32)stack;
-    thread->kstack.esp0 = (uint32)(stack + KERN_STACK_SIZE - 4);
-    thread->kstack.stackStart = (uint32)stack;
-
-    memcpy(stack, (uint8*)parentThread->kstack.stackStart, KERN_STACK_SIZE);
-
-    uint32 diffStack = parentThread->kstack.esp0 - parentThread->regs.esp;
-    thread->regs.esp = thread->kstack.esp0 - diffStack;
-    uint32 diffEbpEsp = parentThread->regs.ebp - parentThread->regs.esp;
-    //Screen_PrintF("SYSCALL: diffStack:%d diffEbpEsp:%d\n", diffStack, diffEbpEsp);
-    thread->regs.ebp = thread->regs.esp + diffEbpEsp;
-
-    int32 kstackDiff = (parentThread->kstack.stackStart + KERN_STACK_SIZE - 4) - parentThread->kstack.esp0;
-    thread->kstack.esp0 -= kstackDiff;
-
-    Screen_PrintF("SYSCALL fork: parent kstack usage:%d\n", kstackDiff);
-
-    Serial_PrintF("\nparent esp\n");
-    uint32* parentEsp = (uint32*)parentThread->regs.esp;
-    for (int k = 0; k < 10; ++k)
-    {
-        uint32* a = parentEsp - k;
-        Serial_PrintF("%x -> %d\n", a, *a);
-    }
-
-    Serial_PrintF("\nchild esp\n");
-    uint32* childEsp = (uint32*)thread->regs.esp;
-    for (int k = 0; k < 10; ++k)
-    {
-        uint32* a = childEsp - k;
-        Serial_PrintF("%x -> %d\n", a, *a);
-    }
-
-    Serial_PrintF("\nparent k-esp\n");
-    uint32* parentKEsp = (uint32*)parentThread->kstack.esp0;
-    for (int k = 0; k < 10; ++k)
-    {
-        uint32* a = parentKEsp - k;
-        Serial_PrintF("%x -> %d\n", a, *a);
-    }
-
-    Serial_PrintF("\nchild k-esp\n");
-    uint32* childKEsp = (uint32*)thread->kstack.esp0;
-    for (int k = 0; k < 10; ++k)
-    {
-        uint32* a = childKEsp - k;
-        Serial_PrintF("%x -> %d\n", a, *a);
-    }
-
-    copyFileDescriptors(parentThread->owner, process);
-
-    Thread* p = gFirstThread;
-
-    while (p->next != NULL)
-    {
-        p = p->next;
-    }
-
-    p->next = thread;
-
-    uint32 eip = readEip();
-
-    if (gCurrentThread == parentThread)
-    {
-        thread->regs.eip = eip;
-
-        //We are the parent
-        Screen_PrintF("SYSCALL: parent\n");
-
-        return process->pid;
-    }
-    else
-    {
-        //We are the child
-
-
-
-        Screen_PrintF("SYSCALL: child\n");
-
-        return 0;
-    }
-}
 
 //This function should be called in interrupts disabled state
 void destroyThread(Thread* thread)
@@ -803,33 +669,18 @@ void schedule(TimerInt_Registers* registers)
     }
 }
 
-/*
- *  Switch_to_task (): Prepares task switching done by do_switch ().
-    The mode indicates whether this process was in user mode or kernel mode
-    When it was previously interrupted by the scheduler.
-    The stacking of the registers on the stack changes as the case may be.
- */
+//The mode indicates whether this process was in user mode or kernel mode
+//When it was previously interrupted by the scheduler.
 static void switchToTask(Thread* current, int mode)
 {
 
     uint32 kesp, eflags;
     uint16 kss, ss, cs;
-    int sig;
-
-
-        //if ((sig = dequeue_signal(current->signal)))
-       //     handle_signal(sig);
 
     //Set TSS values
     gTss.ss0 = current->kstack.ss0;
     gTss.esp0 = current->kstack.esp0;
 
-    /*
-     *  Stacks the registers ss, esp, eflags, cs and eip necessary to the
-        switching. Then the do_switch () function restores the
-        Registers, the page table of the new current process and switches
-        With the iret instruction.
-     */
     ss = current->regs.ss;
     cs = current->regs.cs;
     eflags = (current->regs.eflags | 0x200) & 0xFFFFBFFF;
@@ -845,6 +696,7 @@ static void switchToTask(Thread* current, int mode)
         kesp = current->regs.esp;
     }
 
+    //switchTask is in task.asm
 
     asm("	mov %0, %%ss; \
         mov %1, %%esp; \

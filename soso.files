@@ -63,3 +63,4 @@ kernel/ttydriver.h
 kernel/utils.asm
 kernel/vmm.c
 kernel/vmm.h
+kernel/vbe.h

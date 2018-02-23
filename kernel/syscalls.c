@@ -293,9 +293,9 @@ void* syscall_sbrk(uint32 increment)
 
 int syscall_fork()
 {
-    int32 result = forkProcess();
+    //Not implemented
 
-    return result;
+    return -1;
 }
 
 int syscall_getpid()

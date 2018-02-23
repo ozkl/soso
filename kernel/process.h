@@ -105,7 +105,6 @@ void createKernelThread(Function0 func);
 Process* createUserProcessFromElfData(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* createUserProcessFromFunction(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
-int32 forkProcess();
 void destroyThread(Thread* thread);
 void destroyProcess(Process* process);
 void waitForSchedule();

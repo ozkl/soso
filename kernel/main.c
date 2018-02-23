@@ -18,6 +18,7 @@
 #include "debugprint.h"
 #include "ramdisk.h"
 #include "fatfilesystem.h"
+#include "vbe.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -469,6 +470,12 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeTTYs();
 
     Debug_initialize("/dev/tty3");
+
+    vbe_mode_info_t* vbe_info = (vbe_mode_info_t*)mboot_ptr->vbe_mode_info;
+    if (vbe_info)
+    {
+        Screen_PrintF("Video: x:%d, y:%d\n", vbe_info->XResolution, vbe_info->YResolution);
+    }
 
     initializeRandom();
 
