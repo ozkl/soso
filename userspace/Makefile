@@ -12,7 +12,9 @@ all: $(OBJ)
 
 clean:
 	-rm *.o
+	-rm -rf bin
 
 %.o:%.c
+	mkdir -p bin
 	$(CC) $(CFLAGS) $< -o $@
-	$(LD) $@ $(LDFLAGS) -o $*
+	$(LD) $@ $(LDFLAGS) -o bin/$*
