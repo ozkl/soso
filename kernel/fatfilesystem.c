@@ -96,7 +96,7 @@ static BOOL mount(const char* sourcePath, const char* targetPath, uint32 flags, 
                 char path[8];
                 sprintf(path, "%d:", volume);
                 FRESULT fr = f_mount(fatFs, path, 1);
-                Screen_PrintF("f_mount: fr:%d drv:%d\n", fr, fatFs->pdrv);
+                //Screen_PrintF("f_mount: fr:%d drv:%d\n", fr, fatFs->pdrv);
 
                 if (FR_OK == fr)
                 {
