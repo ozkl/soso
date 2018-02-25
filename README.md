@@ -18,20 +18,33 @@ Paging is written for 4MB page support, since it is easier to implement. Downsid
 Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua on Soso!
 
 # building
-To build just run:
+To build kernel just run:
 
     make
 
 this will build only kernel (kernel.bin). 
 
-# running
-QEMU has multiboot implementation so you can try the kernel with QEMU without creating an image. Just run:
+To build userspace binaries (while in userspace directory):
 
-    qemu-system-i386 -kernel kernel.bin
+    make
+
+this will build userspace binaries in userspace/bin directory.
+
+Now an initrd (initial ramdisk) image is needed to put userspace binaries. To create it, run as root (linux specific):
+
+    ./create-initrd.sh
+
+This will create initrd.fat file. This is a mountable FAT32 initrd image. Once kernel initialization is complete, initrd contents are copied into /dev/ramdisk1 and it is mounted to /initrd. After that kernel runs the /initrd/shell ELF file.
+
+# running
+QEMU has multiboot implementation so you can try the kernel with QEMU without creating a system image. Just run:
+
+    qemu-system-i386 -kernel kernel.bin -initrd initrd.fat
 
 ![Soso](screenshots/soso1.png)
 
-# creating an image
-By creating an image, it is possible to put some userspace programs and also it is possible to run Soso on real hardware!
+# creating a system image
+By creating an image, it is possible to run Soso on real hardware!
+To create it, run as root (linux specific):
 
-TODO
+    ./create-image.sh
