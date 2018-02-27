@@ -565,7 +565,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
 
             if (file)
             {
-                //Debug_PrintF("syscall_getdents(%d): %s\n", process->pid, buf);
+                //Screen_PrintF("syscall_getdents(%d): %s\n", process->pid, buf);
 
                 int byteCounter = 0;
 

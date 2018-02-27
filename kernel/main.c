@@ -13,6 +13,7 @@
 #include "keyboard.h"
 #include "ttydriver.h"
 #include "devfs.h"
+#include "systemfs.h"
 #include "random.h"
 #include "elf.h"
 #include "debugprint.h"
@@ -100,7 +101,7 @@ static void listFs2(const char* path)
         }
         else
         {
-            Screen_PrintF("*");
+            Screen_PrintF("*%d", dirEntry->fileType);
         }
 
         Screen_PrintF("   %s\n", dirEntry->name);
@@ -457,6 +458,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeVFS();
     initializeDevFS();
+    initializeSystemFS();
 
     initializeTasking();
 

@@ -64,3 +64,5 @@ kernel/utils.asm
 kernel/vmm.c
 kernel/vmm.h
 kernel/vbe.h
+kernel/systemfs.c
+kernel/systemfs.h

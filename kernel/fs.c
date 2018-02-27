@@ -347,6 +347,8 @@ int32 stat_fs(FileSystemNode *node, struct stat *buf)
 
 FileSystemDirent *readdir_fs(FileSystemNode *node, uint32 index)
 {
+    //Screen_PrintF("readdir_fs: node->name:%s index:%d\n", node->name, index);
+
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {
         if (NULL == node->mountPoint->readdir)

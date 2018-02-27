@@ -37,7 +37,7 @@ static void listFs2(const char* path)
     //Screen_PrintF("listFs2 - 1\n");
 
     int fd = open(path, 0);
-    //printf("open():%d\n", fd);
+    //printf("open(%s):%d\n", path, fd);
     if (fd < 0)
     {
         return;
