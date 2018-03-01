@@ -99,7 +99,7 @@ char *strncpy(char *dest, const char *src, uint32 num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
 int strFirstIndexOf(const char *src, char c);
-void sprintf(char* buffer, const char *format, ...);
+int sprintf(char* buffer, const char *format, ...);
 
 int atoi(char *str);
 void itoa(char *buf, int base, int d);

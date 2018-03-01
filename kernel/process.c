@@ -435,6 +435,45 @@ void destroyProcess(Process* process)
     kfree(process);
 }
 
+void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
+{
+    if (bufferSize < 1)
+    {
+        return;
+    }
+
+    buffer[0] = '\0';
+
+    if (bufferSize < 10)
+    {
+        return;
+    }
+
+    switch (state)
+    {
+    case TS_RUN:
+        strcpy(buffer, "run");
+        break;
+    case TS_SLEEP:
+        strcpy(buffer, "sleep");
+        break;
+    case TS_SUSPEND:
+        strcpy(buffer, "suspend");
+        break;
+    case TS_WAITCHILD:
+        strcpy(buffer, "waitchild");
+        break;
+    case TS_WAITIO:
+        strcpy(buffer, "waitio");
+        break;
+    case TS_YIELD:
+        strcpy(buffer, "yield");
+        break;
+    default:
+        break;
+    }
+}
+
 void waitForSchedule()
 {
     //Screen_PrintF("Waiting for a schedule()\n");
@@ -526,13 +565,13 @@ int32 removeFileFromProcess(Process* process, File* file)
     return result;
 }
 
-Thread* getProcessById(uint32 pid)
+Thread* getThreadById(uint32 threadId)
 {
     Thread* p = gFirstThread;
 
-    while (p->next != NULL)
+    while (p != NULL)
     {
-        if (p->threadId == pid)
+        if (p->threadId == threadId)
         {
             return p;
         }

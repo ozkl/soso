@@ -277,7 +277,7 @@ void itoa (char *buf, int base, int d)
     }
 }
 
-void sprintf(char* buffer, const char *format, ...)
+int sprintf(char* buffer, const char *format, ...)
 {
     char **arg = (char **) &format;
     char c;
@@ -338,6 +338,8 @@ void sprintf(char* buffer, const char *format, ...)
     buffer[bufferIndex] = '\0';
 
     __builtin_va_end(vl);
+
+    return bufferIndex;
 }
 
 void panic(const char *message, const char *file, uint32 line)

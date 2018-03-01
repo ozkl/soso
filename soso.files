@@ -66,3 +66,5 @@ kernel/vmm.h
 kernel/vbe.h
 kernel/systemfs.c
 kernel/systemfs.h
+kernel/list.c
+kernel/list.h

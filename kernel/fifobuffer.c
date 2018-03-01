@@ -1,41 +1,26 @@
 #include "fifobuffer.h"
 #include "alloc.h"
 
-typedef struct FifoBufferElement
+FifoBuffer* FifoBuffer_create(uint32 capacity)
 {
-    uint8* data;
-    uint32 bytes;
-    uint32 bytesRead;
-} FifoBufferElement;
-
-typedef struct FifoBuffer
-{
-    FifoBufferElement* elements;
-    uint32 writeIndex;
-    uint32 readIndex;
-    uint32 elementCapacity;
-} FifoBuffer;
-
-FifoBuffer* FifoBuffer_create(uint32 elementCapacity)
-{
-    FifoBuffer* fifo = kmalloc(sizeof(FifoBuffer));
+    FifoBuffer* fifo = (FifoBuffer*)kmalloc(sizeof(FifoBuffer));
     memset((uint8*)fifo, 0, sizeof(FifoBuffer));
-    fifo->elements = kmalloc(elementCapacity * sizeof(FifoBufferElement));
-    memset((uint8*)fifo->elements, 0, elementCapacity * sizeof(FifoBufferElement));
-    fifo->elementCapacity = elementCapacity;
+    fifo->data = (uint8*)kmalloc(capacity);
+    memset((uint8*)fifo->data, 0, capacity);
+    fifo->capacity= capacity;
 
     return fifo;
 }
 
 void FifoBuffer_destroy(FifoBuffer* fifoBuffer)
 {
-    kfree(fifoBuffer->elements);
+    kfree(fifoBuffer->data);
     kfree(fifoBuffer);
 }
 
 BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer)
 {
-    if (fifoBuffer->readIndex == fifoBuffer->writeIndex)
+    if (0 == fifoBuffer->usedBytes)
     {
         return TRUE;
     }
@@ -43,67 +28,58 @@ BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer)
     return FALSE;
 }
 
-uint32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint8 size)
+int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
 {
     if (size == 0)
     {
-        return 0;
+        return -1;
     }
 
-    if (((fifoBuffer->writeIndex + 1) % fifoBuffer->elementCapacity) == fifoBuffer->readIndex)
+    uint32 bytesAvailable = fifoBuffer->capacity - fifoBuffer->usedBytes;
+
+    if (size > bytesAvailable)
     {
-        //Buffer is full
-        return 0;
+        return -1;
     }
 
-    kfree(fifoBuffer->elements[fifoBuffer->writeIndex].data);
-    fifoBuffer->elements[fifoBuffer->writeIndex].data = kmalloc(size);
-    memcpy(fifoBuffer->elements[fifoBuffer->writeIndex].data, data, size);
-    fifoBuffer->elements[fifoBuffer->writeIndex].bytesRead = 0;
-    fifoBuffer->elements[fifoBuffer->writeIndex].bytes = size;
-
-    fifoBuffer->writeIndex++;
-    fifoBuffer->writeIndex %= fifoBuffer->elementCapacity;
+    uint32 i = 0;
+    while (fifoBuffer->usedBytes < fifoBuffer->capacity && i < size)
+    {
+        fifoBuffer->data[fifoBuffer->writeIndex] = data[i++];
+        fifoBuffer->usedBytes++;
+        fifoBuffer->writeIndex++;
+        fifoBuffer->writeIndex %= fifoBuffer->capacity;
+    }
 
     return size;
 }
 
-uint32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint8 size)
+int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
 {
     if (size == 0)
     {
-        return 0;
+        return -1;
     }
 
-    if (fifoBuffer->writeIndex == fifoBuffer->readIndex)
+    if (0 == fifoBuffer->usedBytes)
     {
         //Buffer is empty
         return 0;
     }
 
-    int bytesReadPreviously = fifoBuffer->elements[fifoBuffer->readIndex].bytesRead;
-
-    int toReadBytes = size;
-    if (bytesReadPreviously + toReadBytes > fifoBuffer->elements[fifoBuffer->readIndex].bytes)
+    if (size > fifoBuffer->usedBytes)
     {
-        toReadBytes = fifoBuffer->elements[fifoBuffer->readIndex].bytes - bytesReadPreviously;
+        return 0;
     }
 
-    memcpy(data, fifoBuffer->elements[fifoBuffer->readIndex].data + bytesReadPreviously, toReadBytes);
-
-    fifoBuffer->elements[fifoBuffer->readIndex].bytesRead += toReadBytes;
-
-    if (fifoBuffer->elements[fifoBuffer->readIndex].bytesRead == fifoBuffer->elements[fifoBuffer->readIndex].bytes)
+    uint32 i = 0;
+    while (fifoBuffer->usedBytes > 0 && i < size)
     {
-        //Read of this element finished, cleaning
-        kfree(fifoBuffer->elements[fifoBuffer->readIndex].data);
-        fifoBuffer->elements[fifoBuffer->readIndex].data = NULL;
-        fifoBuffer->elements[fifoBuffer->readIndex].bytes = 0;
-        fifoBuffer->elements[fifoBuffer->readIndex].bytesRead = 0;
-
+        data[i++] = fifoBuffer->data[fifoBuffer->readIndex];
+        fifoBuffer->usedBytes--;
         fifoBuffer->readIndex++;
-        fifoBuffer->readIndex %= fifoBuffer->elementCapacity;
+        fifoBuffer->readIndex %= fifoBuffer->capacity;
     }
 
-    return toReadBytes;
+    return i;
 }

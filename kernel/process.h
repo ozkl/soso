@@ -107,13 +107,14 @@ Process* createUserProcessFromFunction(const char* name, Function0 func, char *c
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 void destroyThread(Thread* thread);
 void destroyProcess(Process* process);
+void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
 void yield(uint32 count);
 int32 getEmptyFd(Process* process);
 int32 addFileToProcess(Process* process, File* file);
 int32 removeFileFromProcess(Process* process, File* file);
-Thread* getProcessById(uint32 pid);
-Thread* getPreviousThread(Thread* process);
+Thread* getThreadById(uint32 threadId);
+Thread* getPreviousThread(Thread* thread);
 Thread* getMainKernelThread();
 Thread* getCurrentThread();
 void schedule(TimerInt_Registers* registers);
