@@ -641,3 +641,9 @@ int syscall_setWorkingDirectory(const char *path)
 
     return -1;//on error
 }
+
+int syscall_managePipe(const char *pipeName, int operation)
+{
+    //TODO
+}
+

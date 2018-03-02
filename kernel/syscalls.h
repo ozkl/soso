@@ -28,5 +28,6 @@ int syscall_rmdir(const char *path);
 int syscall_getdents(int fd, char *buf, int nbytes);
 int syscall_getWorkingDirectory(char *buf, int size);
 int syscall_setWorkingDirectory(const char *path);
+int syscall_managePipe(const char *pipeName, int operation);
 
 #endif // SYSCALLS_H

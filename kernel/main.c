@@ -14,6 +14,7 @@
 #include "ttydriver.h"
 #include "devfs.h"
 #include "systemfs.h"
+#include "pipe.h"
 #include "random.h"
 #include "elf.h"
 #include "debugprint.h"
@@ -459,6 +460,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeVFS();
     initializeDevFS();
     initializeSystemFS();
+    initializePipes();
 
     initializeTasking();
 
