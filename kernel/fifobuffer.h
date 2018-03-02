@@ -15,6 +15,9 @@ typedef struct FifoBuffer
 FifoBuffer* FifoBuffer_create(uint32 capacity);
 void FifoBuffer_destroy(FifoBuffer* fifoBuffer);
 BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer);
+uint32 FifoBuffer_getSize(FifoBuffer* fifoBuffer);
+uint32 FifoBuffer_getCapacity(FifoBuffer* fifoBuffer);
+uint32 FifoBuffer_getFree(FifoBuffer* fifoBuffer);
 int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
 int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
 

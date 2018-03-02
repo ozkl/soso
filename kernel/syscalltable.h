@@ -29,6 +29,7 @@ enum
     SYS_getdents,
     SYS_getWorkingDirectory,
     SYS_setWorkingDirectory,
+    SYS_managePipe,
 
     SYSCALL_COUNT
 };

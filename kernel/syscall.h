@@ -30,5 +30,6 @@ int trigger_syscall_rmdir(const char *path);
 int trigger_syscall_getdents(int fd, char *buf, int nbytes);
 int trigger_syscall_getWorkingDirectory(char *buf, int size);
 int trigger_syscall_setWorkingDirectory(const char *path);
+int trigger_syscall_managePipe(const char *pipeName, int operation);
 
 #endif

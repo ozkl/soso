@@ -28,6 +28,21 @@ BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer)
     return FALSE;
 }
 
+uint32 FifoBuffer_getSize(FifoBuffer* fifoBuffer)
+{
+    return fifoBuffer->usedBytes;
+}
+
+uint32 FifoBuffer_getCapacity(FifoBuffer* fifoBuffer)
+{
+    return fifoBuffer->capacity;
+}
+
+uint32 FifoBuffer_getFree(FifoBuffer* fifoBuffer)
+{
+    return fifoBuffer->capacity - fifoBuffer->usedBytes;
+}
+
 int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
 {
     if (size == 0)

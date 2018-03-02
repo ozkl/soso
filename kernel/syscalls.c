@@ -3,6 +3,7 @@
 #include "process.h"
 #include "screen.h"
 #include "alloc.h"
+#include "pipe.h"
 #include "debugprint.h"
 
 /**************
@@ -644,6 +645,21 @@ int syscall_setWorkingDirectory(const char *path)
 
 int syscall_managePipe(const char *pipeName, int operation)
 {
-    //TODO
+    int result = -1;
+
+    switch (operation)
+    {
+    case 0:
+        result = existsPipe(pipeName);
+        break;
+    case 1:
+        result = createPipe(pipeName);
+        break;
+    case 2:
+        result = destroyPipe(pipeName);
+        break;
+    }
+
+    return result;
 }
 

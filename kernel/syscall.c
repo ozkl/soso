@@ -38,6 +38,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_getdents] = syscall_getdents;
     gSyscallTable[SYS_getWorkingDirectory] = syscall_getWorkingDirectory;
     gSyscallTable[SYS_setWorkingDirectory] = syscall_setWorkingDirectory;
+    gSyscallTable[SYS_managePipe] = syscall_managePipe;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -236,4 +237,9 @@ int trigger_syscall_getWorkingDirectory(char *buf, int size)
 int trigger_syscall_setWorkingDirectory(const char *path)
 {
     return syscall1(SYS_setWorkingDirectory, (int)path);
+}
+
+int trigger_syscall_managePipe(const char *pipeName, int operation)
+{
+    return syscall2(SYS_managePipe, (int)pipeName, operation);
 }
