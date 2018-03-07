@@ -21,6 +21,7 @@
 #include "ramdisk.h"
 #include "fatfilesystem.h"
 #include "vbe.h"
+#include "fifobuffer.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -532,6 +533,8 @@ int kmain(struct Multiboot *mboot_ptr)
 
 
     //createKernelThread(kernelThread3);
+
+    trigger_syscall_managePipe("pipe1", 1);
 
 
     enableScheduler();

@@ -69,7 +69,7 @@ int syscall_close(int fd)
 
 int syscall_read(int fd, void *buf, int nbytes)
 {
-    //Screen_PrintF("syscall_read: begin\n");
+    //Screen_PrintF("syscall_read: begin - nbytes:%d\n", nbytes);
 
     Process* process = getCurrentThread()->owner;
     if (process)
@@ -117,6 +117,13 @@ int syscall_write(int fd, void *buf, int nbytes)
 
             if (file)
             {
+                /*
+                for (int i = 0; i < nbytes; ++i)
+                {
+                    Debug_PrintF("pid:%d syscall_write:buf[%d]=%c\n", process->pid, i, ((char*)buf)[i]);
+                }
+                */
+
                 uint32 writeResult = write_fs(file, nbytes, buf);
 
                 return writeResult;

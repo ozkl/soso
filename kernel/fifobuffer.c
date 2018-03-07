@@ -82,11 +82,6 @@ int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
         return 0;
     }
 
-    if (size > fifoBuffer->usedBytes)
-    {
-        return 0;
-    }
-
     uint32 i = 0;
     while (fifoBuffer->usedBytes > 0 && i < size)
     {
