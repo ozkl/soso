@@ -336,9 +336,9 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     //Restore memory view (page directory)
     asm("mov %0, %%eax ;mov %%eax, %%cr3":: "m"(gCurrentThread->regs.cr3));
 
-    open_fs_forProcess(process, process->tty, 0);//0: standard input
-    open_fs_forProcess(process, process->tty, 0);//1: standard output
-    open_fs_forProcess(process, process->tty, 0);//2: standard error
+    open_fs_forProcess(thread, process->tty, 0);//0: standard input
+    open_fs_forProcess(thread, process->tty, 0);//1: standard output
+    open_fs_forProcess(thread, process->tty, 0);//2: standard error
 
     return process;
 }
@@ -715,6 +715,8 @@ static void switchToTask(Thread* current, int mode)
 
     uint32 kesp, eflags;
     uint16 kss, ss, cs;
+
+    ++current->contextSwitchCount;
 
     //Set TSS values
     gTss.ss0 = current->kstack.ss0;

@@ -24,6 +24,7 @@ typedef struct FileSystem FileSystem;
 typedef struct FileSystemNode FileSystemNode;
 typedef struct FileSystemDirent FileSystemDirent;
 typedef struct Process Process;
+typedef struct Thread Thread;
 typedef struct File File;
 
 struct stat;
@@ -89,6 +90,7 @@ typedef struct File
 {
     FileSystemNode* node;
     Process* process;
+    Thread* thread;
     int32 fd;
     int32 offset;
     void* privateData;
@@ -120,7 +122,7 @@ struct stat
 uint32 read_fs(File* file, uint32 size, uint8* buffer);
 uint32 write_fs(File* file, uint32 size, uint8* buffer);
 File* open_fs(FileSystemNode* node, uint32 flags);
-File* open_fs_forProcess(Process* process, FileSystemNode* node, uint32 flags);
+File* open_fs_forProcess(Thread* thread, FileSystemNode* node, uint32 flags);
 void close_fs(File* file);
 int32 ioctl_fs(File* file, int32 request, void* argp);
 int32 lseek_fs(File* file, int32 offset, int32 whence);

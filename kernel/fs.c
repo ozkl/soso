@@ -36,6 +36,7 @@ void copyFileDescriptors(Process* fromProcess, Process* toProcess)
             File* file = kmalloc(sizeof(File));
             memcpy((uint8*)file, (uint8*)original, sizeof(File));
             file->process = toProcess;
+            file->thread = NULL;
 
             toProcess->fd[i] = file;
 
@@ -213,11 +214,13 @@ uint32 write_fs(File *file, uint32 size, uint8 *buffer)
 
 File *open_fs(FileSystemNode *node, uint32 flags)
 {
-    return open_fs_forProcess(getCurrentThread()->owner, node, flags);
+    return open_fs_forProcess(getCurrentThread(), node, flags);
 }
 
-File *open_fs_forProcess(Process* process, FileSystemNode *node, uint32 flags)
+File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
 {
+    Process* process = thread->owner;
+
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {
         node = node->mountPoint;
@@ -229,6 +232,7 @@ File *open_fs_forProcess(Process* process, FileSystemNode *node, uint32 flags)
         memset((uint8*)file, 0, sizeof(File));
         file->node = node;
         file->process = process;
+        file->thread = thread;
 
         BOOL success = node->open(file, flags);
 

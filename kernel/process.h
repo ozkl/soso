@@ -85,6 +85,10 @@ struct Thread
 
     uint32 yield;
 
+    uint32 contextSwitchCount;
+
+    void* waitingIO_privateData;
+
     struct Thread* next;
 
 } __attribute__ ((packed));
