@@ -15,7 +15,7 @@ typedef struct Pipe
     char name[32];
     FifoBuffer* buffer;
     FileSystemNode* fsNode;
-    List* readerThreads;
+    List* accessingThreads;
 } Pipe;
 
 static BOOL pipes_open(File *file, uint32 flags);
@@ -89,7 +89,7 @@ static BOOL pipe_open(File *file, uint32 flags)
 
     Pipe* pipe = file->node->privateNodeData;
 
-    List_Append(pipe->readerThreads, file->thread);
+    List_Append(pipe->accessingThreads, file->thread);
 
     endCriticalSection();
 
@@ -102,72 +102,34 @@ static void pipe_close(File *file)
 
     Pipe* pipe = file->node->privateNodeData;
 
-    List_RemoveFirstOccurrence(pipe->readerThreads, file->thread);
+    List_RemoveFirstOccurrence(pipe->accessingThreads, file->thread);
 
     endCriticalSection();
 }
 
-static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
+static void blockAccessingThreads(Pipe* pipe)
 {
-    if (0 == size || NULL == buffer)
+    disableInterrupts();
+
+    List_Foreach (n, pipe->accessingThreads)
     {
-        return -1;
+        Thread* reader = n->data;
+
+        reader->state = TS_WAITIO;
+
+        reader->waitingIO_privateData = pipe;
     }
 
-    Pipe* pipe = file->node->privateNodeData;
+    enableInterrupts();
 
-    uint32 used = FifoBuffer_getSize(pipe->buffer);
-    if (size > used)
-    {
-        //Block
-
-
-        beginCriticalSection();
-
-        List_Foreach (n, pipe->readerThreads)
-        {
-            Thread* reader = n->data;
-
-            reader->state = TS_WAITIO;
-
-            reader->waitingIO_privateData = pipe;
-        }
-
-        endCriticalSection();
-
-        while ((used = FifoBuffer_getSize(pipe->buffer)) < size)
-        {
-            halt();
-        }
-    }
-
-    return FifoBuffer_dequeue(pipe->buffer, buffer, size);
+    halt();
 }
 
-static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
+static void wakeupAccessingThreads(Pipe* pipe)
 {
-    if (0 == size || NULL == buffer)
-    {
-        return -1;
-    }
-
-    Pipe* pipe = file->node->privateNodeData;
-
-    uint32 free = FifoBuffer_getFree(pipe->buffer);
-    if (size > free)
-    {
-        //Block
-
-        //TODO: implement with process state
-        while ((free = FifoBuffer_getFree(pipe->buffer)) < size)
-        {
-            halt();
-        }
-    }
-
     beginCriticalSection();
 
-    List_Foreach (n, pipe->readerThreads)
+    List_Foreach (n, pipe->accessingThreads)
     {
         Thread* reader = n->data;
 
@@ -181,8 +143,50 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
     }
 
     endCriticalSection();
+}
 
-    return FifoBuffer_enqueue(pipe->buffer, buffer, size);
+static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
+{
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
+
+    Pipe* pipe = file->node->privateNodeData;
+
+    uint32 used = 0;
+    while ((used = FifoBuffer_getSize(pipe->buffer)) < size)
+    {
+        blockAccessingThreads(pipe);
+    }
+
+    int32 readBytes = FifoBuffer_dequeue(pipe->buffer, buffer, size);
+
+    wakeupAccessingThreads(pipe);
+
+    return readBytes;
+}
+
+static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
+{
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
+
+    Pipe* pipe = file->node->privateNodeData;
+
+    uint32 free = 0;
+    while ((free = FifoBuffer_getFree(pipe->buffer)) < size)
+    {
+        blockAccessingThreads(pipe);
+    }
+
+    int32 bytesWritten = FifoBuffer_enqueue(pipe->buffer, buffer, size);
+
+    wakeupAccessingThreads(pipe);
+
+    return bytesWritten;
 }
 
 BOOL createPipe(const char* name)
@@ -200,9 +204,9 @@ BOOL createPipe(const char* name)
     memset((uint8*)pipe, 0, sizeof(Pipe));
 
     strcpy(pipe->name, name);
-    pipe->buffer = FifoBuffer_create(1024 * 1024);
+    pipe->buffer = FifoBuffer_create(8);//(1024 * 1024);
 
-    pipe->readerThreads = List_Create();
+    pipe->accessingThreads = List_Create();
 
     pipe->fsNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8*)pipe->fsNode, 0, sizeof(FileSystemNode));
@@ -226,7 +230,7 @@ BOOL destroyPipe(const char* name)
         {
             List_RemoveFirstOccurrence(gPipeList, p);
             FifoBuffer_destroy(p->buffer);
-            List_Destroy(p->readerThreads);
+            List_Destroy(p->accessingThreads);
             kfree(p->fsNode);
             kfree(p);
 
