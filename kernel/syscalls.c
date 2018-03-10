@@ -610,6 +610,44 @@ int syscall_getdents(int fd, char *buf, int nbytes)
     return -1;//on error
 }
 
+int syscall_readDir(int fd, void *dirent, int index)
+{
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        if (fd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                FileSystemDirent* direntFs = readdir_fs(file->node, index);
+
+                if (direntFs)
+                {
+                    memcpy((uint8*)dirent, (uint8*)direntFs, sizeof(FileSystemDirent));
+
+                    return 1;
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+        else
+        {
+            //TODO: error invalid fd
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;//on error
+}
+
 int syscall_getWorkingDirectory(char *buf, int size)
 {
     Process* process = getCurrentThread()->owner;
@@ -650,7 +688,7 @@ int syscall_setWorkingDirectory(const char *path)
     return -1;//on error
 }
 
-int syscall_managePipe(const char *pipeName, int operation)
+int syscall_managePipe(const char *pipeName, int operation, int data)
 {
     int result = -1;
 
@@ -660,7 +698,7 @@ int syscall_managePipe(const char *pipeName, int operation)
         result = existsPipe(pipeName);
         break;
     case 1:
-        result = createPipe(pipeName);
+        result = createPipe(pipeName, data);
         break;
     case 2:
         result = destroyPipe(pipeName);

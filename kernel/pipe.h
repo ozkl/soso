@@ -4,7 +4,7 @@
 #include "common.h"
 
 void initializePipes();
-BOOL createPipe(const char* name);
+BOOL createPipe(const char* name, uint32 bufferSize);
 BOOL destroyPipe(const char* name);
 BOOL existsPipe(const char* name);
 

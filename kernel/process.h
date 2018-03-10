@@ -4,9 +4,7 @@
 #define KERNELMODE	0
 #define USERMODE	1
 
-#define MINI_ALLOCATIONS_SIZE 2
-
-#define MAX_OPENED_FILES 10
+#define MAX_OPENED_FILES 20
 
 #include "common.h"
 #include "fs.h"

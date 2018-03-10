@@ -11,12 +11,12 @@
 typedef enum FileType
 {
     FT_File               = 1,
-    FT_Directory          = 2,
-    FT_CharacterDevice    = 3,
-    FT_BlockDevice        = 4,
-    FT_Pipe               = 5,
-    FT_SymbolicLink       = 6,
-    FT_MountPoint         = 8
+    FT_CharacterDevice    = 2,
+    FT_BlockDevice        = 3,
+    FT_Pipe               = 4,
+    FT_SymbolicLink       = 5,
+    FT_Directory          = 128,
+    FT_MountPoint         = 256
 } FileType;
 
 typedef struct FileSystemDirent
@@ -32,64 +32,62 @@ int executep(const char *filename, char *const argv[], char *const envp[]);
 int getWorkingDirectory(char *buf, int size);
 int setWorkingDirectory(const char *path);
 
-static void listFs2(const char* path)
+//TODO: when readDir merged into C library, remove the definition below
+static int syscall3(int num, int p1, int p2, int p3)
 {
-    //Screen_PrintF("listFs2 - 1\n");
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d"((int)p3));
+  return a;
+}
 
+int readDir(int fd, void *dirent, int index)
+{
+    return syscall3(/*SYS_readDir*/24, fd, (int)dirent, index);
+}
+
+static void listDirectory(const char* path)
+{
     int fd = open(path, 0);
-    //printf("open(%s):%d\n", path, fd);
+
     if (fd < 0)
     {
         return;
     }
 
-    //Screen_PrintF("listFs2 - 2\n");
 
-    char buffer[1024];
-    int bytesRead = getdents(fd, buffer, 1024);
-    //printf("getdents():%d\n", bytesRead);
-    if (bytesRead < 0)
+    FileSystemDirent dirEntry;
+    memset(&dirEntry, 0, sizeof(FileSystemDirent));
+
+    int index = 0;
+    while (readDir(fd, &dirEntry, index++) != -1)
     {
-        close(fd);
-        return;
-    }
+        char pathBuffer[128];
 
-    //Screen_PrintF("listFs2 - 3\n");
-
-    char pathBuffer[128];
-
-
-    int byteCounter = 0;
-
-    while (byteCounter + sizeof(FileSystemDirent) <= bytesRead)
-    {
-        FileSystemDirent *dirEntry = (FileSystemDirent*)(buffer + byteCounter);
-
-        if ((dirEntry->fileType & FT_MountPoint) == FT_MountPoint)
+        if ((dirEntry.fileType & FT_MountPoint) == FT_MountPoint)
         {
             printf("m");
         }
-        else if (dirEntry->fileType == FT_File)
+        else if (dirEntry.fileType == FT_File)
         {
             printf("f");
         }
-        else if (dirEntry->fileType == FT_Directory)
+        else if (dirEntry.fileType == FT_Directory)
         {
             printf("d");
         }
-        else if (dirEntry->fileType == FT_BlockDevice)
+        else if (dirEntry.fileType == FT_BlockDevice)
         {
             printf("b");
         }
-        else if (dirEntry->fileType == FT_CharacterDevice)
+        else if (dirEntry.fileType == FT_CharacterDevice)
         {
             printf("c");
         }
-        else if (dirEntry->fileType == FT_Pipe)
+        else if (dirEntry.fileType == FT_Pipe)
         {
             printf("p");
         }
-        else if (dirEntry->fileType == FT_SymbolicLink)
+        else if (dirEntry.fileType == FT_SymbolicLink)
         {
             printf("l");
         }
@@ -99,7 +97,7 @@ static void listFs2(const char* path)
         }
 
 
-        sprintf(pathBuffer, "%s/%s", path, dirEntry->name);
+        sprintf(pathBuffer, "%s/%s", path, dirEntry.name);
         struct stat s;
         memset(&s, 0, sizeof(s));
         if (stat(pathBuffer, &s) != -1)
@@ -111,16 +109,14 @@ static void listFs2(const char* path)
             printf(" %10s", "");
         }
 
-        printf(" %s", dirEntry->name);
+        printf(" %s", dirEntry.name);
 
-        if ((dirEntry->fileType & FT_Directory) == FT_Directory)
+        if ((dirEntry.fileType & FT_Directory) == FT_Directory)
         {
             printf("/");
         }
 
         printf("\n");
-
-        byteCounter += sizeof(FileSystemDirent);
     }
 
     close(fd);
@@ -343,7 +339,7 @@ int main(int argc, char **argv)
                         path = cwd;
                     }
 
-                    listFs2(path);
+                    listDirectory(path);
                 }
                 else if (strncmp(bufferIn, "cd", 2) == 0)
                 {

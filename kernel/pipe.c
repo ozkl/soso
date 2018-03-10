@@ -34,8 +34,6 @@ void initializePipes()
     }
     else
     {
-        //TODO
-
         gPipesRoot->open = pipes_open;
         gPipesRoot->finddir = pipes_finddir;
         gPipesRoot->readdir = pipes_readdir;
@@ -160,6 +158,8 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
         blockAccessingThreads(pipe);
     }
 
+    disableInterrupts();
+
     int32 readBytes = FifoBuffer_dequeue(pipe->buffer, buffer, size);
 
     wakeupAccessingThreads(pipe);
@@ -182,6 +182,8 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
         blockAccessingThreads(pipe);
     }
 
+    disableInterrupts();
+
     int32 bytesWritten = FifoBuffer_enqueue(pipe->buffer, buffer, size);
 
     wakeupAccessingThreads(pipe);
@@ -189,7 +191,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
     return bytesWritten;
 }
 
-BOOL createPipe(const char* name)
+BOOL createPipe(const char* name, uint32 bufferSize)
 {
     List_Foreach (n, gPipeList)
     {
@@ -204,7 +206,7 @@ BOOL createPipe(const char* name)
     memset((uint8*)pipe, 0, sizeof(Pipe));
 
     strcpy(pipe->name, name);
-    pipe->buffer = FifoBuffer_create(8);//(1024 * 1024);
+    pipe->buffer = FifoBuffer_create(bufferSize);
 
     pipe->accessingThreads = List_Create();
 

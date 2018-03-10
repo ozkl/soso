@@ -30,6 +30,7 @@ enum
     SYS_getWorkingDirectory,
     SYS_setWorkingDirectory,
     SYS_managePipe,
+    SYS_readDir,
 
     SYSCALL_COUNT
 };

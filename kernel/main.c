@@ -474,7 +474,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeTTYs();
 
-    Debug_initialize("/dev/tty3");
+    Debug_initialize("/dev/tty10");
 
     vbe_mode_info_t* vbe_info = (vbe_mode_info_t*)mboot_ptr->vbe_mode_info;
     if (vbe_info)
@@ -514,10 +514,12 @@ int kmain(struct Multiboot *mboot_ptr)
 
         if (mountSuccess)
         {
-            Screen_PrintF("Starting shell on TTY1 and TTY2\n");
+            Screen_PrintF("Starting shell on TTYs\n");
 
             executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty1"));
             executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty2"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty3"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty4"));
         }
         else
         {
@@ -534,7 +536,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     //createKernelThread(kernelThread3);
 
-    trigger_syscall_managePipe("pipe1", 1);
+    trigger_syscall_managePipe("pipe1", 1, 8);
 
 
     enableScheduler();

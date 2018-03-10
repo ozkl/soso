@@ -5,10 +5,9 @@
 #include "devfs.h"
 #include "alloc.h"
 #include "common.h"
+#include "list.h"
 
-Tty* gTty1 = NULL;
-Tty* gTty2 = NULL;
-Tty* gTty3 = NULL;
+List* gTtyList = NULL;
 
 Tty* gActiveTty = NULL;
 
@@ -142,19 +141,29 @@ static void processScancode(uint8 scancode);
 
 void initializeTTYs()
 {
-    gTty1 = createTty();
-    gTty1->color = 0x0A;
-    gTty1->privateData = createInputBuffer();
+    gTtyList = List_Create();
 
-    gTty2 = createTty();
-    gTty2->color = 0x0B;
-    gTty2->privateData = createInputBuffer();
+    for (int i = 1; i <= 10; ++i)
+    {
+        Tty* tty = createTty();
+        tty->color = 0x0A;
+        tty->privateData = createInputBuffer();
 
-    gTty3 = createTty();
-    gTty3->color = 0x0C;
-    gTty3->privateData = createInputBuffer();
+        List_Append(gTtyList, tty);
 
-    gActiveTty = gTty1;
+        Device device;
+        memset((uint8*)&device, 0, sizeof(Device));
+        sprintf(device.name, "tty%d", i);
+        device.deviceType = FT_CharacterDevice;
+        device.open = tty_open;
+        device.close = tty_close;
+        device.read = tty_read;
+        device.write = tty_write;
+        device.privateData = tty;
+        registerDevice(&device);
+    }
+
+    gActiveTty = List_GetFirstNode(gTtyList)->data;
     Screen_CopyTo(gActiveTty->buffer);
     Screen_GetCursor(&(gActiveTty->currentLine), &(gActiveTty->currentColumn));
     Screen_ApplyColor(gActiveTty->color);
@@ -165,45 +174,6 @@ void initializeTTYs()
     if (keyboardNode)
     {
         gKeyboard = open_fs(keyboardNode, 0);
-    }
-
-    {
-        Device device;
-        memset((uint8*)&device, 0, sizeof(Device));
-        strcpy(device.name, "tty1");
-        device.deviceType = FT_CharacterDevice;
-        device.open = tty_open;
-        device.close = tty_close;
-        device.read = tty_read;
-        device.write = tty_write;
-        device.privateData = gTty1;
-        registerDevice(&device);
-    }
-
-    {
-        Device device;
-        memset((uint8*)&device, 0, sizeof(Device));
-        strcpy(device.name, "tty2");
-        device.deviceType = FT_CharacterDevice;
-        device.open = tty_open;
-        device.close = tty_close;
-        device.read = tty_read;
-        device.write = tty_write;
-        device.privateData = gTty2;
-        registerDevice(&device);
-    }
-
-    {
-        Device device;
-        memset((uint8*)&device, 0, sizeof(Device));
-        strcpy(device.name, "tty3");
-        device.deviceType = FT_CharacterDevice;
-        device.open = tty_open;
-        device.close = tty_close;
-        device.read = tty_read;
-        device.write = tty_write;
-        device.privateData = gTty3;
-        registerDevice(&device);
     }
 }
 
@@ -331,17 +301,20 @@ static void applyModifierKeys(KeyModifier modifier, uint8 scancode)
 {
     if ((modifier & KM_Alt) == KM_Alt)
     {
-        if (scancode == KEY_F1)
+        int ttyIndex = scancode - KEY_F1;
+        int ttyCount = 10;
+        if (ttyIndex >= 0 && ttyIndex < ttyCount)
         {
-            setActiveTty(gTty1);
-        }
-        else if (scancode == KEY_F2)
-        {
-            setActiveTty(gTty2);
-        }
-        else if (scancode == KEY_F3)
-        {
-            setActiveTty(gTty3);
+            int i = 0;
+            List_Foreach(n, gTtyList)
+            {
+                if (ttyIndex == i)
+                {
+                    setActiveTty(n->data);
+                    break;
+                }
+                ++i;
+            }
         }
     }
 }

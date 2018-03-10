@@ -6,12 +6,12 @@
 typedef enum FileType
 {
     FT_File               = 1,
-    FT_Directory          = 2,
-    FT_CharacterDevice    = 3,
-    FT_BlockDevice        = 4,
-    FT_Pipe               = 5,
-    FT_SymbolicLink       = 6,
-    FT_MountPoint         = 8
+    FT_CharacterDevice    = 2,
+    FT_BlockDevice        = 3,
+    FT_Pipe               = 4,
+    FT_SymbolicLink       = 5,
+    FT_Directory          = 128,
+    FT_MountPoint         = 256
 } FileType;
 
 typedef enum IoctlCommand
