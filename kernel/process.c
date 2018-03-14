@@ -607,6 +607,38 @@ Thread* getCurrentThread()
     return gCurrentThread;
 }
 
+BOOL isThreadValid(Thread* thread)
+{
+    Thread* p = gFirstThread;
+
+    while (p != NULL)
+    {
+        if (p == thread)
+        {
+            return TRUE;
+        }
+        p = p->next;
+    }
+
+    return FALSE;
+}
+
+BOOL isProcessValid(Process* process)
+{
+    Thread* p = gFirstThread;
+
+    while (p != NULL)
+    {
+        if (p->owner == process)
+        {
+            return TRUE;
+        }
+        p = p->next;
+    }
+
+    return FALSE;
+}
+
 static void switchToTask(Thread* current, int mode);
 
 void schedule(TimerInt_Registers* registers)

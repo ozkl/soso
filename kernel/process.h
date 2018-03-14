@@ -120,5 +120,7 @@ Thread* getPreviousThread(Thread* thread);
 Thread* getMainKernelThread();
 Thread* getCurrentThread();
 void schedule(TimerInt_Registers* registers);
+BOOL isThreadValid(Thread* thread);
+BOOL isProcessValid(Process* process);
 
 #endif // PROCESS_H
