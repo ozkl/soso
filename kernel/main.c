@@ -181,7 +181,7 @@ void kernelThread3()
 
 void kernelThreadMemInfo()
 {
-    char buffer[64];
+    char buffer[164];
 
     while (TRUE)
     {
@@ -189,9 +189,21 @@ void kernelThreadMemInfo()
 
         Screen_Print(0, 60, buffer);
 
-        sprintf(buffer, "Pages:%d/%d", getUsedPageCount(), getTotalPageCount());
+        sprintf(buffer, "Pages:%d/%d       ", getUsedPageCount(), getTotalPageCount());
 
         Screen_Print(1, 60, buffer);
+
+        Thread* p = getMainKernelThread();
+
+        int line = 2;
+        while (p != NULL)
+        {
+            sprintf(buffer, "thread:%d cs:%d   ",p->threadId, p->contextSwitchCount);
+
+            Screen_Print(line++, 60, buffer);
+
+            p = p->next;
+        }
 
         halt();
     }

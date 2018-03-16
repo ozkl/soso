@@ -8,6 +8,7 @@
 #include "alloc.h"
 #include "devfs.h"
 #include "hashtable.h"
+#include "fifobuffer.h"
 
 static uint8* gKeyBuffer = NULL;
 static uint32 gKeyBufferWriteIndex = 0;
@@ -71,6 +72,7 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
 
     while (readIndex == gKeyBufferWriteIndex)
     {
+        //TODO: block with thread state
         halt();
     }
 
@@ -99,11 +101,7 @@ static void handleKeyboardInterrupt(Registers *regs)
 
     gKeyBuffer[gKeyBufferWriteIndex] = scancode;
     gKeyBufferWriteIndex++;
-    /*
-    if (gKeyBufferReadIndex == gKeyBufferWriteIndex)
-    {
-        gKeyBufferWriteIndex++;
-    }
-    */
     gKeyBufferWriteIndex %= KEYBUFFER_SIZE;
+
+    FifoBuffer_enqueue(getTTYDriverKeyBuffer(), &scancode, 1);
 }

@@ -1,4 +1,5 @@
 #include "ttydriver.h"
+#include "tty.h"
 #include "device.h"
 #include "screen.h"
 #include "serial.h"
@@ -6,10 +7,13 @@
 #include "alloc.h"
 #include "common.h"
 #include "list.h"
+#include "fifobuffer.h"
 
-List* gTtyList = NULL;
+static List* gTtyList = NULL;
 
-Tty* gActiveTty = NULL;
+static FifoBuffer* gTtyDriverKeyBuffer = NULL;
+
+static Tty* gActiveTty = NULL;
 
 static File* gKeyboard = NULL;
 
@@ -143,6 +147,8 @@ void initializeTTYs()
 {
     gTtyList = List_Create();
 
+    gTtyDriverKeyBuffer = FifoBuffer_create(128);
+
     for (int i = 1; i <= 10; ++i)
     {
         Tty* tty = createTty();
@@ -177,8 +183,15 @@ void initializeTTYs()
     }
 }
 
+FifoBuffer* getTTYDriverKeyBuffer()
+{
+    return gTtyDriverKeyBuffer;
+}
+
 static BOOL tty_open(File *file, uint32 flags)
 {
+    //Screen_PrintF("tty_open: pid:%d\n", file->process->pid);
+
     return TRUE;
 }
 
@@ -193,12 +206,22 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
         uint8 scancode = 0;
 
         //Block until this becomes active TTY
-        //while (file->node->privateData != gActiveTty);
+        while (file->node->privateNodeData != gActiveTty)
+        {
+            //TODO: block with thread state
+            halt();
+        }
+
+        //TODO: switch active tty in keyboard, not here
+
 
         while (TRUE)
         {
-            if (read_fs(gKeyboard, 1, &scancode) > 0)
+            //if (read_fs(gKeyboard, 1, &scancode) > 0)
+            if (FifoBuffer_isEmpty(gTtyDriverKeyBuffer) == FALSE)
             {
+                FifoBuffer_dequeue(gTtyDriverKeyBuffer, &scancode, 1);
+
                 processScancode(scancode);
 
                 uint8 character = getCharacterForScancode(gKeyModifier, scancode);
