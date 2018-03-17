@@ -11,6 +11,8 @@
 
 static List* gTtyList = NULL;
 
+static List* gReaderList = NULL;
+
 static FifoBuffer* gTtyDriverKeyBuffer = NULL;
 
 static Tty* gActiveTty = NULL;
@@ -147,6 +149,8 @@ void initializeTTYs()
 {
     gTtyList = List_Create();
 
+    gReaderList = List_Create();
+
     gTtyDriverKeyBuffer = FifoBuffer_create(128);
 
     for (int i = 1; i <= 10; ++i)
@@ -183,92 +187,110 @@ void initializeTTYs()
     }
 }
 
-FifoBuffer* getTTYDriverKeyBuffer()
+void sendKeyInputToTTY(uint8 scancode)
 {
-    return gTtyDriverKeyBuffer;
+    beginCriticalSection();
+
+    FifoBuffer_enqueue(gTtyDriverKeyBuffer, &scancode, 1);
+
+    processScancode(scancode);
+
+    //Wake readers
+    List_Foreach(n, gReaderList)
+    {
+        File* file = n->data;
+
+        if (file->thread->state == TS_WAITIO)
+        {
+            if (file->thread->waitingIO_privateData == tty_read)
+            {
+                file->thread->state = TS_RUN;
+                file->thread->waitingIO_privateData = NULL;
+            }
+        }
+    }
+
+    endCriticalSection();
 }
 
 static BOOL tty_open(File *file, uint32 flags)
 {
     //Screen_PrintF("tty_open: pid:%d\n", file->process->pid);
 
+    List_Append(gReaderList, file);
+
     return TRUE;
 }
 
 static void tty_close(File *file)
 {
+    List_RemoveFirstOccurrence(gReaderList, file);
 }
 
 static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 {
     if (gKeyboard && size > 0)
     {
-        uint8 scancode = 0;
-
-        //Block until this becomes active TTY
-        while (file->node->privateNodeData != gActiveTty)
-        {
-            //TODO: block with thread state
-            halt();
-        }
-
-        //TODO: switch active tty in keyboard, not here
-
-
         while (TRUE)
         {
-            //if (read_fs(gKeyboard, 1, &scancode) > 0)
-            if (FifoBuffer_isEmpty(gTtyDriverKeyBuffer) == FALSE)
+            disableInterrupts();
+
+            //Block until this becomes active TTY
+            //Block until key buffer has data
+            while (FifoBuffer_isEmpty(gTtyDriverKeyBuffer) || file->node->privateNodeData != gActiveTty)
             {
-                FifoBuffer_dequeue(gTtyDriverKeyBuffer, &scancode, 1);
+                file->thread->state = TS_WAITIO;
+                file->thread->waitingIO_privateData = tty_read;
+                enableInterrupts();
+                halt();
+            }
 
-                processScancode(scancode);
+            disableInterrupts();
 
-                uint8 character = getCharacterForScancode(gKeyModifier, scancode);
+            uint8 scancode = 0;
+            FifoBuffer_dequeue(gTtyDriverKeyBuffer, &scancode, 1);
 
-                //Screen_PrintF("%d:%d\n", scancode, character);
+            uint8 character = getCharacterForScancode(gKeyModifier, scancode);
 
-                uint8 keyRelease = (0x80 & scancode); //ignore release event
+            //Screen_PrintF("usedBytes:%d --- %d:%d\n", gTtyDriverKeyBuffer->usedBytes, scancode, character);
 
-                if (character > 0 && keyRelease == 0)
+            uint8 keyRelease = (0x80 & scancode); //ignore release event
+
+            if (character > 0 && keyRelease == 0)
+            {
+                InputBuffer* inputBuffer = (InputBuffer*)gActiveTty->privateData;
+
+                if (inputBuffer->bufferIndex >= gBufferSize - 1)
                 {
-                    if (gActiveTty == file->node->privateNodeData)
+                    inputBuffer->bufferIndex = 0;
+                }
+
+                if (character == '\b')
+                {
+                    if (inputBuffer->bufferIndex > 0)
                     {
-                        InputBuffer* inputBuffer = (InputBuffer*)gActiveTty->privateData;
+                        inputBuffer->buffer[--inputBuffer->bufferIndex] = '\0';
 
-                        if (inputBuffer->bufferIndex >= gBufferSize - 1)
-                        {
-                            inputBuffer->bufferIndex = 0;
-                        }
-
-                        if (character == '\b')
-                        {
-                            if (inputBuffer->bufferIndex > 0)
-                            {
-                                inputBuffer->buffer[--inputBuffer->bufferIndex] = '\0';
-
-                                tty_write(file, 1, &character);
-                            }
-                        }
-                        else
-                        {
-                            inputBuffer->buffer[inputBuffer->bufferIndex++] = character;
-
-                            tty_write(file, 1, &character);
-                        }
-
-
-
-                        if (character == '\n')
-                        {
-                            int bytesToCopy = MIN(inputBuffer->bufferIndex, size);
-                            memcpy(buffer, inputBuffer->buffer, bytesToCopy);
-                            //Serial_PrintF("%d bytes. lastchar:%d\r\n", bytesToCopy, character);
-                            inputBuffer->bufferIndex = 0;
-
-                            return bytesToCopy;
-                        }
+                        tty_write(file, 1, &character);
                     }
+                }
+                else
+                {
+                    inputBuffer->buffer[inputBuffer->bufferIndex++] = character;
+
+                    tty_write(file, 1, &character);
+                }
+
+
+
+                if (character == '\n')
+                {
+                    int bytesToCopy = MIN(inputBuffer->bufferIndex, size);
+                    memcpy(buffer, inputBuffer->buffer, bytesToCopy);
+                    //Serial_PrintF("%d bytes. lastchar:%d\r\n", bytesToCopy, character);
+                    inputBuffer->bufferIndex = 0;
+
+                    return bytesToCopy;
                 }
             }
         }

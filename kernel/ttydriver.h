@@ -1,11 +1,11 @@
 #ifndef TTYDRIVER_H
 #define TTYDRIVER_H
 
-typedef struct FifoBuffer FifoBuffer;
+#include "common.h"
 
 void initializeTTYs();
 
-FifoBuffer* getTTYDriverKeyBuffer();
+void sendKeyInputToTTY(uint8 scancode);
 
 //TODO: posix_openpt
 

@@ -8,7 +8,6 @@
 #include "alloc.h"
 #include "devfs.h"
 #include "hashtable.h"
-#include "fifobuffer.h"
 
 static uint8* gKeyBuffer = NULL;
 static uint32 gKeyBufferWriteIndex = 0;
@@ -103,5 +102,5 @@ static void handleKeyboardInterrupt(Registers *regs)
     gKeyBufferWriteIndex++;
     gKeyBufferWriteIndex %= KEYBUFFER_SIZE;
 
-    FifoBuffer_enqueue(getTTYDriverKeyBuffer(), &scancode, 1);
+    sendKeyInputToTTY(scancode);
 }
