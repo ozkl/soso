@@ -7,7 +7,7 @@
 #include "device.h"
 #include "alloc.h"
 #include "devfs.h"
-#include "hashtable.h"
+#include "list.h"
 
 static uint8* gKeyBuffer = NULL;
 static uint32 gKeyBufferWriteIndex = 0;
@@ -24,7 +24,7 @@ typedef struct Reader
     uint32 readIndex;
 } Reader;
 
-static HashTable* gReaders = NULL;
+static List* gReaders = NULL;
 
 static void handleKeyboardInterrupt(Registers *regs);
 
@@ -41,7 +41,7 @@ void initializeKeyboard()
     gKeyBuffer = kmalloc(KEYBUFFER_SIZE);
     memset((uint8*)gKeyBuffer, 0, KEYBUFFER_SIZE);
 
-    gReaders = HashTable_create(100);
+    gReaders = List_Create();
 
     registerDevice(&device);
 
@@ -57,12 +57,16 @@ static BOOL keyboard_open(File *file, uint32 flags)
     }
     file->privateData = (void*)readIndex;
 
+    List_Append(gReaders, file);
+
     return TRUE;
 }
 
 static void keyboard_close(File *file)
 {
     //Screen_PrintF("keyboard_close\n");
+
+    List_RemoveFirstOccurrence(gReaders, file);
 }
 
 static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
@@ -71,19 +75,19 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
 
     while (readIndex == gKeyBufferWriteIndex)
     {
-        //TODO: block with thread state
+        file->thread->state = TS_WAITIO;
+        file->thread->waitingIO_privateData = keyboard_read;
+        enableInterrupts();
         halt();
     }
 
-    beginCriticalSection();
+    disableInterrupts();
 
     buffer[0] = gKeyBuffer[readIndex];
     readIndex++;
     readIndex %= KEYBUFFER_SIZE;
 
     file->privateData = (void*)readIndex;
-
-    endCriticalSection();
 
     return 1;
 }
@@ -101,6 +105,21 @@ static void handleKeyboardInterrupt(Registers *regs)
     gKeyBuffer[gKeyBufferWriteIndex] = scancode;
     gKeyBufferWriteIndex++;
     gKeyBufferWriteIndex %= KEYBUFFER_SIZE;
+
+    //Wake readers
+    List_Foreach(n, gReaders)
+    {
+        File* file = n->data;
+
+        if (file->thread->state == TS_WAITIO)
+        {
+            if (file->thread->waitingIO_privateData == keyboard_read)
+            {
+                file->thread->state = TS_RUN;
+                file->thread->waitingIO_privateData = NULL;
+            }
+        }
+    }
 
     sendKeyInputToTTY(scancode);
 }

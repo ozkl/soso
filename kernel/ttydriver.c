@@ -177,14 +177,6 @@ void initializeTTYs()
     Screen_CopyTo(gActiveTty->buffer);
     Screen_GetCursor(&(gActiveTty->currentLine), &(gActiveTty->currentColumn));
     Screen_ApplyColor(gActiveTty->color);
-
-    //gBuffer = kmalloc(gBufferSize);
-
-    FileSystemNode* keyboardNode = getFileSystemNode("/dev/keyboard");
-    if (keyboardNode)
-    {
-        gKeyboard = open_fs(keyboardNode, 0);
-    }
 }
 
 void sendKeyInputToTTY(uint8 scancode)
@@ -229,7 +221,7 @@ static void tty_close(File *file)
 
 static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 {
-    if (gKeyboard && size > 0)
+    if (size > 0)
     {
         while (TRUE)
         {
