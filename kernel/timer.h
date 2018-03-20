@@ -3,8 +3,9 @@
 
 #include "common.h"
 
-void initTimer(uint32 frequency);
+void initializeTimer();
 uint32 getSystemTickCount();
+uint32 getUptimeSeconds();
 void enableScheduler();
 void disableScheduler();
 

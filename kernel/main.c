@@ -114,98 +114,35 @@ static void listFs2(const char* path)
     trigger_syscall_close(fd);
 }
 
-void kernelThread2()
-{
-    uint32 x = 5;
-
-    char buffer[64];
-
-    File* file = NULL;
-
-    FileSystemNode* randomNode = getFileSystemNode("/dev/random");
-    if (randomNode)
-    {
-        file = open_fs(randomNode, 0);
-    }
-
-    while (1)
-    {
-        //Screen_PrintF("kernelThread2() local:%x\n", &x);
-
-        if (file)
-        {
-            //read_fs(file, 0, 4, &x);
-
-            //Screen_PrintF("kernelThread2() random:%x\n", x);
-
-            uint32 tick = getSystemTickCount() / 10000;
-
-            itoa(buffer, 'd', tick);
-
-            Screen_Print(0, 60, buffer);
-
-            halt();
-        }
-    }
-}
-
-void kernelThread3()
-{
-    uint32 x = 5;
-
-    File* file = NULL;
-    FileSystemNode* randomNode = getFileSystemNode("/dev/random");
-    if (randomNode)
-    {
-        file = open_fs(randomNode, 0);
-    }
-
-    Screen_PrintF("kernelThread3() local:%x\n", &x);
-
-    while (1)
-    {
-        //Screen_PrintF("kernelThread3() Tick:%d\n", getSystemTickCount());
-         //halt();
-
-        if (file)
-        {
-            read_fs(file, 4, (uint8*)&x);
-
-            //Screen_PrintF("kernelThread3() random:%x\n", x);
-
-            int*o = (int*)0xD000000;
-            *o = 66;
-        }
-    }
-}
-
-void kernelThreadMemInfo()
+void printUsageInfo()
 {
     char buffer[164];
 
     while (TRUE)
     {
         sprintf(buffer, "Used kheap:%d", getKernelHeapUsed());
-
         Screen_Print(0, 60, buffer);
 
         sprintf(buffer, "Pages:%d/%d       ", getUsedPageCount(), getTotalPageCount());
-
         Screen_Print(1, 60, buffer);
+
+        sprintf(buffer, "Uptime:%d sec   ", getUptimeSeconds());
+        Screen_Print(2, 60, buffer);
 
         Thread* p = getMainKernelThread();
 
-        int line = 2;
+        int line = 3;
+        sprintf(buffer, "[idle]   cs:%d   ", p->totalContextSwitchCount);
+        Screen_Print(line++, 60, buffer);
+        p = p->next;
         while (p != NULL)
         {
-            sprintf(buffer, "thread:%d cs:%d   ",p->threadId, p->contextSwitchCount);
+            sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->totalContextSwitchCount);
 
             Screen_Print(line++, 60, buffer);
 
             p = p->next;
         }
-
-        halt();
     }
 }
 
@@ -480,7 +417,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initialiseSyscalls();
     Screen_PrintF("System calls initialized!\n");
 
-    initTimer(10000);
+    initializeTimer();
 
     initializeKeyboard();
 
@@ -499,8 +436,6 @@ int kmain(struct Multiboot *mboot_ptr)
     createRamdisk("ramdisk1", 12*1024*1024);
 
     initializeFatFileSystem();
-
-    createKernelThread(kernelThreadMemInfo);
 
     Screen_PrintF("System started!\n");
 
@@ -565,6 +500,8 @@ int kmain(struct Multiboot *mboot_ptr)
 
         //data = kmalloc(120);
         //kfree(data);
+
+        printUsageInfo();
 
         halt();
     }

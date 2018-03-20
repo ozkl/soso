@@ -242,7 +242,7 @@ static int32 systemfs_read_thread_file(File *file, uint32 size, uint8 *buffer)
                 char state[10];
                 threadStateToString(thread->state, state, 10);
                 charIndex += sprintf(buffer + charIndex, "state:%s\n", state);
-                charIndex += sprintf(buffer + charIndex, "contextSwitches:%d\n", thread->contextSwitchCount);
+                charIndex += sprintf(buffer + charIndex, "contextSwitches:%d\n", thread->totalContextSwitchCount);
                 if (thread->owner)
                 {
                     charIndex += sprintf(buffer + charIndex, "process:%d\n", thread->owner->pid);

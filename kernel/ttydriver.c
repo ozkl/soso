@@ -13,8 +13,6 @@ static List* gTtyList = NULL;
 
 static List* gReaderList = NULL;
 
-static FifoBuffer* gTtyDriverKeyBuffer = NULL;
-
 static Tty* gActiveTty = NULL;
 
 static File* gKeyboard = NULL;
@@ -27,12 +25,15 @@ typedef struct InputBuffer
 {
     uint8 buffer[gBufferSize];
     uint32 bufferIndex;
+    FifoBuffer* keyBuffer;
 } InputBuffer;
 
 static InputBuffer* createInputBuffer()
 {
     InputBuffer* inputBuffer = kmalloc(sizeof(InputBuffer));
     memset((uint8*)inputBuffer, 0, sizeof(InputBuffer));
+
+    inputBuffer->keyBuffer = FifoBuffer_create(64);
 
     return inputBuffer;
 }
@@ -151,8 +152,6 @@ void initializeTTYs()
 
     gReaderList = List_Create();
 
-    gTtyDriverKeyBuffer = FifoBuffer_create(128);
-
     for (int i = 1; i <= 10; ++i)
     {
         Tty* tty = createTty();
@@ -183,7 +182,7 @@ void sendKeyInputToTTY(uint8 scancode)
 {
     beginCriticalSection();
 
-    FifoBuffer_enqueue(gTtyDriverKeyBuffer, &scancode, 1);
+    FifoBuffer_enqueue(((InputBuffer*)gActiveTty->privateData)->keyBuffer, &scancode, 1);
 
     processScancode(scancode);
 
@@ -227,9 +226,13 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
         {
             disableInterrupts();
 
+            Tty* tty = (Tty*)file->node->privateNodeData;
+
+            InputBuffer* inputBuffer = (InputBuffer*)tty->privateData;
+
             //Block until this becomes active TTY
             //Block until key buffer has data
-            while (FifoBuffer_isEmpty(gTtyDriverKeyBuffer) || file->node->privateNodeData != gActiveTty)
+            while (FifoBuffer_isEmpty(inputBuffer->keyBuffer) || tty != gActiveTty)
             {
                 file->thread->state = TS_WAITIO;
                 file->thread->waitingIO_privateData = tty_read;
@@ -240,7 +243,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
             disableInterrupts();
 
             uint8 scancode = 0;
-            FifoBuffer_dequeue(gTtyDriverKeyBuffer, &scancode, 1);
+            FifoBuffer_dequeue(inputBuffer->keyBuffer, &scancode, 1);
 
             uint8 character = getCharacterForScancode(gKeyModifier, scancode);
 
@@ -250,8 +253,6 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
             if (character > 0 && keyRelease == 0)
             {
-                InputBuffer* inputBuffer = (InputBuffer*)gActiveTty->privateData;
-
                 if (inputBuffer->bufferIndex >= gBufferSize - 1)
                 {
                     inputBuffer->bufferIndex = 0;

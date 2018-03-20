@@ -7,6 +7,7 @@
 #include "screen.h"
 #include "debugprint.h"
 #include "isr.h"
+#include "timer.h"
 
 Process* gKernelProcess = NULL;
 
@@ -18,6 +19,9 @@ Thread* gDestroyedThread = NULL;
 uint32 gProcessIdGenerator = 0;
 uint32 gThreadIdGenerator = 0;
 
+uint32 gSystemContextSwitchCount = 0;
+uint32 gLastUptimeSeconds = 0;
+
 extern Tss gTss;
 
 uint32 generateProcessId()
@@ -28,6 +32,11 @@ uint32 generateProcessId()
 uint32 generateThreadId()
 {
     return gThreadIdGenerator++;
+}
+
+uint32 getSystemContextSwitchCount()
+{
+    return gSystemContextSwitchCount;
 }
 
 void initializeTasking()
@@ -641,6 +650,29 @@ BOOL isProcessValid(Process* process)
 
 static void switchToTask(Thread* current, int mode);
 
+static void updateMetrics(Thread* thread)
+{
+    uint32 seconds = getUptimeSeconds();
+
+    if (seconds > gLastUptimeSeconds)
+    {
+        gLastUptimeSeconds = seconds;
+
+        Thread* t = gFirstThread;
+
+        while (t != NULL)
+        {
+            t->totalContextSwitchCountPrevious = t->totalContextSwitchCount;
+
+            t = t->next;
+        }
+    }
+
+    ++gSystemContextSwitchCount;
+
+    ++thread->totalContextSwitchCount;
+}
+
 void schedule(TimerInt_Registers* registers)
 {
     Thread* current = gCurrentThread;
@@ -730,6 +762,8 @@ void schedule(TimerInt_Registers* registers)
     }
     */
 
+    updateMetrics(current);
+
     if (current->regs.cs != 0x08)
     {
         switchToTask(current, USERMODE);
@@ -740,15 +774,14 @@ void schedule(TimerInt_Registers* registers)
     }
 }
 
+
+
 //The mode indicates whether this process was in user mode or kernel mode
 //When it was previously interrupted by the scheduler.
 static void switchToTask(Thread* current, int mode)
 {
-
     uint32 kesp, eflags;
     uint16 kss, ss, cs;
-
-    ++current->contextSwitchCount;
 
     //Set TSS values
     gTss.ss0 = current->kstack.ss0;

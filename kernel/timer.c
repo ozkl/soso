@@ -4,6 +4,8 @@
 #include "process.h"
 #include "common.h"
 
+#define TIMER_FREQ 10000
+
 uint32 gSystemTickCount = 0;
 
 BOOL gSchedulerEnabled = FALSE;
@@ -24,6 +26,11 @@ uint32 getSystemTickCount()
     return gSystemTickCount;
 }
 
+uint32 getUptimeSeconds()
+{
+    return gSystemTickCount / TIMER_FREQ;
+}
+
 void enableScheduler()
 {
     gSchedulerEnabled = TRUE;
@@ -34,7 +41,7 @@ void disableScheduler()
     gSchedulerEnabled = FALSE;
 }
 
-void initTimer(uint32 frequency)
+static void initTimer(uint32 frequency)
 {
     uint32 divisor = 1193180 / frequency;
 
@@ -45,4 +52,9 @@ void initTimer(uint32 frequency)
 
     outb(0x40, l);
     outb(0x40, h);
+}
+
+void initializeTimer()
+{
+    initTimer(TIMER_FREQ);
 }

@@ -83,7 +83,8 @@ struct Thread
 
     uint32 yield;
 
-    uint32 contextSwitchCount;
+    uint32 totalContextSwitchCount;
+    uint32 totalContextSwitchCountPrevious;
 
     void* waitingIO_privateData;
 
@@ -122,5 +123,6 @@ Thread* getCurrentThread();
 void schedule(TimerInt_Registers* registers);
 BOOL isThreadValid(Thread* thread);
 BOOL isProcessValid(Process* process);
+uint32 getSystemContextSwitchCount();
 
 #endif // PROCESS_H
