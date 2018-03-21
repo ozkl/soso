@@ -662,6 +662,7 @@ static void updateMetrics(Thread* thread)
 
         while (t != NULL)
         {
+            t->contextSwitchCount = t->totalContextSwitchCount - t->totalContextSwitchCountPrevious;
             t->totalContextSwitchCountPrevious = t->totalContextSwitchCount;
 
             t = t->next;

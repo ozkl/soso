@@ -83,6 +83,7 @@ struct Thread
 
     uint32 yield;
 
+    uint32 contextSwitchCount;
     uint32 totalContextSwitchCount;
     uint32 totalContextSwitchCountPrevious;
 
