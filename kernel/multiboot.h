@@ -26,10 +26,17 @@ struct Multiboot
     uint32 apm_table;
     uint32 vbe_control_info;
     uint32 vbe_mode_info;
-    uint32 vbe_mode;
-    uint32 vbe_interface_seg;
-    uint32 vbe_interface_off;
-    uint32 vbe_interface_len;
+    uint16 vbe_mode;
+    uint16 vbe_interface_seg;
+    uint16 vbe_interface_off;
+    uint16 vbe_interface_len;
+
+    uint64 framebuffer_addr;
+    uint32 framebuffer_pitch;
+    uint32 framebuffer_width;
+    uint32 framebuffer_height;
+    uint8 framebuffer_bpp;
+    uint8 framebuffer_type;
 }  __attribute__((packed));
 
 #endif

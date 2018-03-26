@@ -431,6 +431,14 @@ int kmain(struct Multiboot *mboot_ptr)
         Screen_PrintF("Video: x:%d, y:%d\n", vbe_info->XResolution, vbe_info->YResolution);
     }
 
+    Serial_PrintF("framebuffer_addr: %x\n", mboot_ptr->framebuffer_addr);
+    Serial_PrintF("framebuffer_pitch: %d\n", mboot_ptr->framebuffer_pitch);
+    Serial_PrintF("framebuffer_width: %d\n", mboot_ptr->framebuffer_width);
+    Serial_PrintF("framebuffer_height: %d\n", mboot_ptr->framebuffer_height);
+    Serial_PrintF("framebuffer_bpp: %d\n", mboot_ptr->framebuffer_bpp);
+    Serial_PrintF("framebuffer_type: %d\n", mboot_ptr->framebuffer_type);
+
+
     initializeRandom();
 
     createRamdisk("ramdisk1", 12*1024*1024);
