@@ -70,3 +70,5 @@ kernel/list.c
 kernel/list.h
 kernel/pipe.h
 kernel/pipe.c
+kernel/gfx.h
+kernel/gfx.c

@@ -224,7 +224,7 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
 {
     uint32 *pde = NULL;
 
-    //Screen_PrintF("DEBUG: pd_add_page(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
+    //Screen_PrintF("DEBUG: addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
 
 
     int index = (((uint32) v_addr & 0xFFC00000) >> 20) / 4;
@@ -232,11 +232,11 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
     if ((*pde & PG_PRESENT) == PG_PRESENT)
     {
         //Already assigned!
-        Debug_PrintF("ERROR: pd_add_page(): pde:%x is already assigned!!\n", pde);
+        Debug_PrintF("ERROR: addPageToPd(): pde:%x is already assigned!!\n", pde);
         return FALSE;
     }
 
-    //Screen_PrintF("pd_add_page(): pde:%x\n", pde);
+    //Screen_PrintF("addPageToPd(): pde:%x\n", pde);
 
     *pde = ((uint32) p_addr) | (PG_PRESENT | PG_4MB | PG_WRITE | flags);
     //Screen_PrintF("pde:%x *pde:%x\n", pde, *pde);
