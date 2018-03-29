@@ -426,7 +426,10 @@ int kmain(struct Multiboot *mboot_ptr)
 
     Debug_initialize("/dev/tty10");
 
-    //Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32);
+    Serial_PrintF("pitch:%d\n", mboot_ptr->framebuffer_pitch);
+
+    //Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
+    //Gfx_Putchar('a', 10, 10, 255 << 16, 0xFFFFFFFF);
 
     initializeRandom();
 

@@ -260,7 +260,7 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
     {
         if (pd == gKernelPageDirectory)
         {
-            PANIC("Attemped to allocate user memory to the kernel page directory!!!\n");
+            //No panic here. Because we allow kernel to map anywhere!
         }
     }
 

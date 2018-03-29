@@ -17,7 +17,7 @@ clean:
 	-rm kernel/*.o kernel.bin
 
 link:
-	$(LD) $(LDFLAGS) -o kernel.bin $(OBJ)
+	$(LD) $(LDFLAGS) -o kernel.bin $(OBJ) font/font.o
 
 kernel/%.o:kernel/%.c
 	$(CC) $(CFLAGS) $< -o $@

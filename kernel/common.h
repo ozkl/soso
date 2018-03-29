@@ -70,6 +70,8 @@ typedef unsigned int  size_t;
 
 #define	USER_STACK 			0xF0000000
 
+#define	VIDEO_MEMORY		0xFD000000
+
 void outb(uint16 port, uint8 value);
 void outw(uint16 port, uint16 value);
 uint8 inb(uint16 port);
