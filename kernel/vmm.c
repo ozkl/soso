@@ -227,7 +227,7 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
     //Screen_PrintF("DEBUG: addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
 
 
-    int index = (((uint32) v_addr & 0xFFC00000) >> 20) / 4;
+    int index = (((uint32) v_addr & 0xFFC00000) >> 22);
     pde = pd + index;
     if ((*pde & PG_PRESENT) == PG_PRESENT)
     {
@@ -236,11 +236,12 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
         return FALSE;
     }
 
-    //Screen_PrintF("addPageToPd(): pde:%x\n", pde);
+    //Screen_PrintF("addPageToPd(): index:%d pde:%x\n", index, pde);
 
     *pde = ((uint32) p_addr) | (PG_PRESENT | PG_4MB | PG_WRITE | flags);
     //Screen_PrintF("pde:%x *pde:%x\n", pde, *pde);
-    SET_PAGEFRAME_USED(p_addr);
+
+    SET_PAGEFRAME_USED(PAGE_INDEX_4M((uint32)p_addr));
 
     asm("invlpg %0"::"m"(v_addr));
 
