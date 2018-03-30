@@ -135,7 +135,7 @@ void initializeTTYs()
 
     for (int i = 1; i <= 10; ++i)
     {
-        Tty* tty = createTty();
+        Tty* tty = createTty(25, 80);
         tty->color = 0x0A;
 
         List_Append(gTtyList, tty);

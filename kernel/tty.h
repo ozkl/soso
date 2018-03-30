@@ -8,6 +8,8 @@
 
 typedef struct Tty
 {
+    uint16 lineCount;
+    uint16 columnCount;
     uint8* buffer;
     uint16 currentLine;
     uint16 currentColumn;
@@ -18,7 +20,7 @@ typedef struct Tty
     FifoBuffer* keyBuffer;
 } Tty;
 
-Tty* createTty();
+Tty* createTty(uint16 lineCount, uint16 columnCount);
 void destroyTty(Tty* tty);
 
 void Tty_Print(Tty* tty, int row, int column, const char* text);

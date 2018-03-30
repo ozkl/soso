@@ -1,13 +1,12 @@
 #include "tty.h"
 #include "alloc.h"
 
-#define TTY_LINE_COUNT 25
-#define TTY_COLUMN_COUNT 80
-
-Tty* createTty()
+Tty* createTty(uint16 lineCount, uint16 columnCount)
 {
     Tty* tty = kmalloc(sizeof(Tty));
-    tty->buffer = kmalloc(TTY_LINE_COUNT * TTY_COLUMN_COUNT * 2);
+    tty->lineCount = lineCount;
+    tty->columnCount = columnCount;
+    tty->buffer = kmalloc(tty->lineCount * tty->columnCount * 2);
     tty->currentColumn = 0;
     tty->currentLine = 0;
     tty->color = 0x0A;
@@ -32,7 +31,7 @@ void Tty_Print(Tty* tty, int row, int column, const char* text)
 {
     unsigned char * video = tty->buffer;
 
-    video += (row * TTY_COLUMN_COUNT + column) * 2;
+    video += (row * tty->columnCount + column) * 2;
     while(*text != 0)
     {
         *video++ = *text++;
@@ -48,12 +47,12 @@ void Tty_ScrollUp(Tty* tty)
     int line = 0;
     int column = 0;
 
-    for (line = 0; line < TTY_LINE_COUNT - 1; ++line)
+    for (line = 0; line < tty->lineCount - 1; ++line)
     {
-        for (column = 0; column < TTY_COLUMN_COUNT; ++column)
+        for (column = 0; column < tty->columnCount; ++column)
         {
-            videoLine = tty->buffer + (line * TTY_COLUMN_COUNT + column) * 2;
-            videoLineNext = tty->buffer + ((line + 1) * TTY_COLUMN_COUNT + column) * 2;
+            videoLine = tty->buffer + (line * tty->columnCount + column) * 2;
+            videoLineNext = tty->buffer + ((line + 1) * tty->columnCount + column) * 2;
 
             videoLine[0] = videoLineNext[0];
             videoLine[1] = videoLineNext[1];
@@ -61,8 +60,8 @@ void Tty_ScrollUp(Tty* tty)
     }
 
     //Last line should be empty.
-    unsigned char * lastLine = tty->buffer + ((TTY_LINE_COUNT - 1) * TTY_COLUMN_COUNT) * 2;
-    for (int i = 0; i < TTY_COLUMN_COUNT * 2; i += 2)
+    unsigned char * lastLine = tty->buffer + ((tty->lineCount - 1) * tty->columnCount) * 2;
+    for (int i = 0; i < tty->columnCount * 2; i += 2)
     {
         lastLine[i] = 0;
         lastLine[i + 1] = tty->color;
@@ -74,7 +73,7 @@ void Tty_Clear(Tty* tty)
     unsigned char * video = tty->buffer;
     int i = 0;
 
-    for (i = 0; i < TTY_LINE_COUNT * TTY_COLUMN_COUNT; ++i)
+    for (i = 0; i < tty->lineCount * tty->columnCount; ++i)
     {
         *video++ = 0;
         *video++ = tty->color;
@@ -93,7 +92,7 @@ void Tty_PutChar(Tty* tty, char c)
         ++tty->currentLine;
         tty->currentColumn = 0;
 
-        if (tty->currentLine >= TTY_LINE_COUNT - 0)
+        if (tty->currentLine >= tty->lineCount - 0)
         {
             --tty->currentLine;
             Tty_ScrollUp(tty);
@@ -108,7 +107,7 @@ void Tty_PutChar(Tty* tty, char c)
         {
             --tty->currentColumn;
             c = '\0';
-            video = tty->buffer + (tty->currentLine * TTY_COLUMN_COUNT + tty->currentColumn) * 2;
+            video = tty->buffer + (tty->currentLine * tty->columnCount + tty->currentColumn) * 2;
             video[0] = c;
             video[1] = tty->color;
             Tty_MoveCursor(tty, tty->currentLine, tty->currentColumn);
@@ -119,9 +118,9 @@ void Tty_PutChar(Tty* tty, char c)
             if (tty->currentLine > 0)
             {
                 --tty->currentLine;
-                tty->currentColumn = TTY_COLUMN_COUNT - 1;
+                tty->currentColumn = tty->columnCount - 1;
                 c = '\0';
-                video = tty->buffer + (tty->currentLine * TTY_COLUMN_COUNT + tty->currentColumn) * 2;
+                video = tty->buffer + (tty->currentLine * tty->columnCount + tty->currentColumn) * 2;
                 video[0] = c;
                 video[1] = tty->color;
                 Tty_MoveCursor(tty, tty->currentLine, tty->currentColumn);
@@ -130,19 +129,19 @@ void Tty_PutChar(Tty* tty, char c)
         }
     }
 
-    if (tty->currentColumn >= TTY_COLUMN_COUNT)
+    if (tty->currentColumn >= tty->columnCount)
     {
         ++tty->currentLine;
         tty->currentColumn = 0;
     }
 
-    if (tty->currentLine >= TTY_LINE_COUNT - 0)
+    if (tty->currentLine >= tty->lineCount - 0)
     {
         --tty->currentLine;
         Tty_ScrollUp(tty);
     }
 
-    video += (tty->currentLine * TTY_COLUMN_COUNT + tty->currentColumn) * 2;
+    video += (tty->currentLine * tty->columnCount + tty->currentColumn) * 2;
 
     video[0] = c;
     video[1] = tty->color;
