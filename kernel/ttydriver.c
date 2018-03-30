@@ -287,7 +287,8 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer)
 
     if (gActiveTty == file->node->privateNodeData)
     {
-        Screen_PrintF("%s", buffer);
+        Screen_CopyFrom(gActiveTty->buffer);
+        Screen_MoveCursor(gActiveTty->currentLine, gActiveTty->currentColumn);
     }
 
     return size;
@@ -322,7 +323,7 @@ static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)
 
 static void applyModifierKeys(KeyModifier modifier, uint8 scancode)
 {
-    if ((modifier & KM_Alt) == KM_Alt)
+    if ((modifier & KM_Ctrl) == KM_Ctrl)
     {
         int ttyIndex = scancode - KEY_F1;
         int ttyCount = 10;
