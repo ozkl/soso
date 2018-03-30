@@ -19,25 +19,6 @@ static File* gKeyboard = NULL;
 
 static uint8 gKeyModifier = 0;
 
-#define gBufferSize 1024
-
-typedef struct InputBuffer
-{
-    uint8 buffer[gBufferSize];
-    uint32 bufferIndex;
-    FifoBuffer* keyBuffer;
-} InputBuffer;
-
-static InputBuffer* createInputBuffer()
-{
-    InputBuffer* inputBuffer = kmalloc(sizeof(InputBuffer));
-    memset((uint8*)inputBuffer, 0, sizeof(InputBuffer));
-
-    inputBuffer->keyBuffer = FifoBuffer_create(64);
-
-    return inputBuffer;
-}
-
 typedef enum KeyModifier
 {
     KM_LeftShift = 1,
@@ -156,7 +137,6 @@ void initializeTTYs()
     {
         Tty* tty = createTty();
         tty->color = 0x0A;
-        tty->privateData = createInputBuffer();
 
         List_Append(gTtyList, tty);
 
@@ -182,7 +162,7 @@ void sendKeyInputToTTY(uint8 scancode)
 {
     beginCriticalSection();
 
-    FifoBuffer_enqueue(((InputBuffer*)gActiveTty->privateData)->keyBuffer, &scancode, 1);
+    FifoBuffer_enqueue(gActiveTty->keyBuffer, &scancode, 1);
 
     processScancode(scancode);
 
@@ -228,11 +208,9 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
             Tty* tty = (Tty*)file->node->privateNodeData;
 
-            InputBuffer* inputBuffer = (InputBuffer*)tty->privateData;
-
             //Block until this becomes active TTY
             //Block until key buffer has data
-            while (FifoBuffer_isEmpty(inputBuffer->keyBuffer) || tty != gActiveTty)
+            while (FifoBuffer_isEmpty(tty->keyBuffer) || tty != gActiveTty)
             {
                 file->thread->state = TS_WAITIO;
                 file->thread->waitingIO_privateData = tty;
@@ -243,7 +221,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
             disableInterrupts();
 
             uint8 scancode = 0;
-            FifoBuffer_dequeue(inputBuffer->keyBuffer, &scancode, 1);
+            FifoBuffer_dequeue(tty->keyBuffer, &scancode, 1);
 
             uint8 character = getCharacterForScancode(gKeyModifier, scancode);
 
@@ -253,23 +231,23 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
             if (character > 0 && keyRelease == 0)
             {
-                if (inputBuffer->bufferIndex >= gBufferSize - 1)
+                if (tty->lineBufferIndex >= TTY_LINEBUFFER_SIZE - 1)
                 {
-                    inputBuffer->bufferIndex = 0;
+                    tty->lineBufferIndex = 0;
                 }
 
                 if (character == '\b')
                 {
-                    if (inputBuffer->bufferIndex > 0)
+                    if (tty->lineBufferIndex > 0)
                     {
-                        inputBuffer->buffer[--inputBuffer->bufferIndex] = '\0';
+                        tty->lineBuffer[--tty->lineBufferIndex] = '\0';
 
                         tty_write(file, 1, &character);
                     }
                 }
                 else
                 {
-                    inputBuffer->buffer[inputBuffer->bufferIndex++] = character;
+                    tty->lineBuffer[tty->lineBufferIndex++] = character;
 
                     tty_write(file, 1, &character);
                 }
@@ -278,10 +256,10 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
                 if (character == '\n')
                 {
-                    int bytesToCopy = MIN(inputBuffer->bufferIndex, size);
-                    memcpy(buffer, inputBuffer->buffer, bytesToCopy);
+                    int bytesToCopy = MIN(tty->lineBufferIndex, size);
+                    memcpy(buffer, tty->lineBuffer, bytesToCopy);
                     //Serial_PrintF("%d bytes. lastchar:%d\r\n", bytesToCopy, character);
-                    inputBuffer->bufferIndex = 0;
+                    tty->lineBufferIndex = 0;
 
                     return bytesToCopy;
                 }
@@ -298,7 +276,14 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer)
 
     //Screen_PrintF("console_write\n");
 
-    Tty_PrintF(file->node->privateNodeData, "%s", buffer);
+    //Tty_PrintF(file->node->privateNodeData, "%s", buffer);
+
+    const char* c = (const char*)buffer;
+    while (*c)
+    {
+        Tty_PutChar(file->node->privateNodeData, *c);
+        ++c;
+    }
 
     if (gActiveTty == file->node->privateNodeData)
     {

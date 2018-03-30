@@ -11,7 +11,10 @@ Tty* createTty()
     tty->currentColumn = 0;
     tty->currentLine = 0;
     tty->color = 0x0A;
-    tty->privateData = NULL;
+
+    memset(tty->lineBuffer, 0, TTY_LINEBUFFER_SIZE);
+    tty->lineBufferIndex = 0;
+    tty->keyBuffer = FifoBuffer_create(64);
 
     Tty_Clear(tty);
 
@@ -20,6 +23,7 @@ Tty* createTty()
 
 void destroyTty(Tty* tty)
 {
+    FifoBuffer_destroy(tty->keyBuffer);
     kfree(tty->buffer);
     kfree(tty);
 }
@@ -147,64 +151,6 @@ void Tty_PutChar(Tty* tty, char c)
 
     Tty_MoveCursor(tty, tty->currentLine, tty->currentColumn);
 }
-
- void Tty_PrintF(Tty* tty, const char *format, ...)
- {
-   char **arg = (char **) &format;
-   char c;
-   char buf[20];
-
-   //arg++;
-   __builtin_va_list vl;
-   __builtin_va_start(vl, format);
-
-   while ((c = *format++) != 0)
-     {
-       if (c != '%')
-         Tty_PutChar(tty, c);
-       else
-         {
-           char *p;
-
-           c = *format++;
-           switch (c)
-             {
-             case 'x':
-                buf[0] = '0';
-                buf[1] = 'x';
-                //itoa (buf + 2, c, *((int *) arg++));
-                itoa (buf + 2, c, __builtin_va_arg(vl, int));
-                p = buf;
-                goto string;
-                break;
-             case 'd':
-             case 'u':
-               //itoa (buf, c, *((int *) arg++));
-               itoa (buf, c, __builtin_va_arg(vl, int));
-               p = buf;
-               goto string;
-               break;
-
-             case 's':
-               //p = *arg++;
-               p = __builtin_va_arg(vl, char*);
-               if (! p)
-                 p = "(null)";
-
-             string:
-               while (*p)
-                 Tty_PutChar(tty, *p++);
-               break;
-
-             default:
-               //Tty_PutChar(tty, *((int *) arg++));
-               Tty_PutChar(tty, __builtin_va_arg(vl, int));
-               break;
-             }
-         }
-     }
-   __builtin_va_end(vl);
- }
 
 void Tty_MoveCursor(Tty* tty, uint16 line, uint16 column)
 {
