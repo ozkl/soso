@@ -54,7 +54,7 @@ void initializeMemory(uint32 high_mem)
     //Identity map
     for (i = 0; i < 4; ++i)
     {
-        gKernelPageDirectory[i] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB | PG_USER));//PG_USER added for accesing kernel code in user mode (&userProcess()). To be removed...
+        gKernelPageDirectory[i] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB));//add PG_USER for accesing kernel code in user mode
     }
 
     for (i = 4; i < 1024; ++i)

@@ -45,7 +45,7 @@ void *ksbrkPage(int n)
             return (char *) -1;
         }
 
-        addPageToPd(gKernelPageDirectory, gKernelHeap, p_addr, /*0*/PG_USER); //PG_USER for now to allow user programs to read kernel heap
+        addPageToPd(gKernelPageDirectory, gKernelHeap, p_addr, 0); //add PG_USER to allow user programs to read kernel heap
 
         gKernelHeap += PAGESIZE_4M;
     }
