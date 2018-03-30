@@ -223,7 +223,7 @@ void Screen_PutChar(char c)
 	 }
   __builtin_va_end(vl);
  }
- 
+
 void Screen_MoveCursor(uint16 line, uint16 column)
 {
    // The screen is 80 characters wide...

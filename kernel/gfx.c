@@ -14,10 +14,17 @@ extern char _binary_font_psf_end;
 
 uint16 *gUnicode = NULL;
 
+static int gLineCount = 10;
+static int gColumnCount = 10;
+static uint16 gCurrentLine = 0;
+static uint16 gCurrentColumn = 0;
+
+#define LINE_HEIGHT 16
+
 void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerPixel, uint32 pitch)
 {
     char* p_address = (char*)pixels;
-    char* v_address = (char*)VIDEO_MEMORY;
+    char* v_address = (char*)GFX_MEMORY;
 
     //Usually physical and virtual are the same here but of course they don't have to
 
@@ -26,6 +33,9 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerP
     gHeight = height;
     gBytePerPixel = bytePerPixel;
     gPitch = pitch;
+
+    gLineCount = gHeight / LINE_HEIGHT;
+    gColumnCount = gWidth / 8;
 
 
     BOOL success = addPageToPd(gKernelPageDirectory, v_address, p_address, 0);
@@ -60,7 +70,7 @@ typedef struct {
 } PSF_font;
 
 //From Osdev PC Screen Font (The font used here is free to use)
-void Gfx_Putchar(
+void Gfx_PutCharAt(
     /* note that this is int, not char as it's a unicode character */
     unsigned short int c,
     /* cursor position on screen, in characters not in pixels */
@@ -105,3 +115,153 @@ void Gfx_Putchar(
         offs  += gPitch;
     }
 }
+
+void Gfx_ScrollUp()
+{
+    uint32* videoLine = gPixels;
+    uint32* videoLineNext = gPixels;
+
+    int line = 0;
+    int column = 0;
+
+    for (line = 0; line < gLineCount - 1; ++line)
+    {
+        for (column = 0; column < gColumnCount; ++column)
+        {
+            videoLine = gPixels + (line * gColumnCount + column);
+            videoLineNext = gPixels + ((line + 1) * gColumnCount + column);
+
+            *videoLine = *videoLineNext;
+        }
+    }
+
+    //TODO: below
+    //Last line should be empty.
+    /*
+    for (line = gLineCount - LINE_HEIGHT; line < gLineCount - 1; ++line)
+    {
+        uint32* lastLine = gPixels + (line * gColumnCount);
+        for (int i = 0; i < gColumnCount; ++i)
+        {
+            lastLine[i] = 0;
+        }
+    }
+    */
+}
+
+void Gfx_PutChar(char c)
+{
+    if ('\n' == c || '\r' == c)
+    {
+        ++gCurrentLine;
+        gCurrentColumn = 0;
+
+        if (gCurrentLine >= gLineCount - 0)
+        {
+            --gCurrentLine;
+            Gfx_ScrollUp();
+        }
+
+        //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
+        return;
+    }
+    else if ('\b' == c)
+    {
+        if (gCurrentColumn > 0)
+        {
+            --gCurrentColumn;
+            c = '\0';
+            Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
+            //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
+            return;
+        }
+        else if (gCurrentColumn == 0)
+        {
+            if (gCurrentLine > 0)
+            {
+                --gCurrentLine;
+                gCurrentColumn = gColumnCount - 1;
+                c = '\0';
+                Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
+                //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
+                return;
+            }
+        }
+    }
+
+    if (gCurrentColumn >= gColumnCount)
+    {
+        ++gCurrentLine;
+        gCurrentColumn = 0;
+    }
+
+    if (gCurrentLine >= gLineCount - 0)
+    {
+        --gCurrentLine;
+        Gfx_ScrollUp();
+    }
+
+    Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
+
+    ++gCurrentColumn;
+
+    //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
+}
+
+ void Gfx_PrintF(const char *format, ...)
+ {
+   char **arg = (char **) &format;
+   char c;
+   char buf[20];
+
+   //arg++;
+   __builtin_va_list vl;
+   __builtin_va_start(vl, format);
+
+   while ((c = *format++) != 0)
+     {
+       if (c != '%')
+         Gfx_PutChar(c);
+       else
+         {
+           char *p;
+
+           c = *format++;
+           switch (c)
+             {
+             case 'x':
+                buf[0] = '0';
+                buf[1] = 'x';
+                //itoa (buf + 2, c, *((int *) arg++));
+                itoa (buf + 2, c, __builtin_va_arg(vl, int));
+                p = buf;
+                goto string;
+                break;
+             case 'd':
+             case 'u':
+               //itoa (buf, c, *((int *) arg++));
+               itoa (buf, c, __builtin_va_arg(vl, int));
+               p = buf;
+               goto string;
+               break;
+
+             case 's':
+               //p = *arg++;
+               p = __builtin_va_arg(vl, char*);
+               if (! p)
+                 p = "(null)";
+
+             string:
+               while (*p)
+                 Gfx_PutChar(*p++);
+               break;
+
+             default:
+               //Screen_PutChar(*((int *) arg++));
+               Gfx_PutChar(__builtin_va_arg(vl, int));
+               break;
+             }
+         }
+     }
+  __builtin_va_end(vl);
+ }

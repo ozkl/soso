@@ -5,7 +5,7 @@
 
 void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerPixel, uint32 pitch);
 
-void Gfx_Putchar(
+void Gfx_PutCharAt(
     /* note that this is int, not char as it's a unicode character */
     unsigned short int c,
     /* cursor position on screen, in characters not in pixels */

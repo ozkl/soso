@@ -35,7 +35,9 @@ typedef unsigned int  size_t;
 #define KERN_NOTUSED_BEGIN      0x00C00000 //12 mb
 #define KERN_NOTUSED_END        0x01000000 //16 mb
 
-#define KERN_HEAP_BEGIN 		0x01000000 //16 mb
+#define GFX_MEMORY              0x01000000 //16 mb
+
+#define KERN_HEAP_BEGIN 		0x02000000 //32 mb
 #define KERN_HEAP_END    		0x40000000 // 1 gb
 
 
@@ -69,8 +71,6 @@ typedef unsigned int  size_t;
 //Of course libc should know this numbers :)
 
 #define	USER_STACK 			0xF0000000
-
-#define	VIDEO_MEMORY		0xFD000000
 
 void outb(uint16 port, uint8 value);
 void outw(uint16 port, uint16 value);
