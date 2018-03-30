@@ -166,14 +166,14 @@ static void setIdtEntry(uint8 num, uint32 base, uint16 sel, uint8 flags)
 
 static void handleDoubleFault(Registers *regs)
 {
-    Screen_PrintF("Double fault!!! Error code:%d\n", regs->errorCode);
+    printkf("Double fault!!! Error code:%d\n", regs->errorCode);
 
     PANIC("Double fault!!!");
 }
 
 static void handleGeneralProtectionFault(Registers *regs)
 {
-    Screen_PrintF("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
+    printkf("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
 
     Thread* faultingThread = getCurrentThread();
     if (NULL != faultingThread)
@@ -186,17 +186,17 @@ static void handleGeneralProtectionFault(Registers *regs)
         }
         else
         {
-            Screen_PrintF("Faulting thread is %d\n", faultingThread->threadId);
+            printkf("Faulting thread is %d\n", faultingThread->threadId);
 
             if (faultingThread->userMode)
             {
-                Screen_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+                printkf("Destroying process %d\n", faultingThread->owner->pid);
 
                 destroyProcess(faultingThread->owner);
             }
             else
             {
-                Screen_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
+                printkf("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }

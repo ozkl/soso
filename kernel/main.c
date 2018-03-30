@@ -123,41 +123,36 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeSerial();
 
-    Screen_PrintF("\n");
-    Screen_PrintF("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
-    Screen_PrintF("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
-
     uint32 memoryKb = 96*1024;
     initializeMemory(memoryKb);
 
-    Screen_PrintF("Memory initialized for %d MB\n", memoryKb / 1024);
-
-    Screen_PrintF("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
-
-    Screen_PrintF("Initial stack: %x\n", &stack);
-
-    Screen_PrintF("Kernel cmdline:");
-    if (0 != mboot_ptr->cmdline)
-    {
-        Screen_PrintF("%s", (char*)mboot_ptr->cmdline);
-    }
-    Screen_PrintF("\n");
-
     initializeVFS();
     initializeDevFS();
+
+    initializeTTYs();
+    //printkf works after TTY initialization
+
+    printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
+    printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
+    printkf("Memory initialized for %d MB\n", memoryKb / 1024);
+    printkf("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
+    printkf("Initial stack: %x\n", &stack);
+
     initializeSystemFS();
     initializePipes();
 
     initializeTasking();
 
     initialiseSyscalls();
-    Screen_PrintF("System calls initialized!\n");
 
     initializeTimer();
 
     initializeKeyboard();
 
-    initializeTTYs();
+    if (0 != mboot_ptr->cmdline)
+    {
+        printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
+    }
 
     Debug_initialize("/dev/tty10");
 
@@ -172,7 +167,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeFatFileSystem();
 
-    Screen_PrintF("System started!\n");
+    printkf("System started!\n");
 
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
@@ -185,13 +180,13 @@ int kmain(struct Multiboot *mboot_ptr)
     }
     else
     {
-        Screen_PrintF("Initrd found at %x (%d bytes)\n", initrdLocation, initrdSize);
+        printkf("Initrd found at %x (%d bytes)\n", initrdLocation, initrdSize);
         memcpy((uint8*)*(uint32*)getFileSystemNode("/dev/ramdisk1")->privateNodeData, initrdLocation, initrdSize);
         BOOL mountSuccess = mountFileSystem("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 
         if (mountSuccess)
         {
-            Screen_PrintF("Starting shell on TTYs\n");
+            printkf("Starting shell on TTYs\n");
 
             executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty1"));
             executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty2"));
@@ -200,7 +195,7 @@ int kmain(struct Multiboot *mboot_ptr)
         }
         else
         {
-            Screen_PrintF("Mounting initrd failed!\n");
+            printkf("Mounting initrd failed!\n");
         }
     }
 

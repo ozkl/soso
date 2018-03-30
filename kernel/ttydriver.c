@@ -1,5 +1,4 @@
 #include "ttydriver.h"
-#include "tty.h"
 #include "device.h"
 #include "screen.h"
 #include "serial.h"
@@ -14,8 +13,6 @@ static List* gTtyList = NULL;
 static List* gReaderList = NULL;
 
 static Tty* gActiveTty = NULL;
-
-static File* gKeyboard = NULL;
 
 static uint8 gKeyModifier = 0;
 
@@ -158,6 +155,11 @@ void initializeTTYs()
     Screen_ApplyColor(gActiveTty->color);
 }
 
+Tty* getActiveTTY()
+{
+    return gActiveTty;
+}
+
 void sendKeyInputToTTY(uint8 scancode)
 {
     beginCriticalSection();
@@ -274,16 +276,7 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer)
 {
     buffer[size] = '\0';
 
-    //Screen_PrintF("console_write\n");
-
-    //Tty_PrintF(file->node->privateNodeData, "%s", buffer);
-
-    const char* c = (const char*)buffer;
-    while (*c)
-    {
-        Tty_PutChar(file->node->privateNodeData, *c);
-        ++c;
-    }
+    Tty_PutText(file->node->privateNodeData, (const char*)buffer);
 
     if (gActiveTty == file->node->privateNodeData)
     {

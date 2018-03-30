@@ -103,6 +103,8 @@ int strlen(const char *src);
 int strFirstIndexOf(const char *src, char c);
 int sprintf(char* buffer, const char *format, ...);
 
+void printkf(const char *format, ...);
+
 int atoi(char *str);
 void itoa(char *buf, int base, int d);
 

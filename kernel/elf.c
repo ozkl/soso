@@ -30,7 +30,6 @@ uint32 loadElf(char *elfData)
 
     if (isElf(elfData)==FALSE)
     {
-        Screen_PrintF("INFO: load_elf(): not ELF format!\n");
         return 0;
     }
 
@@ -44,17 +43,17 @@ uint32 loadElf(char *elfData)
             v_end = p_entry->p_vaddr + p_entry->p_memsz;
             if (v_begin < USER_OFFSET)
             {
-                Screen_PrintF("INFO: load_elf(): can't load executable below %x\n", USER_OFFSET);
+                printkf("INFO: loadElf(): can't load executable below %x\n", USER_OFFSET);
                 return 0;
             }
 
             if (v_end > USER_STACK)
             {
-                Screen_PrintF("INFO: load_elf(): can't load executable above %x\n", USER_STACK);
+                printkf("INFO: loadElf(): can't load executable above %x\n", USER_STACK);
                 return 0;
             }
 
-            //Screen_PrintF("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);
+            //printkf("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);
 
 
             memcpy((uint8 *) v_begin, (uint8 *) (elfData + p_entry->p_offset), p_entry->p_filesz);

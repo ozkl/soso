@@ -26,6 +26,7 @@ void destroyTty(Tty* tty);
 void Tty_Print(Tty* tty, int row, int column, const char* text);
 void Tty_Clear(Tty* tty);
 void Tty_PutChar(Tty* tty, char c);
+void Tty_PutText(Tty* tty, const char* text);
 void Tty_MoveCursor(Tty* tty, uint16 line, uint16 column);
 void Tty_ScrollUp(Tty* tty);
 

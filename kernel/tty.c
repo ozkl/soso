@@ -151,6 +151,16 @@ void Tty_PutChar(Tty* tty, char c)
     Tty_MoveCursor(tty, tty->currentLine, tty->currentColumn);
 }
 
+void Tty_PutText(Tty* tty, const char* text)
+{
+    const char* c = text;
+    while (*c)
+    {
+        Tty_PutChar(tty, *c);
+        ++c;
+    }
+}
+
 void Tty_MoveCursor(Tty* tty, uint16 line, uint16 column)
 {
     tty->currentLine = line;

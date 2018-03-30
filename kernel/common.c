@@ -1,5 +1,6 @@
 #include "common.h"
 #include "screen.h"
+#include "ttydriver.h"
 
 static BOOL gInterruptsWereEnabled = FALSE;
 
@@ -277,17 +278,12 @@ void itoa (char *buf, int base, int d)
     }
 }
 
-int sprintf(char* buffer, const char *format, ...)
+int sprintf_va(char* buffer, const char *format, __builtin_va_list vl)
 {
-    char **arg = (char **) &format;
     char c;
     char buf[20];
 
     int bufferIndex = 0;
-
-    //arg++;
-    __builtin_va_list vl;
-    __builtin_va_start(vl, format);
 
     while ((c = *format++) != 0)
       {
@@ -337,30 +333,63 @@ int sprintf(char* buffer, const char *format, ...)
 
     buffer[bufferIndex] = '\0';
 
+    return bufferIndex;
+}
+
+int sprintf(char* buffer, const char *format, ...)
+{
+    int result = 0;
+
+    __builtin_va_list vl;
+    __builtin_va_start(vl, format);
+
+    result = sprintf_va(buffer, format, vl);
+
     __builtin_va_end(vl);
 
-    return bufferIndex;
+    return result;
+}
+
+void printkf(const char *format, ...)
+{
+    char buffer[1024];
+    buffer[0] = 'k';
+    buffer[1] = ':';
+    buffer[2] = 0;
+
+    Tty* tty = getActiveTTY();
+    if (tty)
+    {
+        __builtin_va_list vl;
+        __builtin_va_start(vl, format);
+
+        sprintf_va(buffer+2, format, vl);
+
+        __builtin_va_end(vl);
+
+        Tty_PutText(tty, buffer);
+    }
 }
 
 void panic(const char *message, const char *file, uint32 line)
 {
     disableInterrupts();
 
-    Screen_PrintF("PANIC:%s:%d:%s\n", file, line, message);
+    printkf("PANIC:%s:%d:%s\n", file, line, message);
 
     halt();
 }
 
 void warning(const char *message, const char *file, uint32 line)
 {
-    Screen_PrintF("WARNING:%s:%d:%s\n", file, line, message);
+    printkf("WARNING:%s:%d:%s\n", file, line, message);
 }
 
 void panic_assert(const char *file, uint32 line, const char *desc)
 {
     disableInterrupts();
 
-    Screen_PrintF("ASSERTION-FAILED:%s:%d:%s\n", file, line, desc);
+    printkf("ASSERTION-FAILED:%s:%d:%s\n", file, line, desc);
 
     halt();
 }

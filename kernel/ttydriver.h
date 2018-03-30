@@ -2,8 +2,10 @@
 #define TTYDRIVER_H
 
 #include "common.h"
+#include "tty.h"
 
 void initializeTTYs();
+Tty* getActiveTTY();
 
 void sendKeyInputToTTY(uint8 scancode);
 

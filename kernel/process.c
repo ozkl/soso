@@ -374,7 +374,7 @@ void destroyThread(Thread* thread)
     }
     else
     {
-        Screen_PrintF("Could not find previous thread for thread %d\n", thread->threadId);
+        printkf("Could not find previous thread for thread %d\n", thread->threadId);
         PANIC("This should not be happened!\n");
     }
 }

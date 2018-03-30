@@ -262,10 +262,10 @@ void Screen_PrintInterruptsEnabled()
 {
     if (isInterruptsEnabled())
     {
-        Screen_PrintF("Interrupts: enabled\n");
+        printkf("Interrupts: enabled\n");
     }
     else
     {
-        Screen_PrintF("Interrupts: disabled\n");
+        printkf("Interrupts: disabled\n");
     }
 }

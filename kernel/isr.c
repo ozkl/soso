@@ -24,8 +24,8 @@ void handleISR(Registers regs)
     }
     else
     {
-        Screen_PrintF("unhandled interrupt: %d\n", int_no);
-        Screen_PrintF("Tick: %d\n", gSystemTickCount);
+        printkf("unhandled interrupt: %d\n", int_no);
+        printkf("Tick: %d\n", gSystemTickCount);
         PANIC("unhandled interrupt");
     }
 }

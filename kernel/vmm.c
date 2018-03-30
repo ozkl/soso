@@ -96,8 +96,8 @@ char* getPageFrame4M()
             }
         }
     }
-    Screen_PrintF("Page status: %d/%d\n", getUsedPageCount(), getTotalPageCount());
-    //PANIC("Memory is full!");
+
+    PANIC("Memory is full!");
     return (char *) -1;
 }
 
@@ -364,20 +364,20 @@ static void printPageFaultInfo(uint32 faultingAddress, Registers *regs)
     int reserved = regs->errorCode & 0x8;
     int id = regs->errorCode & 0x10;
 
-    Screen_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
-    Screen_PrintF("The page was %s\n", present ? "present" : "not present");
+    printkf("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
+    printkf("The page was %s\n", present ? "present" : "not present");
 
     if (reserved)
     {
-        Screen_PrintF("Reserved bit was set\n");
+        printkf("Reserved bit was set\n");
     }
 
     if (id)
     {
-        Screen_PrintF("Caused by an instruction fetch\n");
+        printkf("Caused by an instruction fetch\n");
     }
 
-    Screen_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
+    printkf("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
 static void handlePageFault(Registers *regs)
@@ -388,8 +388,8 @@ static void handlePageFault(Registers *regs)
     uint32 faultingAddress;
     asm volatile("mov %%cr2, %0" : "=r" (faultingAddress));
 
-    Screen_PrintF("page_fault()\n");
-    Screen_PrintF("stack of handler is %x\n", &faultingAddress);
+    printkf("page_fault()\n");
+    printkf("stack of handler is %x\n", &faultingAddress);
 
     Thread* faultingThread = getCurrentThread();
     if (NULL != faultingThread)
@@ -406,17 +406,17 @@ static void handlePageFault(Registers *regs)
         {
             printPageFaultInfo(faultingAddress, regs);
 
-            Screen_PrintF("Faulting thread is %d\n", faultingThread->threadId);
+            printkf("Faulting thread is %d\n", faultingThread->threadId);
 
             if (faultingThread->userMode)
             {
-                Screen_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+                printkf("Destroying process %d\n", faultingThread->owner->pid);
 
                 destroyProcess(faultingThread->owner);
             }
             else
             {
-                Screen_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
+                printkf("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }

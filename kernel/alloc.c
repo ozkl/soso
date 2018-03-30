@@ -27,7 +27,7 @@ void *ksbrkPage(int n)
     int i;
 
     if ((gKernelHeap + (n * PAGESIZE_4M)) > (char *) KERN_HEAP_END) {
-        Screen_PrintF("ERROR: ksbrk(): no virtual memory left for kernel heap !\n");
+        //Screen_PrintF("ERROR: ksbrk(): no virtual memory left for kernel heap !\n");
         return (char *) -1;
     }
 
@@ -74,7 +74,7 @@ void *kmalloc(uint32 size)
     {
         if (chunk->size == 0)
         {
-            Screen_PrintF("\nPANIC: kmalloc(): corrupted chunk on %x with null size (heap %x) !\nSystem halted\n", chunk, gKernelHeap);
+            printkf("\nPANIC: kmalloc(): corrupted chunk on %x with null size (heap %x) !\nSystem halted\n", chunk, gKernelHeap);
 
             PANIC("kmalloc()");
 
@@ -94,7 +94,7 @@ void *kmalloc(uint32 size)
         }
         else if (chunk > (struct MallocHeader *) gKernelHeap)
         {
-            Screen_PrintF("\nPANIC: kmalloc(): chunk on %x while heap limit is on %x !\nSystem halted\n", chunk, gKernelHeap);
+            printkf("\nPANIC: kmalloc(): chunk on %x while heap limit is on %x !\nSystem halted\n", chunk, gKernelHeap);
 
             PANIC("kmalloc()");
 
