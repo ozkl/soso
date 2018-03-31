@@ -4,7 +4,7 @@
 #include "common.h"
 #include "tty.h"
 
-void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerPixel, uint32 pitch);
+void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch);
 
 void Gfx_PutCharAt(
     /* note that this is int, not char as it's a unicode character */
@@ -15,5 +15,11 @@ void Gfx_PutCharAt(
     uint32 fg, uint32 bg);
 
 void Gfx_FlushFromTty(Tty* tty);
+
+uint8* Gfx_GetVideoMemory();
+uint16 Gfx_GetWidth();
+uint16 Gfx_GetHeight();
+uint16 Gfx_GetBytesPerPixel();
+void Gfx_Fill(uint32 color);
 
 #endif // GFX_H

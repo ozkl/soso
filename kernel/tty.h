@@ -9,6 +9,7 @@
 typedef struct Tty Tty;
 
 typedef void (*TtyFlushScreenFunction)(Tty* tty);
+typedef void (*TtyUpdateFunction)(Tty* tty);
 
 typedef struct Tty
 {
@@ -18,11 +19,12 @@ typedef struct Tty
     uint16 currentLine;
     uint16 currentColumn;
     uint8 color;
-
+    void* privateData;
     uint8 lineBuffer[TTY_LINEBUFFER_SIZE];
     uint32 lineBufferIndex;
     FifoBuffer* keyBuffer;
     TtyFlushScreenFunction flushScreen;
+    TtyUpdateFunction update;
 } Tty;
 
 

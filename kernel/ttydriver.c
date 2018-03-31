@@ -8,6 +8,7 @@
 #include "list.h"
 #include "fifobuffer.h"
 #include "gfx.h"
+#include "desktopenvironment.h"
 
 static List* gTtyList = NULL;
 
@@ -125,13 +126,16 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer);
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode);
 static void processScancode(uint8 scancode);
 
+static void createDesktopEnvironmentTTY();
+static void updateDesktop(Tty* tty);
+
 void initializeTTYs()
 {
     gTtyList = List_Create();
 
     gReaderList = List_Create();
 
-    for (int i = 1; i <= 10; ++i)
+    for (int i = 1; i <= 9; ++i)
     {
         //Tty* tty = createTty(25, 80, Screen_FlushFromTty);
         Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
@@ -152,6 +156,28 @@ void initializeTTYs()
     }
 
     gActiveTty = List_GetFirstNode(gTtyList)->data;
+
+    createDesktopEnvironmentTTY();
+}
+
+static void createDesktopEnvironmentTTY()
+{
+    DesktopEnvironment* de = DE_GetDefault();
+    uint16 width = DE_GetWidth(de);
+    uint16 height = DE_GetHeight(de);
+
+    Tty* tty = createTty(height / 16, width / 9, NULL);
+    tty->color = 0x0A;
+    tty->privateData = de;
+    tty->update = updateDesktop;
+    List_Append(gTtyList, tty);
+
+    Device device;
+    memset((uint8*)&device, 0, sizeof(Device));
+    sprintf(device.name, "tty%s", "Desktop");
+    device.deviceType = FT_CharacterDevice;
+    device.privateData = tty;
+    registerDevice(&device);
 }
 
 Tty* getActiveTTY()
@@ -300,6 +326,11 @@ static void setActiveTty(Tty* tty)
     //Serial_PrintF("line:%d column:%d\r\n", gActiveTty->currentLine, gActiveTty->currentColumn);
 }
 
+static void updateDesktop(Tty* tty)
+{
+    DE_Update((DesktopEnvironment*)tty->privateData);
+}
+
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)
 {
     //return gKeyboardLayout[scancode];
@@ -316,7 +347,8 @@ static void applyModifierKeys(KeyModifier modifier, uint8 scancode)
     if ((modifier & KM_Ctrl) == KM_Ctrl)
     {
         int ttyIndex = scancode - KEY_F1;
-        int ttyCount = 10;
+        //printkf("TTY:%d\n", ttyIndex);
+        int ttyCount = List_GetCount(gTtyList);
         if (ttyIndex >= 0 && ttyIndex < ttyCount)
         {
             int i = 0;

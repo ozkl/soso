@@ -5,7 +5,7 @@
 
 static uint32 gWidth = 0;
 static uint32 gHeight = 0;
-static uint32 gBytePerPixel = 0;
+static uint32 gBytesPerPixel = 0;
 static uint32 gPitch = 0;
 static uint32* gPixels = NULL;
 
@@ -21,7 +21,7 @@ static uint16 gCurrentColumn = 0;
 
 #define LINE_HEIGHT 16
 
-void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerPixel, uint32 pitch)
+void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch)
 {
     char* p_address = (char*)pixels;
     char* v_address = (char*)GFX_MEMORY;
@@ -31,7 +31,7 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytePerP
     gPixels = (uint32*)v_address;
     gWidth = width;
     gHeight = height;
-    gBytePerPixel = bytePerPixel;
+    gBytesPerPixel = bytesPerPixel;
     gPitch = pitch;
 
     gLineCount = gHeight / LINE_HEIGHT;
@@ -127,7 +127,6 @@ void Gfx_PutCharAt(
 
 void Gfx_FlushFromTty(Tty* tty)
 {
-    //memcpy(videoStart, tty->buffer, SCREEN_LINE_COUNT * SCREEN_COLUMN_COUNT * 2);
     for (uint32 r = 0; r < tty->lineCount; ++r)
     {
         for (uint32 c = 0; c < tty->columnCount; ++c)
@@ -142,4 +141,35 @@ void Gfx_FlushFromTty(Tty* tty)
     }
 
     //Screen_MoveCursor(tty->currentLine, tty->currentColumn);
+}
+
+uint8* Gfx_GetVideoMemory()
+{
+    return (uint8*)gPixels;
+}
+
+uint16 Gfx_GetWidth()
+{
+    return gWidth;
+}
+
+uint16 Gfx_GetHeight()
+{
+    return gHeight;
+}
+
+uint16 Gfx_GetBytesPerPixel()
+{
+    return gBytesPerPixel;
+}
+
+void Gfx_Fill(uint32 color)
+{
+    for (uint32 y = 0; y < gHeight; ++y)
+    {
+        for (uint32 x = 0; x < gWidth; ++x)
+        {
+            gPixels[x + y * gWidth] = color;
+        }
+    }
 }

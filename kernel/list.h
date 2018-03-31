@@ -28,6 +28,7 @@ ListNode* List_GetFirstNode(List* list);
 ListNode* List_GetLastNode(List* list);
 ListNode* List_FindFirstOccurrence(List* list, void* data);
 int List_FindFirstOccurrenceIndex(List* list, void* data);
+int List_GetCount(List* list);
 void List_RemoveNode(List* list, ListNode* node);
 void List_RemoveFirstNode(List* list);
 void List_RemoveLastNode(List* list);

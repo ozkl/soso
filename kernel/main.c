@@ -23,6 +23,7 @@
 #include "vbe.h"
 #include "fifobuffer.h"
 #include "gfx.h"
+#include "desktopenvironment.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -125,6 +126,8 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeDevFS();
 
     Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
+    DesktopEnvironment* desktopEnvironment = DE_Create(mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height);
+    DE_SetDefault(desktopEnvironment);
 
     initializeTTYs();
     //printkf works after TTY initialization
@@ -151,7 +154,7 @@ int kmain(struct Multiboot *mboot_ptr)
         printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
     }
 
-    Debug_initialize("/dev/tty10");
+    Debug_initialize("/dev/tty9");
 
     Serial_PrintF("pitch:%d\n", mboot_ptr->framebuffer_pitch);
 
@@ -203,7 +206,13 @@ int kmain(struct Multiboot *mboot_ptr)
 
     while(TRUE)
     {
-        printUsageInfo();
+        //printUsageInfo();
+
+        Tty* tty = getActiveTTY();
+        if (tty && tty->update)
+        {
+            tty->update(tty);
+        }
 
         halt();
     }

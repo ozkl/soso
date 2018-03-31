@@ -125,6 +125,18 @@ int List_FindFirstOccurrenceIndex(List* list, void* data)
     return -1;
 }
 
+int List_GetCount(List* list)
+{
+    int result = 0;
+
+    List_Foreach(n, list)
+    {
+        ++result;
+    }
+
+    return result;
+}
+
 void List_RemoveNode(List* list, ListNode* node)
 {
     if (NULL == node)
