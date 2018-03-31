@@ -104,8 +104,17 @@ void Gfx_PutCharAt(
         line=offs;
         mask=1<<(font->width-1);
         /* display a row */
-        for(x=0;x<font->width;x++){
-            *((uint32*)((uint8*)gPixels + line)) = ((int)*glyph) & (mask) ? fg : bg;
+        for(x=0;x<font->width;x++)
+        {
+            if (c == 0)
+            {
+                *((uint32*)((uint8*)gPixels + line)) = bg;
+            }
+            else
+            {
+                *((uint32*)((uint8*)gPixels + line)) = ((int)*glyph) & (mask) ? fg : bg;
+            }
+
             /* adjust to the next pixel */
             mask >>= 1;
             line += 4;
@@ -116,152 +125,21 @@ void Gfx_PutCharAt(
     }
 }
 
-void Gfx_ScrollUp()
+void Gfx_FlushFromTty(Tty* tty)
 {
-    uint32* videoLine = gPixels;
-    uint32* videoLineNext = gPixels;
-
-    int line = 0;
-    int column = 0;
-
-    for (line = 0; line < gLineCount - 1; ++line)
+    //memcpy(videoStart, tty->buffer, SCREEN_LINE_COUNT * SCREEN_COLUMN_COUNT * 2);
+    for (uint32 r = 0; r < tty->lineCount; ++r)
     {
-        for (column = 0; column < gColumnCount; ++column)
+        for (uint32 c = 0; c < tty->columnCount; ++c)
         {
-            videoLine = gPixels + (line * gColumnCount + column);
-            videoLineNext = gPixels + ((line + 1) * gColumnCount + column);
+            uint8* ttyPos = tty->buffer + (r * tty->columnCount + c) * 2;
 
-            *videoLine = *videoLineNext;
+            uint8 chr = ttyPos[0];
+            uint8 color = ttyPos[1];
+
+            Gfx_PutCharAt(chr, c, r, 0, 0xFFFFFFFF);
         }
     }
 
-    //TODO: below
-    //Last line should be empty.
-    /*
-    for (line = gLineCount - LINE_HEIGHT; line < gLineCount - 1; ++line)
-    {
-        uint32* lastLine = gPixels + (line * gColumnCount);
-        for (int i = 0; i < gColumnCount; ++i)
-        {
-            lastLine[i] = 0;
-        }
-    }
-    */
+    //Screen_MoveCursor(tty->currentLine, tty->currentColumn);
 }
-
-void Gfx_PutChar(char c)
-{
-    if ('\n' == c || '\r' == c)
-    {
-        ++gCurrentLine;
-        gCurrentColumn = 0;
-
-        if (gCurrentLine >= gLineCount - 0)
-        {
-            --gCurrentLine;
-            Gfx_ScrollUp();
-        }
-
-        //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
-        return;
-    }
-    else if ('\b' == c)
-    {
-        if (gCurrentColumn > 0)
-        {
-            --gCurrentColumn;
-            c = '\0';
-            Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
-            //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
-            return;
-        }
-        else if (gCurrentColumn == 0)
-        {
-            if (gCurrentLine > 0)
-            {
-                --gCurrentLine;
-                gCurrentColumn = gColumnCount - 1;
-                c = '\0';
-                Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
-                //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
-                return;
-            }
-        }
-    }
-
-    if (gCurrentColumn >= gColumnCount)
-    {
-        ++gCurrentLine;
-        gCurrentColumn = 0;
-    }
-
-    if (gCurrentLine >= gLineCount - 0)
-    {
-        --gCurrentLine;
-        Gfx_ScrollUp();
-    }
-
-    Gfx_PutCharAt(c, gCurrentColumn, gCurrentLine, 0, 0xFFFFFFFF);
-
-    ++gCurrentColumn;
-
-    //Screen_MoveCursor(gCurrentLine, gCurrentColumn);
-}
-
- void Gfx_PrintF(const char *format, ...)
- {
-   char **arg = (char **) &format;
-   char c;
-   char buf[20];
-
-   //arg++;
-   __builtin_va_list vl;
-   __builtin_va_start(vl, format);
-
-   while ((c = *format++) != 0)
-     {
-       if (c != '%')
-         Gfx_PutChar(c);
-       else
-         {
-           char *p;
-
-           c = *format++;
-           switch (c)
-             {
-             case 'x':
-                buf[0] = '0';
-                buf[1] = 'x';
-                //itoa (buf + 2, c, *((int *) arg++));
-                itoa (buf + 2, c, __builtin_va_arg(vl, int));
-                p = buf;
-                goto string;
-                break;
-             case 'd':
-             case 'u':
-               //itoa (buf, c, *((int *) arg++));
-               itoa (buf, c, __builtin_va_arg(vl, int));
-               p = buf;
-               goto string;
-               break;
-
-             case 's':
-               //p = *arg++;
-               p = __builtin_va_arg(vl, char*);
-               if (! p)
-                 p = "(null)";
-
-             string:
-               while (*p)
-                 Gfx_PutChar(*p++);
-               break;
-
-             default:
-               //Screen_PutChar(*((int *) arg++));
-               Gfx_PutChar(__builtin_va_arg(vl, int));
-               break;
-             }
-         }
-     }
-  __builtin_va_end(vl);
- }

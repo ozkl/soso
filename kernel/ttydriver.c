@@ -7,6 +7,7 @@
 #include "common.h"
 #include "list.h"
 #include "fifobuffer.h"
+#include "gfx.h"
 
 static List* gTtyList = NULL;
 
@@ -132,7 +133,8 @@ void initializeTTYs()
 
     for (int i = 1; i <= 10; ++i)
     {
-        Tty* tty = createTty(25, 80, Screen_FlushFromTty);
+        //Tty* tty = createTty(25, 80, Screen_FlushFromTty);
+        Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
         tty->color = 0x0A;
 
         List_Append(gTtyList, tty);

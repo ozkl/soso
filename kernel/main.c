@@ -116,8 +116,6 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeDescriptorTables();
 
-    //Screen_Clear();
-
     initializeSerial();
 
     uint32 memoryKb = 96*1024;
@@ -125,6 +123,8 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeVFS();
     initializeDevFS();
+
+    Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
 
     initializeTTYs();
     //printkf works after TTY initialization
@@ -154,9 +154,6 @@ int kmain(struct Multiboot *mboot_ptr)
     Debug_initialize("/dev/tty10");
 
     Serial_PrintF("pitch:%d\n", mboot_ptr->framebuffer_pitch);
-
-    //Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
-    //Gfx_PutCharAt('a', 10, 10, 255 << 16, 0xFFFFFFFF);
 
     initializeRandom();
 
