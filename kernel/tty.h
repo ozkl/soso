@@ -6,6 +6,10 @@
 
 #define TTY_LINEBUFFER_SIZE 1024
 
+typedef struct Tty Tty;
+
+typedef void (*TtyFlushScreenFunction)(Tty* tty);
+
 typedef struct Tty
 {
     uint16 lineCount;
@@ -18,9 +22,12 @@ typedef struct Tty
     uint8 lineBuffer[TTY_LINEBUFFER_SIZE];
     uint32 lineBufferIndex;
     FifoBuffer* keyBuffer;
+    TtyFlushScreenFunction flushScreen;
 } Tty;
 
-Tty* createTty(uint16 lineCount, uint16 columnCount);
+
+
+Tty* createTty(uint16 lineCount, uint16 columnCount, TtyFlushScreenFunction flushFunction);
 void destroyTty(Tty* tty);
 
 void Tty_Print(Tty* tty, int row, int column, const char* text);

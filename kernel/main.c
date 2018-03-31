@@ -48,31 +48,28 @@ void printUsageInfo()
 {
     char buffer[164];
 
-    while (TRUE)
+    sprintf(buffer, "Used kheap:%d", getKernelHeapUsed());
+    Screen_Print(0, 60, buffer);
+
+    sprintf(buffer, "Pages:%d/%d       ", getUsedPageCount(), getTotalPageCount());
+    Screen_Print(1, 60, buffer);
+
+    sprintf(buffer, "Uptime:%d sec   ", getUptimeSeconds());
+    Screen_Print(2, 60, buffer);
+
+    Thread* p = getMainKernelThread();
+
+    int line = 3;
+    sprintf(buffer, "[idle]   cs:%d   ", p->totalContextSwitchCount);
+    Screen_Print(line++, 60, buffer);
+    p = p->next;
+    while (p != NULL)
     {
-        sprintf(buffer, "Used kheap:%d", getKernelHeapUsed());
-        Screen_Print(0, 60, buffer);
+        sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->totalContextSwitchCount);
 
-        sprintf(buffer, "Pages:%d/%d       ", getUsedPageCount(), getTotalPageCount());
-        Screen_Print(1, 60, buffer);
-
-        sprintf(buffer, "Uptime:%d sec   ", getUptimeSeconds());
-        Screen_Print(2, 60, buffer);
-
-        Thread* p = getMainKernelThread();
-
-        int line = 3;
-        sprintf(buffer, "[idle]   cs:%d   ", p->totalContextSwitchCount);
         Screen_Print(line++, 60, buffer);
+
         p = p->next;
-        while (p != NULL)
-        {
-            sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->totalContextSwitchCount);
-
-            Screen_Print(line++, 60, buffer);
-
-            p = p->next;
-        }
     }
 }
 
@@ -119,7 +116,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeDescriptorTables();
 
-    Screen_Clear();
+    //Screen_Clear();
 
     initializeSerial();
 
@@ -207,7 +204,7 @@ int kmain(struct Multiboot *mboot_ptr)
     enableInterrupts();
 
 
-    while(1)
+    while(TRUE)
     {
         printUsageInfo();
 

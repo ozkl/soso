@@ -82,7 +82,10 @@ int syscall_read(int fd, void *buf, int nbytes)
             {
                 //Debug_PrintF("syscall_read(%d): %s\n", process->pid, buf);
 
-                enableInterrupts();
+                //enableInterrupts();
+
+                //Each handler is free to enable interrupts.
+                //We don't enable them here.
 
                 return read_fs(file, nbytes, buf);
             }

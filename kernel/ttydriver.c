@@ -132,7 +132,7 @@ void initializeTTYs()
 
     for (int i = 1; i <= 10; ++i)
     {
-        Tty* tty = createTty(25, 80);
+        Tty* tty = createTty(25, 80, Screen_FlushFromTty);
         tty->color = 0x0A;
 
         List_Append(gTtyList, tty);
@@ -150,9 +150,6 @@ void initializeTTYs()
     }
 
     gActiveTty = List_GetFirstNode(gTtyList)->data;
-    Screen_CopyTo(gActiveTty->buffer);
-    Screen_GetCursor(&(gActiveTty->currentLine), &(gActiveTty->currentColumn));
-    Screen_ApplyColor(gActiveTty->color);
 }
 
 Tty* getActiveTTY()
@@ -280,8 +277,10 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer)
 
     if (gActiveTty == file->node->privateNodeData)
     {
-        Screen_CopyFrom(gActiveTty->buffer);
-        Screen_MoveCursor(gActiveTty->currentLine, gActiveTty->currentColumn);
+        if (gActiveTty->flushScreen)
+        {
+            gActiveTty->flushScreen(gActiveTty);
+        }
     }
 
     return size;
@@ -289,16 +288,12 @@ static int32 tty_write(File *file, uint32 size, uint8 *buffer)
 
 static void setActiveTty(Tty* tty)
 {
-    Screen_Clear();
-
-    Screen_CopyFrom(tty->buffer);
-
-    Screen_ApplyColor(tty->color);
-
-    Screen_MoveCursor(tty->currentLine, tty->currentColumn);
-
-
     gActiveTty = tty;
+
+    if (tty->flushScreen)
+    {
+        tty->flushScreen(tty);
+    }
 
     //Serial_PrintF("line:%d column:%d\r\n", gActiveTty->currentLine, gActiveTty->currentColumn);
 }

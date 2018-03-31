@@ -368,6 +368,11 @@ void printkf(const char *format, ...)
         __builtin_va_end(vl);
 
         Tty_PutText(tty, buffer);
+
+        if (tty->flushScreen)
+        {
+            tty->flushScreen(tty);
+        }
     }
 }
 

@@ -1,9 +1,11 @@
 #include "tty.h"
 #include "alloc.h"
 
-Tty* createTty(uint16 lineCount, uint16 columnCount)
+Tty* createTty(uint16 lineCount, uint16 columnCount, TtyFlushScreenFunction flushFunction)
 {
     Tty* tty = kmalloc(sizeof(Tty));
+    memset((uint8*)tty, 0, sizeof(Tty));
+
     tty->lineCount = lineCount;
     tty->columnCount = columnCount;
     tty->buffer = kmalloc(tty->lineCount * tty->columnCount * 2);
@@ -14,6 +16,7 @@ Tty* createTty(uint16 lineCount, uint16 columnCount)
     memset(tty->lineBuffer, 0, TTY_LINEBUFFER_SIZE);
     tty->lineBufferIndex = 0;
     tty->keyBuffer = FifoBuffer_create(64);
+    tty->flushScreen = flushFunction;
 
     Tty_Clear(tty);
 
