@@ -2,6 +2,8 @@
 #include "alloc.h"
 #include "gfx.h"
 
+static uint16 gTitleBarHeight = 20;
+
 typedef struct DesktopEnvironment DesktopEnvironment;
 
 typedef struct Window
@@ -20,6 +22,7 @@ typedef struct DesktopEnvironment
 {
     uint16 width;
     uint16 height;
+    uint8* buffer;
     List* windows;
 } DesktopEnvironment;
 
@@ -41,6 +44,8 @@ DesktopEnvironment* DE_Create(uint16 width, uint16 height)
     memset((uint8*)de, 0, sizeof(DesktopEnvironment));
     de->width = width;
     de->height = height;
+    de->buffer = kmalloc(width * height * 4);
+    memset(de->buffer, 0, sizeof(width * height * 4));
     de->windows = List_Create();
 
     return de;
@@ -70,6 +75,24 @@ void DE_DestroyWindow(Window* window)
     kfree(window);
 }
 
+void DE_SetWindowPosition(Window* window, uint16 x, uint16 y)
+{
+    window->x = x;
+    window->y = y;
+}
+
+void DE_MoveWindowToTop(Window* window)
+{
+    ListNode* node = List_FindFirstOccurrence(window->desktopEnvironment->windows, window);
+
+    if (node)
+    {
+        List_RemoveNode(window->desktopEnvironment->windows, node);
+
+        List_Append(window->desktopEnvironment->windows, window);
+    }
+}
+
 uint16 DE_GetWidth(DesktopEnvironment* de)
 {
     return de->width;
@@ -82,19 +105,36 @@ uint16 DE_GetHeight(DesktopEnvironment* de)
 
 void DE_Update(DesktopEnvironment* de)
 {
-    uint32* videoMemory = (uint32*)Gfx_GetVideoMemory();
+    uint8* videoMemory = Gfx_GetVideoMemory();
 
-    Gfx_Fill(0xFF999999);
+    uint32* backBuffer = (uint32*)de->buffer;
+
+    //Background
+    memset((uint8*)backBuffer, 0x99, de->width * de->height * 4);
 
     List_Foreach(n, de->windows)
     {
         Window* window = (Window*)n->data;
 
-        for (int y = 0; y < window->height; ++y)
+        for (int y = 0; y < window->height + gTitleBarHeight; ++y)
         {
-            uint8* line = window->buffer + y * window->width * 4;
+            uint32* lineStart = backBuffer + (window->y + y) * de->width + window->x;
 
-            memcpy((uint8*)(videoMemory + window->y * window->width + window->x), line, window->width * 4);
+            if (y < gTitleBarHeight) //titleBar
+            {
+                for (int x = 0; x < window->width; ++x)
+                {
+                    lineStart[x] = 0x000094FF;
+                }
+            }
+            else
+            {
+                uint8* windowLine = window->buffer + (y - gTitleBarHeight) * window->width * 4;
+
+                memcpy((uint8*)lineStart, windowLine, window->width * 4);
+            }
         }
     }
+
+    memcpy(videoMemory, (uint8*)backBuffer, de->width * de->height * 4);
 }

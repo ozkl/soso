@@ -166,7 +166,11 @@ int kmain(struct Multiboot *mboot_ptr)
 
     printkf("System started!\n");
 
-    Window* win = DE_CreateWindow(desktopEnvironment, 300, 200, getMainKernelThread());
+    Window* win = DE_CreateWindow(desktopEnvironment, 400, 300, getMainKernelThread());
+    DE_SetWindowPosition(win, 100, 200);
+    Window* win2 = DE_CreateWindow(desktopEnvironment, 400, 300, getMainKernelThread());
+    DE_SetWindowPosition(win2, 200, 280);
+    //DE_MoveWindowToTop(win);
 
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
