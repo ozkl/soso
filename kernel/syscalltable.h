@@ -31,6 +31,7 @@ enum
     SYS_setWorkingDirectory,
     SYS_managePipe,
     SYS_readDir,
+    SYS_manageWindow,
 
     SYSCALL_COUNT
 };

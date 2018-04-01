@@ -217,7 +217,12 @@ int kmain(struct Multiboot *mboot_ptr)
         Tty* tty = getActiveTTY();
         if (tty && tty->update)
         {
+            //Disabling interrupts here to save window structures from multiple access
+            disableInterrupts();
+
             tty->update(tty);
+
+            enableInterrupts();
         }
 
         halt();

@@ -1,6 +1,7 @@
 #include "desktopenvironment.h"
 #include "alloc.h"
 #include "gfx.h"
+#include "debugprint.h"
 
 static uint16 gTitleBarHeight = 20;
 
@@ -103,8 +104,16 @@ uint16 DE_GetHeight(DesktopEnvironment* de)
     return de->height;
 }
 
-void DE_Update(DesktopEnvironment* de)
+void DE_Update(Tty* tty, DesktopEnvironment* de)
 {
+    if (FifoBuffer_isEmpty(tty->keyBuffer) == FALSE)
+    {
+        uint8 key = 0;
+        FifoBuffer_dequeue(tty->keyBuffer, &key, 1);
+        //Debug_PrintF("Desktop Key:%d\n", key);
+
+        //TODO: send key event to eventqueue of active window's thread if that eventqueue has enough room
+    }
     uint8* videoMemory = Gfx_GetVideoMemory();
 
     uint32* backBuffer = (uint32*)de->buffer;

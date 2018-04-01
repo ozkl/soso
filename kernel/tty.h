@@ -10,6 +10,7 @@ typedef struct Tty Tty;
 
 typedef void (*TtyFlushScreenFunction)(Tty* tty);
 typedef void (*TtyUpdateFunction)(Tty* tty);
+typedef void (*TtyChangeFunction)(Tty* tty);
 
 typedef struct Tty
 {
@@ -25,6 +26,7 @@ typedef struct Tty
     FifoBuffer* keyBuffer;
     TtyFlushScreenFunction flushScreen;
     TtyUpdateFunction update;
+    TtyChangeFunction change;
 } Tty;
 
 

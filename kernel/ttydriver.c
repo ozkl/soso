@@ -141,6 +141,7 @@ void initializeTTYs(BOOL graphicMode)
         if (graphicMode)
         {
             tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
+            tty->change = Gfx_ChangeTty;
         }
         else
         {
@@ -329,6 +330,11 @@ static void setActiveTty(Tty* tty)
 {
     gActiveTty = tty;
 
+    if (tty->change)
+    {
+        tty->change(tty);
+    }
+
     if (tty->flushScreen)
     {
         tty->flushScreen(tty);
@@ -339,7 +345,7 @@ static void setActiveTty(Tty* tty)
 
 static void updateDesktop(Tty* tty)
 {
-    DE_Update((DesktopEnvironment*)tty->privateData);
+    DE_Update(tty, (DesktopEnvironment*)tty->privateData);
 }
 
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)

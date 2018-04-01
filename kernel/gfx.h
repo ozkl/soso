@@ -15,6 +15,7 @@ void Gfx_PutCharAt(
     uint32 fg, uint32 bg);
 
 void Gfx_FlushFromTty(Tty* tty);
+void Gfx_ChangeTty(Tty* tty);
 
 uint8* Gfx_GetVideoMemory();
 uint16 Gfx_GetWidth();

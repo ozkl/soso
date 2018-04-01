@@ -125,6 +125,11 @@ void Gfx_PutCharAt(
     }
 }
 
+void Gfx_ChangeTty(Tty* tty)
+{
+    Gfx_Fill(0xFFFFFFFF);
+}
+
 void Gfx_FlushFromTty(Tty* tty)
 {
     for (uint32 r = 0; r < tty->lineCount; ++r)
