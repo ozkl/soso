@@ -35,6 +35,8 @@ kernel/isr.h
 kernel/keyboard.c
 kernel/keyboard.h
 kernel/main.c
+kernel/mouse.c
+kernel/mouse.h
 kernel/multiboot.h
 kernel/process.c
 kernel/process.h

@@ -24,6 +24,7 @@
 #include "fifobuffer.h"
 #include "gfx.h"
 #include "desktopenvironment.h"
+#include "mouse.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -148,6 +149,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeTimer();
 
     initializeKeyboard();
+    //initializeMouse();
 
     if (0 != mboot_ptr->cmdline)
     {
