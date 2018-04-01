@@ -94,6 +94,11 @@ void DE_MoveWindowToTop(Window* window)
     }
 }
 
+void DE_CopyToWindowBuffer(Window* window, const uint8* buffer)
+{
+    memcpy(window->buffer, buffer, window->width * window->height * 4);
+}
+
 uint16 DE_GetWidth(DesktopEnvironment* de)
 {
     return de->width;

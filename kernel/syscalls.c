@@ -727,6 +727,9 @@ int syscall_manageWindow(int command, int parameter1, int parameter2, int parame
     case 2:
         DE_SetWindowPosition((Window*)parameter1, parameter2, parameter3);
         break;
+    case 3:
+        DE_CopyToWindowBuffer((Window*)parameter1, (const uint8*)parameter2);
+        break;
     default:
         break;
     }

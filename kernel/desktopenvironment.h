@@ -20,5 +20,6 @@ Window* DE_CreateWindow(DesktopEnvironment* de, uint16 width, uint16 height, Thr
 void DE_DestroyWindow(Window* window);
 void DE_SetWindowPosition(Window* window, uint16 x, uint16 y);
 void DE_MoveWindowToTop(Window* window);
+void DE_CopyToWindowBuffer(Window* window, const uint8* buffer);
 
 #endif // DESKTOPENVIRONMENT_H
