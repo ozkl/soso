@@ -89,5 +89,12 @@ void DE_Update(DesktopEnvironment* de)
     List_Foreach(n, de->windows)
     {
         Window* window = (Window*)n->data;
+
+        for (int y = 0; y < window->height; ++y)
+        {
+            uint8* line = window->buffer + y * window->width * 4;
+
+            memcpy((uint8*)(videoMemory + window->y * window->width + window->x), line, window->width * 4);
+        }
     }
 }

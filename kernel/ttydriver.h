@@ -4,7 +4,7 @@
 #include "common.h"
 #include "tty.h"
 
-void initializeTTYs();
+void initializeTTYs(BOOL graphicMode);
 Tty* getActiveTTY();
 
 void sendKeyInputToTTY(uint8 scancode);

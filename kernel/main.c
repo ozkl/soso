@@ -129,7 +129,7 @@ int kmain(struct Multiboot *mboot_ptr)
     DesktopEnvironment* desktopEnvironment = DE_Create(mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height);
     DE_SetDefault(desktopEnvironment);
 
-    initializeTTYs();
+    initializeTTYs(TRUE);
     //printkf works after TTY initialization
 
     printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
@@ -165,6 +165,8 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeFatFileSystem();
 
     printkf("System started!\n");
+
+    Window* win = DE_CreateWindow(desktopEnvironment, 300, 200, getMainKernelThread());
 
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};

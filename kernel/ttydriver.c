@@ -129,7 +129,7 @@ static void processScancode(uint8 scancode);
 static void createDesktopEnvironmentTTY();
 static void updateDesktop(Tty* tty);
 
-void initializeTTYs()
+void initializeTTYs(BOOL graphicMode)
 {
     gTtyList = List_Create();
 
@@ -137,8 +137,16 @@ void initializeTTYs()
 
     for (int i = 1; i <= 9; ++i)
     {
-        //Tty* tty = createTty(25, 80, Screen_FlushFromTty);
-        Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
+        Tty* tty = NULL;
+        if (graphicMode)
+        {
+            tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
+        }
+        else
+        {
+            tty = createTty(25, 80, Screen_FlushFromTty);
+        }
+
         tty->color = 0x0A;
 
         List_Append(gTtyList, tty);
@@ -157,7 +165,10 @@ void initializeTTYs()
 
     gActiveTty = List_GetFirstNode(gTtyList)->data;
 
-    createDesktopEnvironmentTTY();
+    if (graphicMode)
+    {
+        createDesktopEnvironmentTTY();
+    }
 }
 
 static void createDesktopEnvironmentTTY()
