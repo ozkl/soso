@@ -388,8 +388,8 @@ static void handlePageFault(Registers *regs)
     uint32 faultingAddress;
     asm volatile("mov %%cr2, %0" : "=r" (faultingAddress));
 
-    Debug_PrintF("page_fault()\n");
-    Debug_PrintF("stack of handler is %x\n", &faultingAddress);
+    //Debug_PrintF("page_fault()\n");
+    //Debug_PrintF("stack of handler is %x\n", &faultingAddress);
 
     Thread* faultingThread = getCurrentThread();
     if (NULL != faultingThread)

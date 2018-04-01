@@ -17,6 +17,8 @@ int main(int argc, char** argv)
     int line = 0;
     while (1)
     {
+        sleepMilliseconds(10);
+
         ++i;
         sprintf(text, "%d : %d", i, getUptimeMilliseconds());
         for (int index = 0; text[index] != 0; ++index)

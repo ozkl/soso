@@ -2,6 +2,7 @@
 #include "alloc.h"
 #include "gfx.h"
 #include "debugprint.h"
+#include "ttydriver.h"
 
 static uint16 gTitleBarHeight = 20;
 
@@ -126,7 +127,11 @@ void DE_Update(Tty* tty, DesktopEnvironment* de)
     //Background
     memset((uint8*)backBuffer, 0x99, de->width * de->height * 4);
 
-    List_Foreach(n, de->windows)
+    beginCriticalSection();
+    List* windowList = List_CreateClone(de->windows);
+    endCriticalSection();
+
+    List_Foreach(n, windowList)
     {
         Window* window = (Window*)n->data;
 
@@ -150,5 +155,11 @@ void DE_Update(Tty* tty, DesktopEnvironment* de)
         }
     }
 
-    memcpy(videoMemory, (uint8*)backBuffer, de->width * de->height * 4);
+    List_Destroy(windowList);
+
+    //Are we still the active TTY?
+    if (getActiveTTY() == tty)
+    {
+        memcpy(videoMemory, (uint8*)backBuffer, de->width * de->height * 4);
+    }
 }

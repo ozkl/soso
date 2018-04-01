@@ -25,6 +25,7 @@
 #include "gfx.h"
 #include "desktopenvironment.h"
 #include "mouse.h"
+#include "sleep.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -211,22 +212,26 @@ int kmain(struct Multiboot *mboot_ptr)
 
     enableInterrupts();
 
+    uint32 uptime = getUptimeMilliseconds();
 
     while(TRUE)
     {
         //printUsageInfo();
 
-        //printkf("up:%d\n", getUptimeMilliseconds());
 
-        Tty* tty = getActiveTTY();
-        if (tty && tty->update)
+
+        //Not working somehow?
+        //sleepMilliseconds(getCurrentThread(), 500);
+
+        if (uptime + 30 <= getUptimeMilliseconds())
         {
-            //Disabling interrupts here to save window structures from multiple access
-            disableInterrupts();
+            Tty* tty = getActiveTTY();
+            if (tty && tty->update)
+            {
+                tty->update(tty);
+            }
 
-            tty->update(tty);
-
-            enableInterrupts();
+            uptime = getUptimeMilliseconds();
         }
 
         halt();

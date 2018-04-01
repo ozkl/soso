@@ -21,6 +21,7 @@ typedef struct List
 List* List_Create();
 void List_Clear(List* list);
 void List_Destroy(List* list);
+List* List_CreateClone(List* list);
 BOOL List_IsEmpty(List* list);
 void List_Append(List* list, void* data);
 void List_Prepend(List* list, void* data);

@@ -35,6 +35,18 @@ void List_Destroy(List* list)
     kfree(list);
 }
 
+List* List_CreateClone(List* list)
+{
+    List* newList = List_Create();
+
+    List_Foreach(n, list)
+    {
+        List_Append(newList, n->data);
+    }
+
+    return newList;
+}
+
 BOOL List_IsEmpty(List* list)
 {
     //At empty state, both head and tail are null!
