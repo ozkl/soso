@@ -87,7 +87,7 @@ struct Thread
     uint32 totalContextSwitchCount;
     uint32 totalContextSwitchCountPrevious;
 
-    void* waitingIO_privateData;
+    void* state_privateData;
 
     struct Thread* next;
 

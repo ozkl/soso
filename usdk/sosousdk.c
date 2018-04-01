@@ -1,3 +1,19 @@
+#include "sosousdk.h"
+#include "../kernel/syscalltable.h"
+
+static int syscall0(int num)
+{
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num));
+  return a;
+}
+
+static int syscall1(int num, int p1)
+{
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1));
+  return a;
+}
 
 static int syscall4(int num, int p1, int p2, int p3, int p4)
 {
@@ -8,7 +24,7 @@ static int syscall4(int num, int p1, int p2, int p3, int p4)
 
 static int manageWindow(int command, int parameter1, int parameter2, int parameter3)
 {
-    return syscall4(25, command, parameter1, parameter2, parameter3);
+    return syscall4(SYS_manageWindow, command, parameter1, parameter2, parameter3);
 }
 
 unsigned int createWindow(unsigned short width, unsigned short height)
@@ -29,6 +45,16 @@ void setWindowPosition(unsigned int windowHandle, unsigned short x, unsigned sho
 void copyToWindowBuffer(unsigned int windowHandle, const char* buffer)
 {
     manageWindow(3, (int)windowHandle, (int)buffer, 0);
+}
+
+unsigned int getUptimeMilliseconds()
+{
+    return syscall0(SYS_getUptimeMilliseconds);
+}
+
+void sleepMilliseconds(unsigned int ms)
+{
+    syscall1(SYS_sleepMilliseconds, ms);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572

@@ -212,10 +212,10 @@ void sendKeyInputToTTY(uint8 scancode)
 
         if (file->thread->state == TS_WAITIO)
         {
-            if (file->thread->waitingIO_privateData == gActiveTty)
+            if (file->thread->state_privateData == gActiveTty)
             {
                 file->thread->state = TS_RUN;
-                file->thread->waitingIO_privateData = NULL;
+                file->thread->state_privateData = NULL;
             }
         }
     }
@@ -252,7 +252,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
             while (FifoBuffer_isEmpty(tty->keyBuffer) || tty != gActiveTty)
             {
                 file->thread->state = TS_WAITIO;
-                file->thread->waitingIO_privateData = tty;
+                file->thread->state_privateData = tty;
                 enableInterrupts();
                 halt();
             }

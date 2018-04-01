@@ -76,7 +76,7 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
     while (readIndex == gKeyBufferWriteIndex)
     {
         file->thread->state = TS_WAITIO;
-        file->thread->waitingIO_privateData = keyboard_read;
+        file->thread->state_privateData = keyboard_read;
         enableInterrupts();
         halt();
     }
@@ -113,10 +113,10 @@ static void handleKeyboardInterrupt(Registers *regs)
 
         if (file->thread->state == TS_WAITIO)
         {
-            if (file->thread->waitingIO_privateData == keyboard_read)
+            if (file->thread->state_privateData == keyboard_read)
             {
                 file->thread->state = TS_RUN;
-                file->thread->waitingIO_privateData = NULL;
+                file->thread->state_privateData = NULL;
             }
         }
     }

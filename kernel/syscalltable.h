@@ -32,6 +32,8 @@ enum
     SYS_managePipe,
     SYS_readDir,
     SYS_manageWindow,
+    SYS_getUptimeMilliseconds,
+    SYS_sleepMilliseconds,
 
     SYSCALL_COUNT
 };

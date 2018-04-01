@@ -216,6 +216,8 @@ int kmain(struct Multiboot *mboot_ptr)
     {
         //printUsageInfo();
 
+        //printkf("up:%d\n", getUptimeMilliseconds());
+
         Tty* tty = getActiveTTY();
         if (tty && tty->update)
         {

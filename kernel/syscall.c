@@ -41,6 +41,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_managePipe] = syscall_managePipe;
     gSyscallTable[SYS_readDir] = syscall_readDir;
     gSyscallTable[SYS_manageWindow] = syscall_manageWindow;
+    gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
+    gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -254,4 +256,14 @@ int trigger_syscall_readDir(int fd, void *dirent, int index)
 int trigger_syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3)
 {
     return syscall4(SYS_manageWindow, command, parameter1, parameter2, parameter3);
+}
+
+int trigger_syscall_getUptimeMilliseconds()
+{
+    return syscall0(SYS_getUptimeMilliseconds);
+}
+
+int trigger_syscall_sleepMilliseconds(int ms)
+{
+    return syscall1(SYS_sleepMilliseconds, ms);
 }

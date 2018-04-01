@@ -33,5 +33,7 @@ int trigger_syscall_setWorkingDirectory(const char *path);
 int trigger_syscall_managePipe(const char *pipeName, int operation, int data);
 int trigger_syscall_readDir(int fd, void *dirent, int index);
 int trigger_syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3);
+int trigger_syscall_getUptimeMilliseconds();
+int trigger_syscall_sleepMilliseconds(int ms);
 
 #endif

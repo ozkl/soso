@@ -6,6 +6,8 @@
 #include "pipe.h"
 #include "debugprint.h"
 #include "desktopenvironment.h"
+#include "timer.h"
+#include "sleep.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -733,6 +735,20 @@ int syscall_manageWindow(int command, int parameter1, int parameter2, int parame
     default:
         break;
     }
+
+    return 0;
+}
+
+int syscall_getUptimeMilliseconds()
+{
+    return getUptimeMilliseconds();
+}
+
+int syscall_sleepMilliseconds(int ms)
+{
+    Thread* thread = getCurrentThread();
+
+    sleepMilliseconds(thread, (uint32)ms);
 
     return 0;
 }

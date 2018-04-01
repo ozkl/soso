@@ -31,5 +31,7 @@ int syscall_setWorkingDirectory(const char *path);
 int syscall_managePipe(const char *pipeName, int operation, int data);
 int syscall_readDir(int fd, void *dirent, int index);
 int syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3);
+int syscall_getUptimeMilliseconds();
+int syscall_sleepMilliseconds(int ms);
 
 #endif // SYSCALLS_H

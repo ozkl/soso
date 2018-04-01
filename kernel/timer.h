@@ -6,6 +6,7 @@
 void initializeTimer();
 uint32 getSystemTickCount();
 uint32 getUptimeSeconds();
+uint32 getUptimeMilliseconds();
 void enableScheduler();
 void disableScheduler();
 

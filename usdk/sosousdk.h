@@ -7,4 +7,7 @@ void setWindowPosition(unsigned int windowHandle, unsigned short x, unsigned sho
 void copyToWindowBuffer(unsigned int windowHandle, const char* buffer);
 void drawCharAt(unsigned char* windowBuffer, unsigned short int c, int cx, int cy, int windowWidth, int windowHeight, unsigned int fg, unsigned int bg);
 
+unsigned int getUptimeMilliseconds();
+void sleepMilliseconds(unsigned int ms);
+
 #endif //SOSOUSDK_H

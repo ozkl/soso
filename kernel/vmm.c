@@ -364,20 +364,20 @@ static void printPageFaultInfo(uint32 faultingAddress, Registers *regs)
     int reserved = regs->errorCode & 0x8;
     int id = regs->errorCode & 0x10;
 
-    printkf("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
-    printkf("The page was %s\n", present ? "present" : "not present");
+    Debug_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
+    Debug_PrintF("The page was %s\n", present ? "present" : "not present");
 
     if (reserved)
     {
-        printkf("Reserved bit was set\n");
+        Debug_PrintF("Reserved bit was set\n");
     }
 
     if (id)
     {
-        printkf("Caused by an instruction fetch\n");
+        Debug_PrintF("Caused by an instruction fetch\n");
     }
 
-    printkf("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
+    Debug_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
 static void handlePageFault(Registers *regs)
@@ -388,8 +388,8 @@ static void handlePageFault(Registers *regs)
     uint32 faultingAddress;
     asm volatile("mov %%cr2, %0" : "=r" (faultingAddress));
 
-    printkf("page_fault()\n");
-    printkf("stack of handler is %x\n", &faultingAddress);
+    Debug_PrintF("page_fault()\n");
+    Debug_PrintF("stack of handler is %x\n", &faultingAddress);
 
     Thread* faultingThread = getCurrentThread();
     if (NULL != faultingThread)
@@ -406,17 +406,17 @@ static void handlePageFault(Registers *regs)
         {
             printPageFaultInfo(faultingAddress, regs);
 
-            printkf("Faulting thread is %d\n", faultingThread->threadId);
+            Debug_PrintF("Faulting thread is %d\n", faultingThread->threadId);
 
             if (faultingThread->userMode)
             {
-                printkf("Destroying process %d\n", faultingThread->owner->pid);
+                Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
 
                 destroyProcess(faultingThread->owner);
             }
             else
             {
-                printkf("Destroying kernel thread %d\n", faultingThread->threadId);
+                Debug_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }

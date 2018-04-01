@@ -2,7 +2,8 @@
 #define SLEEP_H
 
 #include "common.h"
+#include "process.h"
 
-void sleep(uint32 ticks);
+void sleepMilliseconds(Thread* thread, uint32 ms);
 
 #endif // SLEEP_H

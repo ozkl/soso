@@ -4,7 +4,7 @@
 #include "process.h"
 #include "common.h"
 
-#define TIMER_FREQ 10000
+#define TIMER_FREQ 1000
 
 uint32 gSystemTickCount = 0;
 
@@ -15,7 +15,7 @@ void handleTimerIRQ(TimerInt_Registers registers)
 {
     gSystemTickCount++;
 
-    if (gSystemTickCount % 10 == 0 && gSchedulerEnabled == TRUE)
+    if (/*gSystemTickCount % 10 == 0 &&*/ gSchedulerEnabled == TRUE)
     {
         schedule(&registers);
     }
@@ -29,6 +29,11 @@ uint32 getSystemTickCount()
 uint32 getUptimeSeconds()
 {
     return gSystemTickCount / TIMER_FREQ;
+}
+
+uint32 getUptimeMilliseconds()
+{
+    return gSystemTickCount;
 }
 
 void enableScheduler()

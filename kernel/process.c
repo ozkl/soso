@@ -734,6 +734,18 @@ void schedule(TimerInt_Registers* registers)
                 }
             }
 
+            if (current->state == TS_SLEEP)
+            {
+                uint32 uptime = getUptimeMilliseconds();
+                uint32 target = (uint32)current->state_privateData;
+
+                if (uptime >= target)
+                {
+                    current->state = TS_RUN;
+                    current->state_privateData = NULL;
+                }
+            }
+
             if (current->state == TS_RUN)
             {
                 break;
