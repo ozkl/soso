@@ -43,6 +43,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_manageWindow] = syscall_manageWindow;
     gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
     gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
+    gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
+    gSyscallTable[SYS_getMessageQueue] = syscall_getMessageQueue;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -266,4 +268,14 @@ int trigger_syscall_getUptimeMilliseconds()
 int trigger_syscall_sleepMilliseconds(int ms)
 {
     return syscall1(SYS_sleepMilliseconds, ms);
+}
+
+int trigger_syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
+{
+    return syscall4(SYS_executeOnTTY, (int)path, (int)argv, (int)envp, (int)ttyPath);
+}
+
+int trigger_syscall_getMessageQueue(int command, void* message)
+{
+    return syscall2(SYS_getMessageQueue, command, (int)message);
 }

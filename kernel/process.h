@@ -8,6 +8,8 @@
 
 #include "common.h"
 #include "fs.h"
+#include "fifobuffer.h"
+#include "spinlock.h"
 
 typedef enum ThreadState
 {
@@ -88,6 +90,9 @@ struct Thread
     uint32 totalContextSwitchCountPrevious;
 
     void* state_privateData;
+
+    FifoBuffer* messageQueue;
+    Spinlock messageQueueLock;
 
     struct Thread* next;
 

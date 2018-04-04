@@ -76,3 +76,8 @@ kernel/pipe.h
 kernel/pipe.c
 kernel/gfx.h
 kernel/gfx.c
+kernel/sosomessage.h
+kernel/message.h
+kernel/message.c
+kernel/spinlock.h
+kernel/spinlock.c

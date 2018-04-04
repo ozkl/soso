@@ -8,6 +8,9 @@
 #include "desktopenvironment.h"
 #include "timer.h"
 #include "sleep.h"
+#include "ttydriver.h"
+#include "spinlock.h"
+#include "message.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -352,6 +355,52 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
                 if (bytesRead > 0)
                 {
                     Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, NULL);
+
+                    if (newProcess)
+                    {
+                        result = newProcess->pid;
+                    }
+                }
+                close_fs(f);
+
+                kfree(image);
+            }
+
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return result;
+}
+
+int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
+{
+    int result = -1;
+
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
+        FileSystemNode* ttyNode = getFileSystemNodeAbsoluteOrRelative(ttyPath, process);
+        if (node && ttyNode)
+        {
+            File* f = open_fs(node, 0);
+            if (f)
+            {
+                void* image = kmalloc(node->length);
+
+                //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
+
+                int32 bytesRead = read_fs(f, node->length, image);
+
+                //Screen_PrintF("syscall_execute: read_fs returned %d bytes\n", bytesRead);
+
+                if (bytesRead > 0)
+                {
+                    Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, ttyNode);
 
                     if (newProcess)
                     {
@@ -751,4 +800,26 @@ int syscall_sleepMilliseconds(int ms)
     sleepMilliseconds(thread, (uint32)ms);
 
     return 0;
+}
+
+int syscall_getMessageQueue(int command, void* message)
+{
+    Thread* thread = getCurrentThread();
+
+    int result = -1;
+
+    switch (command)
+    {
+    case 0:
+        result = getMessageQueueCount(thread);
+        break;
+    case 1:
+        //make blocking
+        result = getNextMessage(thread, (SosoMessage*)message);
+        break;
+    default:
+        break;
+    }
+
+    return result;
 }

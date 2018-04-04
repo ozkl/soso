@@ -8,6 +8,9 @@
 #include "debugprint.h"
 #include "isr.h"
 #include "timer.h"
+#include "message.h"
+
+#define MESSAGE_QUEUE_SIZE 64
 
 Process* gKernelProcess = NULL;
 
@@ -60,6 +63,8 @@ void initializeTasking()
 
     thread->userMode = 0;
     thread->state = TS_RUN;
+    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->messageQueueLock));
     thread->regs.cr3 = (uint32) process->pd;
 
     uint32 selector = 0x10;
@@ -95,6 +100,9 @@ void createKernelThread(Function0 func)
     thread->userMode = 0;
 
     thread->state = TS_RUN;
+
+    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->messageQueueLock));
 
     thread->regs.cr3 = (uint32) thread->owner->pd;
 
@@ -269,6 +277,9 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     thread->state = TS_RUN;
 
+    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->messageQueueLock));
+
     thread->regs.cr3 = (uint32) process->pd;
 
     //Since stack grows backwards, we must allocate previous page. So lets substract a small amount.
@@ -355,6 +366,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 //This function should be called in interrupts disabled state
 void destroyThread(Thread* thread)
 {
+    Spinlock_Lock(&(thread->messageQueueLock));
+
     //TODO: signal the process somehow
     Thread* previousThread = getPreviousThread(thread);
     if (NULL != previousThread)
@@ -362,6 +375,8 @@ void destroyThread(Thread* thread)
         previousThread->next = thread->next;
 
         kfree((void*)thread->kstack.stackStart);
+
+        FifoBuffer_destroy(thread->messageQueue);
 
         Debug_PrintF("destroying thread %d\n", thread->threadId);
 
@@ -393,6 +408,9 @@ void destroyProcess(Process* process)
                 previous->next = thread->next;
 
                 kfree((void*)thread->kstack.stackStart);
+
+                Spinlock_Lock(&(thread->messageQueueLock));
+                FifoBuffer_destroy(thread->messageQueue);
 
                 Debug_PrintF("destroying thread id:%d (owner process %d)\n", thread->threadId, process->pid);
 

@@ -15,6 +15,13 @@ static int syscall1(int num, int p1)
   return a;
 }
 
+static int syscall2(int num, int p1, int p2)
+{
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2));
+  return a;
+}
+
 static int syscall4(int num, int p1, int p2, int p3, int p4)
 {
   int a;
@@ -55,6 +62,26 @@ unsigned int getUptimeMilliseconds()
 void sleepMilliseconds(unsigned int ms)
 {
     syscall1(SYS_sleepMilliseconds, ms);
+}
+
+int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
+{
+    return syscall4(SYS_executeOnTTY, (int)path, (int)argv, (int)envp, (int)ttyPath);
+}
+
+int syscall_getMessageQueue(int command, void* message)
+{
+    return syscall2(SYS_getMessageQueue, command, (int)message);
+}
+
+int getMessageQueueCount()
+{
+    return syscall_getMessageQueue(0, 0);
+}
+
+int getNextMessage(SosoMessage* message)
+{
+    return syscall_getMessageQueue(1, message);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572

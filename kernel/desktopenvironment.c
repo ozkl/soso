@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "debugprint.h"
 #include "ttydriver.h"
+#include "message.h"
 
 static uint16 gTitleBarHeight = 20;
 
@@ -112,24 +113,38 @@ uint16 DE_GetHeight(DesktopEnvironment* de)
 
 void DE_Update(Tty* tty, DesktopEnvironment* de)
 {
+    //Here interrupts are enabled already!
+
+    disableInterrupts();
+
+    List* windowList = List_CreateClone(de->windows);
+
+
     if (FifoBuffer_isEmpty(tty->keyBuffer) == FALSE)
     {
         uint8 key = 0;
         FifoBuffer_dequeue(tty->keyBuffer, &key, 1);
         //Debug_PrintF("Desktop Key:%d\n", key);
 
-        //TODO: send key event to eventqueue of active window's thread if that eventqueue has enough room
+        //send key event to eventqueue of active window's thread if that eventqueue has enough room
+
+        ListNode* node = List_GetLastNode(de->windows);
+        if (node)
+        {
+            Window* activeWindow = (Window*)node->data;
+
+            sendMesageKeyEvent(activeWindow->thread, key);
+        }
     }
+
+    enableInterrupts();
+
     uint8* videoMemory = Gfx_GetVideoMemory();
 
     uint32* backBuffer = (uint32*)de->buffer;
 
     //Background
     memset((uint8*)backBuffer, 0x99, de->width * de->height * 4);
-
-    beginCriticalSection();
-    List* windowList = List_CreateClone(de->windows);
-    endCriticalSection();
 
     List_Foreach(n, windowList)
     {

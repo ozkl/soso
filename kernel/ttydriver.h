@@ -9,6 +9,6 @@ Tty* getActiveTTY();
 
 void sendKeyInputToTTY(uint8 scancode);
 
-//TODO: posix_openpt
+BOOL createPT();
 
 #endif // TTYDRIVER_H

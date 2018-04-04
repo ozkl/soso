@@ -33,5 +33,7 @@ int syscall_readDir(int fd, void *dirent, int index);
 int syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3);
 int syscall_getUptimeMilliseconds();
 int syscall_sleepMilliseconds(int ms);
+int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
+int syscall_getMessageQueue(int command, void* message);
 
 #endif // SYSCALLS_H

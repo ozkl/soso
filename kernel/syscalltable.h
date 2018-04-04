@@ -34,6 +34,8 @@ enum
     SYS_manageWindow,
     SYS_getUptimeMilliseconds,
     SYS_sleepMilliseconds,
+    SYS_executeOnTTY,
+    SYS_getMessageQueue,
 
     SYSCALL_COUNT
 };
