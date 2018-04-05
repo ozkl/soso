@@ -47,6 +47,10 @@ int32 getNextMessage(Thread* thread, SosoMessage* message)
 
         --result;
     }
+    else
+    {
+        result = -1;
+    }
 
     Spinlock_Unlock(&(thread->messageQueueLock));
 
