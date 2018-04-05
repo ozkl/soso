@@ -7,7 +7,7 @@
 void initializeTTYs(BOOL graphicMode);
 Tty* getActiveTTY();
 
-void sendKeyInputToTTY(uint8 scancode);
+void sendKeyInputToTTY(Tty* tty, uint8 scancode);
 
 BOOL createPT();
 

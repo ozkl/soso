@@ -121,5 +121,5 @@ static void handleKeyboardInterrupt(Registers *regs)
         }
     }
 
-    sendKeyInputToTTY(scancode);
+    sendKeyInputToTTY(getActiveTTY(), scancode);
 }
