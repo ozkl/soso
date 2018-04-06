@@ -9,6 +9,7 @@
 #include "fifobuffer.h"
 #include "gfx.h"
 #include "desktopenvironment.h"
+#include "debugprint.h"
 
 static List* gTtyList = NULL;
 
@@ -232,7 +233,7 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 
     processScancode(scancode);
 
-    //enqueue for readers
+    //enqueue for TTY file readers
     FifoBuffer_enqueue(tty->keyBuffer, &scancode, 1);
 
     uint8 character = getCharacterForScancode(gKeyModifier, scancode);
@@ -251,14 +252,12 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
             if (tty->lineBufferIndex > 0)
             {
                 tty->lineBuffer[--tty->lineBufferIndex] = '\0';
-
                 write(tty, 1, &character);
             }
         }
         else
         {
             tty->lineBuffer[tty->lineBufferIndex++] = character;
-
             write(tty, 1, &character);
         }
     }
@@ -297,14 +296,12 @@ static void tty_close(File *file)
 
 static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 {
+    enableInterrupts();
+
     if (size > 0)
     {
         while (TRUE)
         {
-            //disableInterrupts();
-
-            enableInterrupts();
-
             Tty* tty = (Tty*)file->node->privateNodeData;
 
             //Block until this becomes active TTY
@@ -313,13 +310,10 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
             {
                 file->thread->state = TS_WAITIO;
                 file->thread->state_privateData = tty;
-                enableInterrupts();
                 halt();
             }
 
-            //disableInterrupts();
-
-            for (int i = 0; i < i < tty->lineBufferIndex; ++i)
+            for (int i = 0; i < tty->lineBufferIndex; ++i)
             {
                 char chr = tty->lineBuffer[i];
 
@@ -328,13 +322,14 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
                     int bytesToCopy = MIN(tty->lineBufferIndex, size);
                     tty->lineBufferIndex = 0;
                     memcpy(buffer, tty->lineBuffer, bytesToCopy);
-                    //Serial_PrintF("%d bytes. lastchar:%d\r\n", bytesToCopy, character);
-
 
                     return bytesToCopy;
                 }
             }
 
+            file->thread->state = TS_WAITIO;
+            file->thread->state_privateData = tty;
+            halt();
         }
     }
 
