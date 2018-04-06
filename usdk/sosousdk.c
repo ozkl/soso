@@ -81,7 +81,7 @@ int syscall_ioctl(int fd, int request, void *arg)
     return syscall3(SYS_ioctl, fd, request, (int)arg);
 }
 
-void sendCharacterTTY(int fd, char c)
+void sendCharacterToTTY(int fd, char c)
 {
     syscall_ioctl(fd, 0, (void*)(int)c);
 }
