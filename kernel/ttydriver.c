@@ -123,6 +123,7 @@ static uint8 gKeyShiftMap[256] =
 
 static BOOL tty_open(File *file, uint32 flags);
 static void tty_close(File *file);
+static int32 tty_ioctl(File *file, int32 request, void * argp);
 static int32 tty_read(File *file, uint32 size, uint8 *buffer);
 static int32 tty_write(File *file, uint32 size, uint8 *buffer);
 static int32 write(Tty* tty, uint32 size, uint8 *buffer);
@@ -162,6 +163,7 @@ void initializeTTYs(BOOL graphicMode)
         device.deviceType = FT_CharacterDevice;
         device.open = tty_open;
         device.close = tty_close;
+        device.ioctl = tty_ioctl;
         device.read = tty_read;
         device.write = tty_write;
         device.privateData = tty;
@@ -215,6 +217,7 @@ BOOL createPT()
     device.deviceType = FT_CharacterDevice;
     device.open = tty_open;
     device.close = tty_close;
+    device.ioctl = tty_ioctl;
     device.read = tty_read;
     device.write = tty_write;
     device.privateData = tty;
@@ -292,6 +295,16 @@ static BOOL tty_open(File *file, uint32 flags)
 static void tty_close(File *file)
 {
     List_RemoveFirstOccurrence(gReaderList, file);
+}
+
+static int32 tty_ioctl(File *file, int32 request, void * argp)
+{
+    Tty* tty = (Tty*)file->node->privateNodeData;
+
+    if (0 == request)
+    {
+        sendKeyInputToTTY(tty, (uint8)(uint32)argp);
+    }
 }
 
 static int32 tty_read(File *file, uint32 size, uint8 *buffer)

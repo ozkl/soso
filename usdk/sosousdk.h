@@ -18,7 +18,7 @@ void drawCharAt(unsigned char* windowBuffer, unsigned short int c, int cx, int c
 unsigned int getUptimeMilliseconds();
 void sleepMilliseconds(unsigned int ms);
 int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
-
+void sendCharacterToTTY(int fd, char c);
 int getMessageQueueCount();
 int getNextMessage(SosoMessage* message);
 

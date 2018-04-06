@@ -22,6 +22,13 @@ static int syscall2(int num, int p1, int p2)
   return a;
 }
 
+static int syscall3(int num, int p1, int p2, int p3)
+{
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d"((int)p3));
+  return a;
+}
+
 static int syscall4(int num, int p1, int p2, int p3, int p4)
 {
   int a;
@@ -67,6 +74,16 @@ void sleepMilliseconds(unsigned int ms)
 int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
 {
     return syscall4(SYS_executeOnTTY, (int)path, (int)argv, (int)envp, (int)ttyPath);
+}
+
+int syscall_ioctl(int fd, int request, void *arg)
+{
+    return syscall3(SYS_ioctl, fd, request, (int)arg);
+}
+
+void sendCharacterTTY(int fd, char c)
+{
+    syscall_ioctl(fd, 0, (void*)(int)c);
 }
 
 int syscall_getMessageQueue(int command, void* message)
