@@ -73,12 +73,10 @@ int main(int argc, char** argv)
     char* windowBuffer = malloc(width * height * 4);
     memset(windowBuffer, 255, width * height * 4);
 
-    char** argArray = createArray("shell");
+    char** argArray = createArray("/initrd/shell");
     int argArrayCount = 1;
 
-    //int result = executeOnTTY(argArray[0], argArray, environ, "/dev/pt0");
-
-    char bufferIn[300];
+    int result = executeOnTTY(argArray[0], argArray, environ, "/dev/pt0");
 
     int ttyFd = open("/dev/pt0", 0);
 
@@ -98,9 +96,6 @@ int main(int argc, char** argv)
     memset(&tty, 0, sizeof(TtyUserBuffer));
     tty.buffer = malloc(bufferSize);
 
-    int line = 0;
-    //TODO: query OS message and take key input and write to tty
-    //read and paint
     while (1)
     {
         SosoMessage message;
@@ -135,20 +130,7 @@ int main(int argc, char** argv)
 
         copyToWindowBuffer(handle, windowBuffer);
 
-        /*
-        fgets(bufferIn, 300, f);
-        int len = strlen(bufferIn);
-        if (bufferIn[len-1] == '\n')
-        {
-            bufferIn[len-1] = '\0';
-        }
-
-        for (int index = 0; bufferIn[index] != 0; ++index)
-        {
-            drawCharAt(windowBuffer, bufferIn[index], index, line, width, height, 0, 0xFFFFFFFF);
-        }
-        copyToWindowBuffer(handle, windowBuffer);
-        */
+        sleepMilliseconds(50);
     }
 
     free(tty.buffer);

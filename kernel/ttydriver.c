@@ -319,7 +319,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
             //Block until this becomes active TTY
             //Block until line buffer has data
-            while (tty->lineBuffer == 0 || tty != gActiveTty)
+            while (tty->lineBuffer == 0 /*|| tty != gActiveTty*/)
             {
                 file->thread->state = TS_WAITIO;
                 file->thread->state_privateData = tty;
