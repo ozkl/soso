@@ -11,6 +11,7 @@
 #include "ttydriver.h"
 #include "spinlock.h"
 #include "message.h"
+#include "commonuser.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -822,4 +823,49 @@ int syscall_getMessageQueue(int command, void* message)
     }
 
     return result;
+}
+
+int syscall_manageTTYBuffer(int fd, int command, void* userTTY)
+{
+    Thread* thread = getCurrentThread();
+    File* file = thread->owner->fd[fd];
+
+    if (file)
+    {
+        Tty* tty = (Tty*)file->node->privateNodeData;
+
+        if (isValidTTY(tty))
+        {
+            switch (command)
+            {
+            case 0:
+                return tty->columnCount * tty->lineCount * 2;
+                break;
+            case 1:
+            {
+                //set
+                TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)userTTY;
+                memcpy(tty->buffer, (uint8*)userTtyBuffer->buffer, tty->columnCount * tty->lineCount * 2);
+                return 1;
+            }
+                break;
+            case 2:
+            {
+                //get
+                TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)userTTY;
+                userTtyBuffer->columnCount = tty->columnCount;
+                userTtyBuffer->lineCount = tty->lineCount;
+                userTtyBuffer->currentColumn = tty->currentColumn;
+                userTtyBuffer->currentLine = tty->currentLine;
+                memcpy((uint8*)userTtyBuffer->buffer, tty->buffer, tty->columnCount * tty->lineCount * 2);
+                return 1;
+            }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    return -1;
 }

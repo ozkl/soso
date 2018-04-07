@@ -15,8 +15,14 @@ all: $(OBJ) libsosousdk.a
 
 libsosousdk.a: $(OBJ) ../font/font.o
 	ar rcs $@ $^
+	cp ../kernel/commonuser.h ../usr/i686-soso/include/
+	cp sosousdk.h ../usr/i686-soso/include/
+	cp libsosousdk.a ../usr/i686-soso/lib/
 
 clean:
 	-rm *.o
 	-rm *.a
 	-rm -rf bin
+	-rm ../usr/i686-soso/lib/libsosousdk.a
+	-rm ../usr/i686-soso/include/sosousdk.h
+	-rm ../usr/i686-soso/include/commonuser.h

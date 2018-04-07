@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include <sosousdk.h>
 
@@ -79,14 +80,23 @@ int main(int argc, char** argv)
 
     char bufferIn[300];
 
-    FILE* f = fopen("/dev/pt0", "rw");
+    int ttyFd = open("/dev/pt0", 0);
 
-    if (NULL == f)
+    if (ttyFd < -1)
     {
         return 1;
     }
 
+    int bufferSize = getTTYBufferSize(ttyFd);
 
+    if (bufferSize < -1)
+    {
+        return 1;
+    }
+
+    TtyUserBuffer tty;
+    memset(&tty, 0, sizeof(TtyUserBuffer));
+    tty.buffer = malloc(bufferSize);
 
     int line = 0;
     //TODO: query OS message and take key input and write to tty
@@ -100,9 +110,31 @@ int main(int argc, char** argv)
             {
                 char scancode = message.parameter1;
                 //fwrite(&scancode, 1, 1, f);
-                printf("key press code: %d\n", scancode);
+                //printf("key press code: %d\n", scancode);
+                sendCharacterToTTY(ttyFd, scancode);
             }
         }
+
+        if (getTTYBuffer(ttyFd, &tty) < 0)
+        {
+            break;
+        }
+
+        for (unsigned short r = 0; r < tty.lineCount; ++r)
+        {
+            for (unsigned short c = 0; c < tty.columnCount; ++c)
+            {
+                unsigned char* ttyPos = tty.buffer + (r * tty.columnCount + c) * 2;
+
+                unsigned char chr = ttyPos[0];
+                unsigned char color = ttyPos[1];
+
+                drawCharAt(windowBuffer, chr, c, r, width, height, 0, 0xFFFFFFFF);
+            }
+        }
+
+        copyToWindowBuffer(handle, windowBuffer);
+
         /*
         fgets(bufferIn, 300, f);
         int len = strlen(bufferIn);
@@ -118,6 +150,8 @@ int main(int argc, char** argv)
         copyToWindowBuffer(handle, windowBuffer);
         */
     }
+
+    free(tty.buffer);
 
     return 0;
 }

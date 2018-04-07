@@ -101,6 +101,26 @@ int getNextMessage(SosoMessage* message)
     return syscall_getMessageQueue(1, message);
 }
 
+int syscall_manageTTYBuffer(int fd, int command, void* userTTY)
+{
+    return syscall3(SYS_manageTTYBuffer, fd, command, (int)userTTY);
+}
+
+int getTTYBufferSize(int fd)
+{
+    return syscall_manageTTYBuffer(fd, 0, 0);
+}
+
+int getTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
+{
+    return syscall_manageTTYBuffer(fd, 2, ttyBuffer);
+}
+
+int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
+{
+    return syscall_manageTTYBuffer(fd, 1, ttyBuffer);
+}
+
 #define PSF_FONT_MAGIC 0x864ab572
 
 extern char _binary_font_psf_start;

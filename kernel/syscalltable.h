@@ -36,6 +36,7 @@ enum
     SYS_sleepMilliseconds,
     SYS_executeOnTTY,
     SYS_getMessageQueue,
+    SYS_manageTTYBuffer,
 
     SYSCALL_COUNT
 };

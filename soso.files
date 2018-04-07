@@ -1,3 +1,4 @@
+kernel/commonuser.h
 kernel/desktopenvironment.c
 kernel/desktopenvironment.h
 kernel/alloc.c

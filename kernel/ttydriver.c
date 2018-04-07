@@ -388,6 +388,19 @@ static void setActiveTty(Tty* tty)
     //Serial_PrintF("line:%d column:%d\r\n", gActiveTty->currentLine, gActiveTty->currentColumn);
 }
 
+BOOL isValidTTY(Tty* tty)
+{
+    List_Foreach(n, gTtyList)
+    {
+        if (n->data == tty)
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 static void updateDesktop(Tty* tty)
 {
     DE_Update(tty, (DesktopEnvironment*)tty->privateData);

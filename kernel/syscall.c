@@ -45,6 +45,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
     gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
     gSyscallTable[SYS_getMessageQueue] = syscall_getMessageQueue;
+    gSyscallTable[SYS_manageTTYBuffer] = syscall_manageTTYBuffer;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -278,4 +279,9 @@ int trigger_syscall_executeOnTTY(const char *path, char *const argv[], char *con
 int trigger_syscall_getMessageQueue(int command, void* message)
 {
     return syscall2(SYS_getMessageQueue, command, (int)message);
+}
+
+int trigger_syscall_manageTTYBuffer(int fd, int command, void* userTTY)
+{
+    return syscall3(SYS_manageTTYBuffer, fd, command, (int)userTTY);
 }

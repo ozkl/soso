@@ -35,5 +35,6 @@ int syscall_getUptimeMilliseconds();
 int syscall_sleepMilliseconds(int ms);
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 int syscall_getMessageQueue(int command, void* message);
+int syscall_manageTTYBuffer(int fd, int command, void* userTTY);
 
 #endif // SYSCALLS_H
