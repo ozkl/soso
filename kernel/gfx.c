@@ -1,6 +1,7 @@
 #include "gfx.h"
 #include "vmm.h"
 #include "serial.h"
+#include "framebuffer.h"
 #include "debugprint.h"
 
 static uint32 gWidth = 0;
@@ -54,6 +55,8 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPer
     {
         Debug_PrintF("Gfx initialization failed!\n");
     }
+
+    initializeFrameBuffer(p_address, v_address);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572

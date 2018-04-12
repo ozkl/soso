@@ -82,3 +82,5 @@ kernel/message.h
 kernel/message.c
 kernel/spinlock.h
 kernel/spinlock.c
+kernel/framebuffer.c
+kernel/framebuffer.h
