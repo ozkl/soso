@@ -42,9 +42,7 @@ static int32 fb_read(File *file, uint32 size, uint8 *buffer)
         return 0;
     }
 
-    //TODO:
-
-    return 0;
+    return -1;
 }
 
 static int32 fb_write(File *file, uint32 size, uint8 *buffer)
@@ -54,9 +52,24 @@ static int32 fb_write(File *file, uint32 size, uint8 *buffer)
         return 0;
     }
 
-    //TODO:
+    int32 requestedSize = size;
 
-    return 0;
+    int32 length = Gfx_GetWidth() * Gfx_GetHeight() * 4;
+
+    int32 availableSize = length - file->offset;
+
+    if (availableSize <= 0)
+    {
+        return -1;
+    }
+
+    int32 targetSize = MIN(requestedSize, availableSize);
+
+    memcpy(gFrameBufferVirtual + file->offset, buffer, targetSize);
+
+    file->offset += targetSize;
+
+    return targetSize;
 }
 
 static int32 fb_ioctl(File *node, int32 request, void * argp)
