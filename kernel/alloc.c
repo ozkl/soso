@@ -149,11 +149,16 @@ static void sbrkPage(Process* process, int pageCount)
     {
         for (int i = 0; i < pageCount; ++i)
         {
+            if ((process->heapNextUnallocatedPageBegin + PAGESIZE_4M) > (char*)USER_OFFSET_END)
+            {
+                return;
+            }
+
             char * p_addr = getPageFrame4M();
 
             if ((int)(p_addr) < 0)
             {
-                PANIC("sbrkPage(): no free page frame available !");
+                //PANIC("sbrkPage(): no free page frame available !");
                 return;
             }
 
@@ -184,6 +189,8 @@ void initializeProcessHeap(Process* process)
     process->heapBegin = (char*) USER_OFFSET;
     process->heapEnd = process->heapBegin;
     process->heapNextUnallocatedPageBegin = process->heapBegin;
+
+    process->mmapNextUnallocatedPageBegin = (char*)USER_OFFSET_MMAP;
 
     //Userland programs (their code, data,..) start from USER_OFFSET
     //So we should leave some space for them by moving heap pointer.

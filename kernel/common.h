@@ -59,6 +59,8 @@ typedef unsigned int  size_t;
 
 //KERN_HEAP_END ends and this one starts
 #define	USER_OFFSET 		0x40000000
+#define	USER_OFFSET_END		0xF0000000
+#define	USER_OFFSET_MMAP	0xF0000000
 
 #define	USER_EXE_IMAGE 		0x200000 //2MB
 #define	USER_ARGV_ENV_SIZE	0x10000  //65KB

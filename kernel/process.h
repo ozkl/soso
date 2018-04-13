@@ -39,6 +39,8 @@ struct Process
     char *heapEnd;
     char *heapNextUnallocatedPageBegin;
 
+    char *mmapNextUnallocatedPageBegin;
+
     uint32 signal;
     void* sigfn[32];
 
