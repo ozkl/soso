@@ -178,7 +178,7 @@ static void sbrkPage(Process* process, int pageCount)
                 process->heapNextUnallocatedPageBegin -= PAGESIZE_4M;
 
                 //This also releases the page frame
-                removePageFromPd(process->pd, process->heapNextUnallocatedPageBegin);
+                removePageFromPd(process->pd, process->heapNextUnallocatedPageBegin, TRUE);
             }
         }
     }
@@ -255,3 +255,4 @@ uint32 getKernelHeapUsed()
 {
     return gKernelHeapUsed;
 }
+

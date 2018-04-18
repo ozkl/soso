@@ -164,7 +164,12 @@ uint32 *createPd()
 
 void destroyPd(uint32 *pd)
 {
-    for (int i = KERNELMEMORY_PAGE_COUNT; i < 1024; ++i)
+    int startIndex = PAGE_INDEX_4M(USER_OFFSET);
+    int lastIndex = PAGE_INDEX_4M(USER_OFFSET_END);
+
+    ///we don't touch mmapped areas
+
+    for (int i = startIndex; i < lastIndex; ++i)
     {
         uint32 p_addr = pd[i] & 0xFFC00000;
 
@@ -267,15 +272,18 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
     return TRUE;
 }
 
-BOOL removePageFromPd(uint32* pd, char *v_addr)
+BOOL removePageFromPd(uint32* pd, char *v_addr, BOOL releasePageFrame)
 {
-    int index = (((uint32) v_addr & 0xFFC00000) >> 20) / 4;
+    int index = (((uint32) v_addr & 0xFFC00000) >> 22);
     uint32* pde = pd + index;
     if ((*pde & PG_PRESENT) == PG_PRESENT)
     {
         uint32 p_addr = *pde & 0xFFC00000;
 
-        releasePageFrame4M(p_addr);
+        if (releasePageFrame)
+        {
+            releasePageFrame4M(p_addr);
+        }
 
         *pde = 0;
 
@@ -286,17 +294,6 @@ BOOL removePageFromPd(uint32* pd, char *v_addr)
             if (pd == gKernelPageDirectory)
             {
                 syncPageDirectoriesKernelMemory();
-            }
-            else
-            {
-                PANIC("Attemped to allocate kernel memory to a page directory which is not the kernel page directory!!!\n");
-            }
-        }
-        else
-        {
-            if (pd == gKernelPageDirectory)
-            {
-                PANIC("Attemped to allocate user memory to the kernel page directory!!!\n");
             }
         }
 

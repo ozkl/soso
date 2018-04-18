@@ -30,7 +30,7 @@
     uint32 *copyPd(uint32* pd);
 
     BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags);
-    BOOL removePageFromPd(uint32* pd, char *v_addr);
+    BOOL removePageFromPd(uint32* pd, char *v_addr, BOOL releasePageFrame);
 
     void enablePaging();
     void disablePaging();
