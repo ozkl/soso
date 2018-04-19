@@ -39,7 +39,7 @@ struct Process
     char *heapEnd;
     char *heapNextUnallocatedPageBegin;
 
-    char *mmapNextUnallocatedPageBegin;
+    uint8 mmappedVirtualMemory[RAM_AS_4M_PAGES / 8];
 
     uint32 signal;
     void* sigfn[32];

@@ -190,8 +190,6 @@ void initializeProcessHeap(Process* process)
     process->heapEnd = process->heapBegin;
     process->heapNextUnallocatedPageBegin = process->heapBegin;
 
-    process->mmapNextUnallocatedPageBegin = (char*)USER_OFFSET_MMAP;
-
     //Userland programs (their code, data,..) start from USER_OFFSET
     //So we should leave some space for them by moving heap pointer.
     //As a result userspace malloc functions start from a forward point (+ USER_EXE_IMAGE).
@@ -255,4 +253,3 @@ uint32 getKernelHeapUsed()
 {
     return gKernelHeapUsed;
 }
-

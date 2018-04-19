@@ -307,6 +307,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     initializeProcessHeap(process);
 
+    initializeProcessMmap(process);
+
     copyArgvEnvToProcess(newArgv, newEnvp);
 
     destroyStringArray(newArgv);
