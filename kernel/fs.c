@@ -412,6 +412,26 @@ BOOL mkdir_fs(FileSystemNode *node, const char *name, uint32 flags)
     return FALSE;
 }
 
+void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 prot, uint32 flags)
+{
+    if (file->node->mmap)
+    {
+        return file->node->mmap(file, size, offset, prot, flags);
+    }
+
+    return NULL;
+}
+
+BOOL unmap_fs(File* file, void* address, uint32 size)
+{
+    if (file->node->unmap)
+    {
+        return file->node->unmap(file, address, size);
+    }
+
+    return NULL;
+}
+
 FileSystemNode *getFileSystemNode(const char *path)
 {
     //Screen_PrintF("getFileSystemNode:%s *0\n", path);
