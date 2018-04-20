@@ -46,6 +46,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
     gSyscallTable[SYS_getMessageQueue] = syscall_getMessageQueue;
     gSyscallTable[SYS_manageTTYBuffer] = syscall_manageTTYBuffer;
+    gSyscallTable[SYS_mmap] = syscall_mmap;
+    gSyscallTable[SYS_munmap] = syscall_munmap;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -284,4 +286,14 @@ int trigger_syscall_getMessageQueue(int command, void* message)
 int trigger_syscall_manageTTYBuffer(int fd, int command, void* userTTY)
 {
     return syscall3(SYS_manageTTYBuffer, fd, command, (int)userTTY);
+}
+
+void* trigger_syscall_mmap(void *addr, int length, int flags, int fd, int offset)
+{
+    return (void*)syscall5(SYS_mmap, (int)addr, length, flags, fd, offset);
+}
+
+int trigger_syscall_munmap(void *addr, int length)
+{
+    return syscall2(SYS_munmap, (int)addr, length);
 }

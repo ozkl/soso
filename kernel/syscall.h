@@ -38,5 +38,7 @@ int trigger_syscall_sleepMilliseconds(int ms);
 int trigger_syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 int trigger_syscall_getMessageQueue(int command, void* message);
 int trigger_syscall_manageTTYBuffer(int fd, int command, void* userTTY);
+void* trigger_syscall_mmap(void *addr, int length, int flags, int fd, int offset);
+int trigger_syscall_munmap(void *addr, int length);
 
 #endif

@@ -38,6 +38,9 @@ enum
     SYS_getMessageQueue,
     SYS_manageTTYBuffer,
 
+    SYS_mmap,
+    SYS_munmap,
+
     SYSCALL_COUNT
 };
 

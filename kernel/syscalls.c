@@ -869,3 +869,86 @@ int syscall_manageTTYBuffer(int fd, int command, void* userTTY)
 
     return -1;
 }
+
+void* syscall_mmap(void *addr, int length, int flags, int fd, int offset)
+{
+    if (addr)
+    {
+        //Mapping to a specified address is not implemented
+
+        return (void*)-1;
+    }
+
+    Process* process = getCurrentThread()->owner;
+
+    if (process)
+    {
+        if (fd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                void* ret = mmap_fs(file, length, offset, flags);
+
+                if (ret)
+                {
+                    return ret;
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+        else
+        {
+            //TODO: error invalid fd
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return (void*)-1;
+}
+
+int syscall_munmap(void *addr, int length)
+{
+    //TODO: fd
+
+    /*
+    Process* process = getCurrentThread()->owner;
+
+    if (process)
+    {
+        if (fd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                if (munmap_fs(file, addr, length))
+                {
+                    return 0;//on success
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+        else
+        {
+            //TODO: error invalid fd
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+    */
+
+    return -1;
+}

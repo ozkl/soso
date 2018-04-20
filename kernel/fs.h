@@ -39,8 +39,8 @@ typedef int32 (*StatFunction)(FileSystemNode *node, struct stat *buf);
 typedef FileSystemDirent * (*ReadDirFunction)(FileSystemNode*,uint32);
 typedef FileSystemNode * (*FindDirFunction)(FileSystemNode*,char *name);
 typedef BOOL (*MkDirFunction)(FileSystemNode* node, const char *name, uint32 flags);
-typedef void* (*MmapFunction)(File* file, uint32 size, uint32 offset, uint32 prot, uint32 flags);
-typedef BOOL (*UnmapFunction)(File* file, void* address, uint32 size);
+typedef void* (*MmapFunction)(File* file, uint32 size, uint32 offset, uint32 flags);
+typedef BOOL (*MunmapFunction)(File* file, void* address, uint32 size);
 
 typedef BOOL (*MountFunction)(const char* sourcePath, const char* targetPath, uint32 flags, void *data);
 
@@ -73,7 +73,7 @@ typedef struct FileSystemNode
     FindDirFunction finddir;
     MkDirFunction mkdir;
     MmapFunction mmap;
-    UnmapFunction unmap;
+    MunmapFunction munmap;
     FileSystemNode *firstChild;
     FileSystemNode *nextSibling;
     FileSystemNode *parent;
@@ -134,8 +134,8 @@ int32 stat_fs(FileSystemNode *node, struct stat *buf);
 FileSystemDirent* readdir_fs(FileSystemNode* node, uint32 index);
 FileSystemNode* finddir_fs(FileSystemNode* node, char* name);
 BOOL mkdir_fs(FileSystemNode *node, const char* name, uint32 flags);
-void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 prot, uint32 flags);
-BOOL unmap_fs(File* file, void* address, uint32 size);
+void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 flags);
+BOOL munmap_fs(File* file, void* address, uint32 size);
 int getFileSystemNodePath(FileSystemNode* node, char* buffer, uint32 bufferSize);
 BOOL resolvePath(const char* path, char* buffer, int bufferSize);
 
