@@ -441,7 +441,7 @@ void initializeProcessMmap(Process* process)
     //Virtual pages reserved for mmap
     for (page = PAGE_INDEX_4M(USER_OFFSET_MMAP); page < (int)(PAGE_INDEX_4M(USER_OFFSET_MMAP_END)); ++page)
     {
-        SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page);
+        SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page * PAGESIZE_4M);
     }
 }
 
@@ -481,6 +481,8 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress)
             break;
         }
     }
+
+    //Debug_PrintF("mapMemory: needed:%d foundAdjacent:%d vMem:%x\n", neededPages, foundAdjacent, vMem);
 
     if (foundAdjacent == neededPages)
     {

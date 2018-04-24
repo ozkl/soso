@@ -3,11 +3,15 @@
 #include "common.h"
 #include "gfx.h"
 #include "framebuffer.h"
+#include "vmm.h"
+#include "process.h"
 
 static BOOL fb_open(File *file, uint32 flags);
 static int32 fb_read(File *file, uint32 size, uint8 *buffer);
 static int32 fb_write(File *file, uint32 size, uint8 *buffer);
 static int32 fb_ioctl(File *node, int32 request, void * argp);
+static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags);
+static BOOL fb_munmap(File* file, void* address, uint32 size);
 
 static uint8* gFrameBufferPhysical = 0;
 static uint8* gFrameBufferVirtual = 0;
@@ -25,7 +29,8 @@ void initializeFrameBuffer(uint8* p_address, uint8* v_address)
     device.read = fb_read;
     device.write = fb_write;
     device.ioctl = fb_ioctl;
-    //TODO:device.mmap
+    device.mmap = fb_mmap;
+    device.munmap = fb_munmap;
 
     registerDevice(&device);
 }
@@ -90,4 +95,14 @@ static int32 fb_ioctl(File *node, int32 request, void * argp)
     }
 
     return result;
+}
+
+static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
+{
+    return mapMemory(file->thread->owner, size, (uint32)(gFrameBufferPhysical + offset));
+}
+
+static BOOL fb_munmap(File* file, void* address, uint32 size)
+{
+    return unmapMemory(file->thread->owner, size, (uint32)address);
 }

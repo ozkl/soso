@@ -18,5 +18,7 @@ int getNextMessage(SosoMessage* message);
 int getTTYBufferSize(int fd);
 int getTTYBuffer(int fd, TtyUserBuffer* ttyBuffer);
 int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer);
+void* mmap(void *addr, int length, int flags, int fd, int offset);
+int munmap(void *addr, int length);
 
 #endif //SOSOUSDK_H

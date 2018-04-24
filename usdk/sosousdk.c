@@ -36,6 +36,13 @@ static int syscall4(int num, int p1, int p2, int p3, int p4)
   return a;
 }
 
+static int syscall5(int num, int p1, int p2, int p3, int p4, int p5)
+{
+  int a;
+  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d" ((int)p3), "S" ((int)p4), "D" ((int)p5));
+  return a;
+}
+
 static int manageWindow(int command, int parameter1, int parameter2, int parameter3)
 {
     return syscall4(SYS_manageWindow, command, parameter1, parameter2, parameter3);
@@ -119,6 +126,16 @@ int getTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
 int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
 {
     return syscall_manageTTYBuffer(fd, 1, ttyBuffer);
+}
+
+void* mmap(void *addr, int length, int flags, int fd, int offset)
+{
+    return (void*)syscall5(SYS_mmap, (int)addr, length, flags, fd, offset);
+}
+
+int munmap(void *addr, int length)
+{
+    return syscall2(SYS_munmap, (int)addr, length);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572
