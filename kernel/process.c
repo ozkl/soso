@@ -481,22 +481,22 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
     switch (state)
     {
     case TS_RUN:
-        strcpy(buffer, "run");
+        strcpy((char*)buffer, "run");
         break;
     case TS_SLEEP:
-        strcpy(buffer, "sleep");
+        strcpy((char*)buffer, "sleep");
         break;
     case TS_SUSPEND:
-        strcpy(buffer, "suspend");
+        strcpy((char*)buffer, "suspend");
         break;
     case TS_WAITCHILD:
-        strcpy(buffer, "waitchild");
+        strcpy((char*)buffer, "waitchild");
         break;
     case TS_WAITIO:
-        strcpy(buffer, "waitio");
+        strcpy((char*)buffer, "waitio");
         break;
     case TS_YIELD:
-        strcpy(buffer, "yield");
+        strcpy((char*)buffer, "yield");
         break;
     default:
         break;

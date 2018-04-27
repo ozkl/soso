@@ -56,7 +56,7 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPer
         Debug_PrintF("Gfx initialization failed!\n");
     }
 
-    initializeFrameBuffer(p_address, v_address);
+    initializeFrameBuffer((uint8*)p_address, (uint8*)v_address);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572

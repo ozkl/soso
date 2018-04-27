@@ -304,7 +304,11 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
     if (0 == request)
     {
         sendKeyInputToTTY(tty, (uint8)(uint32)argp);
+
+        return 0;
     }
+
+    return -1;
 }
 
 static int32 tty_read(File *file, uint32 size, uint8 *buffer)

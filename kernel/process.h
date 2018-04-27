@@ -98,7 +98,7 @@ struct Thread
 
     struct Thread* next;
 
-} __attribute__ ((packed));
+};
 
 typedef struct Thread Thread;
 

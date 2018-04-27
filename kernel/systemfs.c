@@ -176,9 +176,9 @@ static int32 systemfs_read_meminfo_totalpages(File *file, uint32 size, uint8 *bu
         {
             int totalPages = getTotalPageCount();
 
-            sprintf(buffer, "%d", totalPages);
+            sprintf((char*)buffer, "%d", totalPages);
 
-            int len = strlen(buffer);
+            int len = strlen((char*)buffer);
 
             file->offset += len;
 
@@ -200,9 +200,9 @@ static int32 systemfs_read_meminfo_usedpages(File *file, uint32 size, uint8 *buf
         {
             int usedPages = getUsedPageCount();
 
-            sprintf(buffer, "%d", usedPages);
+            sprintf((char*)buffer, "%d", usedPages);
 
-            int len = strlen(buffer);
+            int len = strlen((char*)buffer);
 
             file->offset += len;
 
@@ -237,19 +237,19 @@ static int32 systemfs_read_thread_file(File *file, uint32 size, uint8 *buffer)
             if (thread)
             {
                 int charIndex = 0;
-                charIndex += sprintf(buffer + charIndex, "tid:%d\n", thread->threadId);
-                charIndex += sprintf(buffer + charIndex, "userMode:%d\n", thread->userMode);
-                char state[10];
+                charIndex += sprintf((char*)buffer + charIndex, "tid:%d\n", thread->threadId);
+                charIndex += sprintf((char*)buffer + charIndex, "userMode:%d\n", thread->userMode);
+                uint8 state[10];
                 threadStateToString(thread->state, state, 10);
-                charIndex += sprintf(buffer + charIndex, "state:%s\n", state);
-                charIndex += sprintf(buffer + charIndex, "contextSwitches:%d\n", thread->totalContextSwitchCount);
+                charIndex += sprintf((char*)buffer + charIndex, "state:%s\n", state);
+                charIndex += sprintf((char*)buffer + charIndex, "contextSwitches:%d\n", thread->totalContextSwitchCount);
                 if (thread->owner)
                 {
-                    charIndex += sprintf(buffer + charIndex, "process:%d\n", thread->owner->pid);
+                    charIndex += sprintf((char*)buffer + charIndex, "process:%d\n", thread->owner->pid);
                 }
                 else
                 {
-                    charIndex += sprintf(buffer + charIndex, "process:-\n");
+                    charIndex += sprintf((char*)buffer + charIndex, "process:-\n");
                 }
 
                 int len = charIndex;

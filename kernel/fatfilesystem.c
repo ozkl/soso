@@ -145,7 +145,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
 
     //Screen_PrintF("readdir1: node->name:%s\n", node->name);
 
-    char targetPath[128];
+    uint8 targetPath[128];
 
     FileSystemNode *n = node;
     int charIndex = 126;
@@ -161,7 +161,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
             return NULL;
         }
 
-        strcpyNonNull(targetPath + charIndex, n->name);
+        strcpyNonNull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -179,13 +179,13 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
         return NULL;
     }
 
-    strcpyNonNull(targetPath + charIndex, number);
-    char* target = targetPath + charIndex;
+    strcpyNonNull((char*)(targetPath + charIndex), number);
+    uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("readdir: targetpath:[%s]\n", target);
 
     DIR dir;
-    FRESULT fr = f_opendir(&dir, target);
+    FRESULT fr = f_opendir(&dir, (TCHAR*)target);
     if (FR_OK == fr)
     {
         FILINFO fileInfo;
@@ -242,14 +242,14 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     //If we are here, this file is accesed first time in this session.
     //So we create its node...
 
-    char targetPath[128];
+    uint8 targetPath[128];
 
     FileSystemNode *n = node;
     int charIndex = 126;
     memset(targetPath, 0, 128);
     int length = strlen(name);
     charIndex -= length;
-    strcpyNonNull(targetPath + charIndex, name);
+    strcpyNonNull((char*)(targetPath + charIndex), name);
     charIndex -= 1;
     targetPath[charIndex] = '/';
     while (NULL == n->mountSource)
@@ -262,7 +262,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
             return NULL;
         }
 
-        strcpyNonNull(targetPath + charIndex, n->name);
+        strcpyNonNull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -280,14 +280,14 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
         return NULL;
     }
 
-    strcpyNonNull(targetPath + charIndex, number);
-    char* target = targetPath + charIndex;
+    strcpyNonNull((char*)(targetPath + charIndex), number);
+    uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("finddir: targetpath:[%s]\n", target);
 
     FILINFO fileInfo;
     memset((uint8*)&fileInfo, 0, sizeof(FILINFO));
-    FRESULT fr = f_stat(target, &fileInfo);
+    FRESULT fr = f_stat((TCHAR*)target, &fileInfo);
     if (FR_OK == fr)
     {
         FileSystemNode* newNode = kmalloc(sizeof(FileSystemNode));
@@ -421,7 +421,7 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
 {
     //Screen_PrintF("fat stat [%s]\n", node->name);
 
-    char targetPath[128];
+    uint8 targetPath[128];
 
     FileSystemNode *n = node;
     int charIndex = 126;
@@ -436,7 +436,7 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
             return NULL;
         }
 
-        strcpyNonNull(targetPath + charIndex, n->name);
+        strcpyNonNull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -454,14 +454,14 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
         return NULL;
     }
 
-    strcpyNonNull(targetPath + charIndex, number);
-    char* target = targetPath + charIndex;
+    strcpyNonNull((char*)(targetPath + charIndex), number);
+    uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("fat stat target:[%s]\n", target);
 
     FILINFO fileInfo;
     memset((uint8*)&fileInfo, 0, sizeof(FILINFO));
-    FRESULT fr = f_stat(target, &fileInfo);
+    FRESULT fr = f_stat((TCHAR*)target, &fileInfo);
     if (FR_OK == fr)
     {
         if ((fileInfo.fattrib & AM_DIR) == AM_DIR)
@@ -492,7 +492,7 @@ static BOOL open(File *file, uint32 flags)
         return TRUE;
     }
 
-    char targetPath[128];
+    uint8 targetPath[128];
 
     FileSystemNode *n = node;
     int charIndex = 126;
@@ -507,7 +507,7 @@ static BOOL open(File *file, uint32 flags)
             return NULL;
         }
 
-        strcpyNonNull(targetPath + charIndex, n->name);
+        strcpyNonNull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -525,8 +525,8 @@ static BOOL open(File *file, uint32 flags)
         return NULL;
     }
 
-    strcpyNonNull(targetPath + charIndex, number);
-    char* target = targetPath + charIndex;
+    strcpyNonNull((char*)(targetPath + charIndex), number);
+    uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("fat open %s\n", target);
 
@@ -549,7 +549,7 @@ static BOOL open(File *file, uint32 flags)
     }
 
     FIL* f = (FIL*)kmalloc(sizeof(FIL));
-    FRESULT fr = f_open(f, target, fatfsMode);
+    FRESULT fr = f_open(f, (TCHAR*)target, fatfsMode);
     if (FR_OK == fr)
     {
         file->offset = f->fptr;
