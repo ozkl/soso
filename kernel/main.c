@@ -147,7 +147,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeTimer();
 
     initializeKeyboard();
-    //initializeMouse();
+    initializeMouse();
 
     if (0 != mboot_ptr->cmdline)
     {
