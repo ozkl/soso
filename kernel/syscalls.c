@@ -5,7 +5,6 @@
 #include "alloc.h"
 #include "pipe.h"
 #include "debugprint.h"
-#include "desktopenvironment.h"
 #include "timer.h"
 #include "sleep.h"
 #include "ttydriver.h"
@@ -762,31 +761,6 @@ int syscall_managePipe(const char *pipeName, int operation, int data)
     }
 
     return result;
-}
-
-int syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3)
-{
-    Thread* thread = getCurrentThread();
-
-    switch (command)
-    {
-    case 0:
-        DE_DestroyWindow((Window*)parameter1);
-        break;
-    case 1:
-        return (int)DE_CreateWindow(DE_GetDefault(), parameter1, parameter2, thread);
-        break;
-    case 2:
-        DE_SetWindowPosition((Window*)parameter1, parameter2, parameter3);
-        break;
-    case 3:
-        DE_CopyToWindowBuffer((Window*)parameter1, (const uint8*)parameter2);
-        break;
-    default:
-        break;
-    }
-
-    return 0;
 }
 
 int syscall_getUptimeMilliseconds()

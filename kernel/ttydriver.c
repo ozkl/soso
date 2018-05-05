@@ -8,7 +8,6 @@
 #include "list.h"
 #include "fifobuffer.h"
 #include "gfx.h"
-#include "desktopenvironment.h"
 #include "debugprint.h"
 
 static List* gTtyList = NULL;
@@ -131,9 +130,6 @@ static int32 write(Tty* tty, uint32 size, uint8 *buffer);
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode);
 static void processScancode(uint8 scancode);
 
-static void createDesktopEnvironmentTTY();
-static void updateDesktop(Tty* tty);
-
 void initializeTTYs(BOOL graphicMode)
 {
     gTtyList = List_Create();
@@ -172,33 +168,8 @@ void initializeTTYs(BOOL graphicMode)
 
     gActiveTty = List_GetFirstNode(gTtyList)->data;
 
-    if (graphicMode)
-    {
-        createDesktopEnvironmentTTY();
-    }
-
     createPT();
     createPT();
-}
-
-static void createDesktopEnvironmentTTY()
-{
-    DesktopEnvironment* de = DE_GetDefault();
-    uint16 width = DE_GetWidth(de);
-    uint16 height = DE_GetHeight(de);
-
-    Tty* tty = createTty(height / 16, width / 9, NULL);
-    tty->color = 0x0A;
-    tty->privateData = de;
-    tty->update = updateDesktop;
-    List_Append(gTtyList, tty);
-
-    Device device;
-    memset((uint8*)&device, 0, sizeof(Device));
-    sprintf(device.name, "tty%s", "Desktop");
-    device.deviceType = FT_CharacterDevice;
-    device.privateData = tty;
-    registerDevice(&device);
 }
 
 BOOL createPT()
@@ -403,11 +374,6 @@ BOOL isValidTTY(Tty* tty)
     }
 
     return FALSE;
-}
-
-static void updateDesktop(Tty* tty)
-{
-    DE_Update(tty, (DesktopEnvironment*)tty->privateData);
 }
 
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)

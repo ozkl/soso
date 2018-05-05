@@ -31,7 +31,6 @@ enum
     SYS_setWorkingDirectory,
     SYS_managePipe,
     SYS_readDir,
-    SYS_manageWindow,
     SYS_getUptimeMilliseconds,
     SYS_sleepMilliseconds,
     SYS_executeOnTTY,

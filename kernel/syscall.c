@@ -40,7 +40,6 @@ void initialiseSyscalls()
     gSyscallTable[SYS_setWorkingDirectory] = syscall_setWorkingDirectory;
     gSyscallTable[SYS_managePipe] = syscall_managePipe;
     gSyscallTable[SYS_readDir] = syscall_readDir;
-    gSyscallTable[SYS_manageWindow] = syscall_manageWindow;
     gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
     gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
     gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
@@ -256,11 +255,6 @@ int trigger_syscall_managePipe(const char *pipeName, int operation, int data)
 int trigger_syscall_readDir(int fd, void *dirent, int index)
 {
     return syscall3(SYS_readDir, fd, (int)dirent, index);
-}
-
-int trigger_syscall_manageWindow(int command, int parameter1, int parameter2, int parameter3)
-{
-    return syscall4(SYS_manageWindow, command, parameter1, parameter2, parameter3);
 }
 
 int trigger_syscall_getUptimeMilliseconds()

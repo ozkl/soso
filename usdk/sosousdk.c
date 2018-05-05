@@ -43,31 +43,6 @@ static int syscall5(int num, int p1, int p2, int p3, int p4, int p5)
   return a;
 }
 
-static int manageWindow(int command, int parameter1, int parameter2, int parameter3)
-{
-    return syscall4(SYS_manageWindow, command, parameter1, parameter2, parameter3);
-}
-
-unsigned int createWindow(unsigned short width, unsigned short height)
-{
-    return manageWindow(1, width, height, 0);
-}
-
-void destroyWindow(unsigned int windowHandle)
-{
-    manageWindow(0, (int)windowHandle, 0, 0);
-}
-
-void setWindowPosition(unsigned int windowHandle, unsigned short x, unsigned short y)
-{
-    manageWindow(2, (int)windowHandle, x, y);
-}
-
-void copyToWindowBuffer(unsigned int windowHandle, const char* buffer)
-{
-    manageWindow(3, (int)windowHandle, (int)buffer, 0);
-}
-
 unsigned int getUptimeMilliseconds()
 {
     return syscall0(SYS_getUptimeMilliseconds);

@@ -23,7 +23,6 @@
 #include "vbe.h"
 #include "fifobuffer.h"
 #include "gfx.h"
-#include "desktopenvironment.h"
 #include "mouse.h"
 #include "sleep.h"
 
@@ -128,8 +127,6 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeDevFS();
 
     Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
-    DesktopEnvironment* desktopEnvironment = DE_Create(mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height);
-    DE_SetDefault(desktopEnvironment);
 
     initializeTTYs(TRUE);
     //printkf works after TTY initialization
@@ -168,12 +165,6 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeFatFileSystem();
 
     printkf("System started!\n");
-
-    Window* win = DE_CreateWindow(desktopEnvironment, 400, 300, getMainKernelThread());
-    DE_SetWindowPosition(win, 100, 200);
-    Window* win2 = DE_CreateWindow(desktopEnvironment, 400, 300, getMainKernelThread());
-    DE_SetWindowPosition(win2, 200, 280);
-    //DE_MoveWindowToTop(win);
 
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
