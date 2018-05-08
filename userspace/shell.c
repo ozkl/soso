@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <sosousdk.h>
+
 typedef enum FileType
 {
     FT_File               = 1,
@@ -31,6 +33,8 @@ int execute(const char *path, char *const argv[], char *const envp[]);
 int executep(const char *filename, char *const argv[], char *const envp[]);
 int getWorkingDirectory(char *buf, int size);
 int setWorkingDirectory(const char *path);
+
+int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 
 //TODO: when readDir merged into C library, remove the definition below
 static int syscall3(int num, int p1, int p2, int p3)
@@ -244,11 +248,19 @@ int main(int argc, char **argv)
 
         //printf("[%s]\n", bufferIn);
 
+        int background = 0;
+
         int len = strlen(bufferIn);
         //printf("len:%d\n", len);
         if (bufferIn[len-1] == '\n')
         {
             bufferIn[len-1] = '\0';
+        }
+
+        if (bufferIn[len-2] == '&')
+        {
+            background = 1;
+            bufferIn[len-2] = '\0';
         }
 
         //printf("[%s]\n", bufferIn);
@@ -269,18 +281,30 @@ int main(int argc, char **argv)
         if (bufferIn[0] == '/')
         {
             //trying to execute something
-            int result = execute(exe, argArray, environ);
+            int result = 0;
+            if (background)
+            {
+                result = executeOnTTY(exe, argArray, environ, "/dev/null");
+            }
+            else
+            {
+                result = execute(exe, argArray, environ);
+            }
+
 
             if (result >= 0)
             {
                 printf("Started pid:%d\n", result);
                 fflush(stdout);
 
-                int waitStatus = 0;
-                wait(&waitStatus);
+                if (background == 0)
+                {
+                    int waitStatus = 0;
+                    wait(&waitStatus);
 
-                printf("Exited pid:%d\n", result);
-                fflush(stdout);
+                    printf("Exited pid:%d\n", result);
+                    fflush(stdout);
+                }
             }
             else
             {
