@@ -15,6 +15,7 @@
 #include "systemfs.h"
 #include "pipe.h"
 #include "random.h"
+#include "null.h"
 #include "elf.h"
 #include "debugprint.h"
 #include "ramdisk.h"
@@ -158,6 +159,7 @@ int kmain(struct Multiboot *mboot_ptr)
     Serial_PrintF("pitch:%d\n", mboot_ptr->framebuffer_pitch);
 
     initializeRandom();
+    initializeNull();
 
     createRamdisk("ramdisk1", 12*1024*1024);
 
@@ -199,27 +201,9 @@ int kmain(struct Multiboot *mboot_ptr)
 
     enableInterrupts();
 
-    uint32 uptime = getUptimeMilliseconds();
-
     while(TRUE)
     {
-        //printUsageInfo();
-
-
-
-        //Not working somehow?
-        //sleepMilliseconds(getCurrentThread(), 500);
-
-        if (uptime + 30 <= getUptimeMilliseconds())
-        {
-            Tty* tty = getActiveTTY();
-            if (tty && tty->update)
-            {
-                tty->update(tty);
-            }
-
-            uptime = getUptimeMilliseconds();
-        }
+        //Idle thread
 
         halt();
     }

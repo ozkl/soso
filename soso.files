@@ -80,3 +80,5 @@ kernel/spinlock.h
 kernel/spinlock.c
 kernel/framebuffer.c
 kernel/framebuffer.h
+kernel/null.c
+kernel/null.h
