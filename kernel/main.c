@@ -3,7 +3,6 @@
 #include "timer.h"
 #include "multiboot.h"
 #include "fs.h"
-#include "syscall.h"
 #include "syscalls.h"
 #include "serial.h"
 #include "isr.h"
@@ -195,9 +194,6 @@ int kmain(struct Multiboot *mboot_ptr)
             printkf("Mounting initrd failed!\n");
         }
     }
-
-    trigger_syscall_managePipe("pipe1", 1, 8);
-
 
     enableScheduler();
 

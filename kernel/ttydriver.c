@@ -292,15 +292,6 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
         {
             Tty* tty = (Tty*)file->node->privateNodeData;
 
-            //Block until this becomes active TTY
-            //Block until line buffer has data
-            while (tty->lineBuffer == 0)
-            {
-                file->thread->state = TS_WAITIO;
-                file->thread->state_privateData = tty;
-                halt();
-            }
-
             for (int i = 0; i < tty->lineBufferIndex; ++i)
             {
                 char chr = tty->lineBuffer[i];

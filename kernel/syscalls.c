@@ -11,12 +11,98 @@
 #include "spinlock.h"
 #include "message.h"
 #include "commonuser.h"
+#include "syscalltable.h"
+#include "isr.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
  * A syscall can enable interrupts if it is needed.
  *
  **************/
+
+static void handleSyscall(Registers* regs);
+
+static void* gSyscallTable[SYSCALL_COUNT];
+
+
+void initialiseSyscalls()
+{
+    memset((uint8*)gSyscallTable, 0, sizeof(void*) * SYSCALL_COUNT);
+
+    gSyscallTable[SYS_open] = syscall_open;
+    gSyscallTable[SYS_close] = syscall_close;
+    gSyscallTable[SYS_read] = syscall_read;
+    gSyscallTable[SYS_write] = syscall_write;
+    gSyscallTable[SYS_lseek] = syscall_lseek;
+    gSyscallTable[SYS_stat] = syscall_stat;
+    gSyscallTable[SYS_fstat] = syscall_fstat;
+    gSyscallTable[SYS_ioctl] = syscall_ioctl;
+    gSyscallTable[SYS_exit] = syscall_exit;
+    gSyscallTable[SYS_sbrk] = syscall_sbrk;
+    gSyscallTable[SYS_fork] = syscall_fork;
+    gSyscallTable[SYS_getpid] = syscall_getpid;
+
+    gSyscallTable[SYS_execute] = syscall_execute;
+    gSyscallTable[SYS_execve] = syscall_execve;
+    gSyscallTable[SYS_wait] = syscall_wait;
+    gSyscallTable[SYS_kill] = syscall_kill;
+    gSyscallTable[SYS_mount] = syscall_mount;
+    gSyscallTable[SYS_unmount] = syscall_unmount;
+    gSyscallTable[SYS_mkdir] = syscall_mkdir;
+    gSyscallTable[SYS_rmdir] = syscall_rmdir;
+    gSyscallTable[SYS_getdents] = syscall_getdents;
+    gSyscallTable[SYS_getWorkingDirectory] = syscall_getWorkingDirectory;
+    gSyscallTable[SYS_setWorkingDirectory] = syscall_setWorkingDirectory;
+    gSyscallTable[SYS_managePipe] = syscall_managePipe;
+    gSyscallTable[SYS_readDir] = syscall_readDir;
+    gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
+    gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
+    gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
+    gSyscallTable[SYS_getMessageQueue] = syscall_getMessageQueue;
+    gSyscallTable[SYS_manageTTYBuffer] = syscall_manageTTYBuffer;
+    gSyscallTable[SYS_mmap] = syscall_mmap;
+    gSyscallTable[SYS_munmap] = syscall_munmap;
+
+    // Register our syscall handler.
+    registerInterruptHandler (0x80, &handleSyscall);
+}
+
+static void handleSyscall(Registers* regs)
+{
+    if (regs->eax >= SYSCALL_COUNT)
+    {
+        return;
+    }
+
+    void *location = gSyscallTable[regs->eax];
+
+    if (NULL == location)
+    {
+        regs->eax = -1;
+        return;
+    }
+
+    //Screen_PrintF("We are in syscall_handler\n");
+    //Screen_PrintInterruptsEnabled();
+
+    //I think it is better to enable interrupts in syscall implementations if it is needed.
+
+    int ret;
+    asm volatile (" \
+      pushl %1; \
+      pushl %2; \
+      pushl %3; \
+      pushl %4; \
+      pushl %5; \
+      call *%6; \
+      popl %%ebx; \
+      popl %%ebx; \
+      popl %%ebx; \
+      popl %%ebx; \
+      popl %%ebx; \
+    " : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
+    regs->eax = ret;
+}
 
 int syscall_open(const char *pathname, int flags)
 {

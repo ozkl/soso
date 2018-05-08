@@ -51,8 +51,6 @@ kernel/serial.c
 kernel/serial.h
 kernel/sleep.c
 kernel/sleep.h
-kernel/syscall.c
-kernel/syscall.h
 kernel/syscalls.c
 kernel/syscalls.h
 kernel/syscalltable.h

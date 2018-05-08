@@ -5,6 +5,8 @@
 
 struct stat;
 
+void initialiseSyscalls();
+
 int syscall_open(const char *pathname, int flags);
 int syscall_close(int fd);
 int syscall_read(int fd, void *buf, int nbytes);
