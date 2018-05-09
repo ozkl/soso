@@ -1,0 +1,3 @@
+- Makefiles were modified in order to build for soso!
+- glu.c is now part of libTinyGL
+- Also BEOS and examples directories were deleted.
