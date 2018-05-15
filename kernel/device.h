@@ -15,6 +15,7 @@ typedef struct Device
     OpenFunction open;
     CloseFunction close;
     IoctlFunction ioctl;
+    FtruncateFunction ftruncate;
     MmapFunction mmap;
     MunmapFunction munmap;
     void * privateData;

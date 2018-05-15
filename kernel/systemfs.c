@@ -115,6 +115,17 @@ static void createNodes()
     nodePipes->parent = gSystemFsRoot;
 
     nodeThreads->nextSibling = nodePipes;
+
+    //
+
+    FileSystemNode* nodeShm = kmalloc(sizeof(FileSystemNode));
+    memset((uint8*)nodeShm, 0, sizeof(FileSystemNode));
+
+    strcpy(nodeShm->name, "shm");
+    nodeShm->nodeType = FT_Directory;
+    nodeShm->parent = gSystemFsRoot;
+
+    nodePipes->nextSibling = nodeShm;
 }
 
 static BOOL systemfs_open(File *file, uint32 flags)

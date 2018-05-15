@@ -82,3 +82,5 @@ kernel/framebuffer.c
 kernel/framebuffer.h
 kernel/null.c
 kernel/null.h
+kernel/sharedmemory.h
+kernel/sharedmemory.c

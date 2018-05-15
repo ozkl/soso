@@ -115,6 +115,7 @@ BOOL registerDevice(Device* device)
     deviceNode->read = device->read;
     deviceNode->write = device->write;
     deviceNode->ioctl = device->ioctl;
+    deviceNode->ftruncate = device->ftruncate;
     deviceNode->mmap = device->mmap;
     deviceNode->munmap = device->munmap;
     deviceNode->privateNodeData = device->privateData;

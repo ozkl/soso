@@ -293,6 +293,16 @@ int32 lseek_fs(File *file, int32 offset, int32 whence)
     return 0;
 }
 
+int32 ftruncate_fs(File* file, int32 length)
+{
+    if (file->node->ftruncate != NULL)
+    {
+        return file->node->ftruncate(file, length);
+    }
+
+    return -1;
+}
+
 int32 stat_fs(FileSystemNode *node, struct stat *buf)
 {
 #define	__S_IFDIR	0040000	/* Directory.  */
