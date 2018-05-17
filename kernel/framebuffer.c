@@ -99,7 +99,7 @@ static int32 fb_ioctl(File *node, int32 request, void * argp)
 
 static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
 {
-    return mapMemory(file->thread->owner, size, (uint32)(gFrameBufferPhysical + offset));
+    return mapMemory(file->thread->owner, size, (uint32)(gFrameBufferPhysical + offset), NULL);
 }
 
 static BOOL fb_munmap(File* file, void* address, uint32 size)

@@ -21,7 +21,7 @@ typedef struct SharedMemory
 {
     FileSystemNode* node;
     List* physicalAddressList;
-    uint32 size;
+    Spinlock physicalAddressListLock;
 } SharedMemory;
 
 void initializeSharedMemory()
@@ -127,6 +127,8 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
 
     int pageCount = (length / PAGESIZE_4M) + 1;
 
+    Spinlock_Lock(&sharedMem->physicalAddressListLock);
+
     for (int i = 0; i < pageCount; ++i)
     {
         char* pAddress = getPageFrame4M();
@@ -136,7 +138,27 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
 
     file->node->length = length;
 
+    Spinlock_Unlock(&sharedMem->physicalAddressListLock);
+
     return 0;
+}
+
+static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
+{
+    void* result = NULL;
+
+    SharedMemory* sharedMem = (SharedMemory*)file->node->privateNodeData;
+
+    Spinlock_Lock(&sharedMem->physicalAddressListLock);
+
+    if (List_GetCount(sharedMem->physicalAddressList) > 0)
+    {
+        result = mapMemory(file->thread->owner, size, 0, sharedMem->physicalAddressList);
+    }
+
+    Spinlock_Unlock(&sharedMem->physicalAddressListLock);
+
+    return result;
 }
 
 static void createSharedMemory(const char* name)
@@ -152,12 +174,12 @@ static void createSharedMemory(const char* name)
     node->open = sharedmemory_open;
     node->close = sharedmemory_close;
     node->ftruncate = sharedmemory_ftruncate;
+    node->mmap = sharedmemory_mmap;
     node->privateNodeData = sharedMem;
-
-    //TODO: mmap
 
     sharedMem->node = node;
     sharedMem->physicalAddressList = List_Create();
+    Spinlock_Init(&sharedMem->physicalAddressListLock);
 
     Spinlock_Lock(&gShmListLock);
     List_Append(gShmList, sharedMem);
@@ -166,7 +188,37 @@ static void createSharedMemory(const char* name)
 
 static void destroySharedMemory(const char* name)
 {
-    //TODO
+    SharedMemory* sharedMem = NULL;
+
+    Spinlock_Lock(&gShmListLock);
+
+    List_Foreach (n, gShmList)
+    {
+        SharedMemory* p = (SharedMemory*)n->data;
+
+        if (strcmp(name, p->node->name) == 0)
+        {
+            sharedMem = (SharedMemory*)p;
+            break;
+        }
+    }
+
+    if (sharedMem)
+    {
+        Spinlock_Lock(&sharedMem->physicalAddressListLock);
+
+        kfree(sharedMem->node);
+
+        List_Destroy(sharedMem->physicalAddressList);
+
+        List_RemoveFirstOccurrence(gShmList, sharedMem);
+
+        Spinlock_Unlock(&sharedMem->physicalAddressListLock);
+
+        kfree(sharedMem);
+    }
+
+    Spinlock_Unlock(&gShmListLock);
 }
 
 int shm_open(const char *name, int oflag, int mode);

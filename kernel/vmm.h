@@ -4,6 +4,7 @@
 #include "common.h"
 
 typedef struct Process Process;
+typedef struct List List;
 
 extern uint32 *gKernelPageDirectory;
 
@@ -41,7 +42,7 @@ uint32 getUsedPageCount();
 uint32 getFreePageCount();
 
 void initializeProcessMmap(Process* process);
-void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress);
+void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList);
 BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress);
 
 #endif // VMM_H

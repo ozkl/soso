@@ -4,6 +4,7 @@
 #include "alloc.h"
 #include "isr.h"
 #include "process.h"
+#include "list.h"
 #include "debugprint.h"
 
 uint32 *gKernelPageDirectory = (uint32 *)KERN_PAGE_DIRECTORY;
@@ -445,7 +446,9 @@ void initializeProcessMmap(Process* process)
     }
 }
 
-void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress)
+//this functions uses either pAddress or pAddressList
+//both of them must not be null!
+void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList)
 {
     if (nBytes == 0)
     {
@@ -455,6 +458,18 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress)
     int pageIndex = 0;
 
     int neededPages = (nBytes / PAGESIZE_4M) + 1;
+
+    if (pAddressList)
+    {
+        if (List_GetCount(pAddressList) < neededPages)
+        {
+            return NULL;
+        }
+    }
+    else if (0 == pAddress)
+    {
+        return NULL;
+    }
 
     int foundAdjacent = 0;
 
@@ -486,7 +501,18 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress)
 
     if (foundAdjacent == neededPages)
     {
-        uint32 p = pAddress & 0xFFC00000;
+        uint32 p = 0;
+        ListNode* pListNode = NULL;
+        if (pAddressList)
+        {
+            pListNode = List_GetFirstNode(pAddressList);
+            p = (uint32)(uint32*)pListNode->data;
+        }
+        else
+        {
+            p = pAddress;
+        }
+        p = p & 0xFFC00000;
         uint32 v = vMem;
         for (int i = 0; i < neededPages; ++i)
         {
@@ -495,7 +521,17 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress)
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M(v));
 
             v += PAGESIZE_4M;
-            p += PAGESIZE_4M;
+
+            if (pAddressList)
+            {
+                pListNode = pListNode->next;
+                p = (uint32)(uint32*)pListNode->data;
+                p = p & 0xFFC00000;
+            }
+            else
+            {
+                p += PAGESIZE_4M;
+            }
         }
 
         return (void*)vMem;
