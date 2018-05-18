@@ -22,6 +22,7 @@ typedef struct SharedMemory
     FileSystemNode* node;
     List* physicalAddressList;
     Spinlock physicalAddressListLock;
+    //TODO: permissions
 } SharedMemory;
 
 void initializeSharedMemory()
@@ -107,7 +108,7 @@ static BOOL sharedmemory_open(File *file, uint32 flags)
 
 static void sharedmemory_close(File *file)
 {
-
+    destroySharedMemory(file->node->name);
 }
 
 static int32 sharedmemory_ftruncate(File *file, int32 length)
@@ -161,8 +162,35 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
     return result;
 }
 
-static void createSharedMemory(const char* name)
+FileSystemNode* getSharedMemoryNode(const char* name)
 {
+    FileSystemNode* result = NULL;
+
+    Spinlock_Lock(&gShmListLock);
+
+    List_Foreach (n, gShmList)
+    {
+        SharedMemory* p = (SharedMemory*)n->data;
+
+        if (strcmp(name, p->node->name) == 0)
+        {
+            result = p->node;
+            break;
+        }
+    }
+
+    Spinlock_Unlock(&gShmListLock);
+
+    return result;
+}
+
+FileSystemNode* createSharedMemory(const char* name)
+{
+    if (getSharedMemoryNode(name) != NULL)
+    {
+        return NULL;
+    }
+
     SharedMemory* sharedMem = (SharedMemory*)kmalloc(sizeof(SharedMemory));
     memset((uint8*)sharedMem, 0, sizeof(SharedMemory));
 
@@ -184,9 +212,11 @@ static void createSharedMemory(const char* name)
     Spinlock_Lock(&gShmListLock);
     List_Append(gShmList, sharedMem);
     Spinlock_Unlock(&gShmListLock);
+
+    return node;
 }
 
-static void destroySharedMemory(const char* name)
+void destroySharedMemory(const char* name)
 {
     SharedMemory* sharedMem = NULL;
 
@@ -221,6 +251,4 @@ static void destroySharedMemory(const char* name)
     Spinlock_Unlock(&gShmListLock);
 }
 
-int shm_open(const char *name, int oflag, int mode);
 
-int shm_unlink(const char *name);

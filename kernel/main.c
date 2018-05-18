@@ -14,6 +14,7 @@
 #include "devfs.h"
 #include "systemfs.h"
 #include "pipe.h"
+#include "sharedmemory.h"
 #include "random.h"
 #include "null.h"
 #include "elf.h"
@@ -139,6 +140,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeSystemFS();
     initializePipes();
+    initializeSharedMemory();
 
     initializeTasking();
 

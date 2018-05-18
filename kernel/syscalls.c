@@ -13,6 +13,7 @@
 #include "commonuser.h"
 #include "syscalltable.h"
 #include "isr.h"
+#include "sharedmemory.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -62,6 +63,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_manageTTYBuffer] = syscall_manageTTYBuffer;
     gSyscallTable[SYS_mmap] = syscall_mmap;
     gSyscallTable[SYS_munmap] = syscall_munmap;
+    gSyscallTable[SYS_shm_open] = syscall_shm_open;
+    gSyscallTable[SYS_shm_unlink] = syscall_shm_unlink;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -1010,5 +1013,38 @@ int syscall_munmap(void *addr, int length)
     }
     */
 
+    return -1;
+}
+
+#define O_CREAT 100
+
+int syscall_shm_open(const char *name, int oflag, int mode)
+{
+    FileSystemNode* node = NULL;
+
+    if ((oflag & O_CREAT) == O_CREAT)
+    {
+        node = createSharedMemory(name);
+    }
+    else
+    {
+        node = getSharedMemoryNode(name);
+    }
+
+    if (node)
+    {
+        File* file = open_fs(node, oflag);
+
+        if (file)
+        {
+            return file->fd;
+        }
+    }
+
+    return -1;
+}
+
+int syscall_shm_unlink(const char *name)
+{
     return -1;
 }

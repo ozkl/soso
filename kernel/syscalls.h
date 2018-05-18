@@ -39,5 +39,7 @@ int syscall_getMessageQueue(int command, void* message);
 int syscall_manageTTYBuffer(int fd, int command, void* userTTY);
 void* syscall_mmap(void *addr, int length, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
+int syscall_shm_open(const char *name, int oflag, int mode);
+int syscall_shm_unlink(const char *name);
 
 #endif // SYSCALLS_H
