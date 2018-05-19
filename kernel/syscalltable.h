@@ -41,6 +41,7 @@ enum
     SYS_munmap,
     SYS_shm_open,
     SYS_shm_unlink,
+    SYS_ftruncate,
 
     SYSCALL_COUNT
 };

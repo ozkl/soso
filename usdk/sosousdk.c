@@ -113,6 +113,21 @@ int munmap(void *addr, int length)
     return syscall2(SYS_munmap, (int)addr, length);
 }
 
+int shm_open(const char *name, int oflag, int mode)
+{
+    return syscall3(SYS_shm_open, (int)name, (int)oflag, (int)mode);
+}
+
+int shm_unlink(const char *name)
+{
+    return syscall1(SYS_shm_unlink, (int)name);
+}
+
+int ftruncate(int fd, int size)
+{
+    return syscall2(SYS_ftruncate, fd, size);
+}
+
 #define PSF_FONT_MAGIC 0x864ab572
 
 extern char _binary_font_psf_start;

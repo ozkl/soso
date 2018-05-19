@@ -106,7 +106,7 @@ static BOOL sharedmemory_open(File *file, uint32 flags)
     return TRUE;
 }
 
-static void sharedmemory_close(File *file)
+static void sharedmemory_unlink(File *file)
 {
     destroySharedMemory(file->node->name);
 }
@@ -200,7 +200,7 @@ FileSystemNode* createSharedMemory(const char* name)
     strcpy(node->name, name);
     node->nodeType = FT_CharacterDevice;
     node->open = sharedmemory_open;
-    node->close = sharedmemory_close;
+    //TODO: node->shm_unlink = sharedmemory_unlink;
     node->ftruncate = sharedmemory_ftruncate;
     node->mmap = sharedmemory_mmap;
     node->privateNodeData = sharedMem;
@@ -250,5 +250,3 @@ void destroySharedMemory(const char* name)
 
     Spinlock_Unlock(&gShmListLock);
 }
-
-

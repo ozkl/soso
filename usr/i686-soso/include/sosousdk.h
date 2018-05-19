@@ -16,5 +16,8 @@ int getTTYBuffer(int fd, TtyUserBuffer* ttyBuffer);
 int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer);
 void* mmap(void *addr, int length, int flags, int fd, int offset);
 int munmap(void *addr, int length);
+int shm_open(const char *name, int oflag, int mode);
+int shm_unlink(const char *name);
+int ftruncate(int fd, int size);
 
 #endif //SOSOUSDK_H

@@ -65,6 +65,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_munmap] = syscall_munmap;
     gSyscallTable[SYS_shm_open] = syscall_shm_open;
     gSyscallTable[SYS_shm_unlink] = syscall_shm_unlink;
+    gSyscallTable[SYS_ftruncate] = syscall_ftruncate;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -1016,7 +1017,7 @@ int syscall_munmap(void *addr, int length)
     return -1;
 }
 
-#define O_CREAT 100
+#define O_CREAT 0x200
 
 int syscall_shm_open(const char *name, int oflag, int mode)
 {
@@ -1046,5 +1047,36 @@ int syscall_shm_open(const char *name, int oflag, int mode)
 
 int syscall_shm_unlink(const char *name)
 {
+    return -1;
+}
+
+int syscall_ftruncate(int fd, int size)
+{
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        if (fd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                return ftruncate_fs(file, size);
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+        else
+        {
+            //TODO: error invalid fd
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
     return -1;
 }
