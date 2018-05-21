@@ -4,13 +4,13 @@
 #include "alloc.h"
 #include "device.h"
 #include "screen.h"
+#include "list.h"
+#include "spinlock.h"
 
 static FileSystemNode* gDevRoot = NULL;
 
-static FileSystemNode* gDeviceList = NULL;
-static int gNextDeviceIndex = 0;
-
-#define MAX_DEVICE_COUNT 200
+static List* gDeviceList = NULL;
+static Spinlock gDeviceListLock;
 
 static BOOL devfs_open(File *node, uint32 flags);
 static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index);
@@ -45,8 +45,8 @@ void initializeDevFS()
     gDevRoot->finddir = devfs_finddir;
     gDevRoot->readdir = devfs_readdir;
 
-    gDeviceList = kmalloc(sizeof(FileSystemNode) * MAX_DEVICE_COUNT);
-    memset((uint8*)gDeviceList, 0, sizeof(FileSystemNode) * MAX_DEVICE_COUNT);
+    gDeviceList = List_Create();
+    Spinlock_Init(&gDeviceListLock);
 }
 
 static BOOL devfs_open(File *node, uint32 flags)
@@ -56,55 +56,71 @@ static BOOL devfs_open(File *node, uint32 flags)
 
 static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index)
 {
-    if (/*index >= 0 &&*/ index < gNextDeviceIndex)
+    FileSystemDirent * result = NULL;
+
+    uint32 counter = 0;
+
+    Spinlock_Lock(&gDeviceListLock);
+
+    List_Foreach(n, gDeviceList)
     {
-        FileSystemNode* deviceNode = &gDeviceList[index];
-        strcpy(gDirent.name, deviceNode->name);
-        gDirent.fileType = deviceNode->nodeType;
-        gDirent.inode = index;
-        return &gDirent;
+        if (index == counter)
+        {
+            FileSystemNode* deviceNode = (FileSystemNode*)n->data;
+            strcpy(gDirent.name, deviceNode->name);
+            gDirent.fileType = deviceNode->nodeType;
+            gDirent.inode = index;
+            result = &gDirent;
+            break;
+        }
+
+        ++counter;
     }
-    return NULL;
+    Spinlock_Unlock(&gDeviceListLock);
+
+    return result;
 }
 
 static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
 {
-    //Screen_PrintF("devfs_finddir\n");
+    FileSystemNode* result = NULL;
 
-    for (int i = 0; i < gNextDeviceIndex; ++i)
+
+    Spinlock_Lock(&gDeviceListLock);
+
+    List_Foreach(n, gDeviceList)
     {
-        FileSystemNode* deviceNode = &gDeviceList[i];
+        FileSystemNode* deviceNode = (FileSystemNode*)n->data;
 
         if (strcmp(name, deviceNode->name) == 0)
         {
-            return deviceNode;
+            result = deviceNode;
+            break;
         }
     }
 
-    return NULL;
+    Spinlock_Unlock(&gDeviceListLock);
+
+    return result;
 }
 
 BOOL registerDevice(Device* device)
 {
-    if (gNextDeviceIndex >= MAX_DEVICE_COUNT)
-    {
-        WARNING("Registered device list is full!\n");
+    Spinlock_Lock(&gDeviceListLock);
 
-        return FALSE;
-    }
-
-    for (int i = 0; i < gNextDeviceIndex; ++i)
+    List_Foreach(n, gDeviceList)
     {
-        FileSystemNode* deviceNode = &gDeviceList[i];
+        FileSystemNode* deviceNode = (FileSystemNode*)n->data;
 
         if (strcmp(device->name, deviceNode->name) == 0)
         {
             //There is already a device with the same name
+            Spinlock_Unlock(&gDeviceListLock);
             return FALSE;
         }
     }
 
-    FileSystemNode* deviceNode = &gDeviceList[gNextDeviceIndex++];
+    FileSystemNode* deviceNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8*)deviceNode, 0, sizeof(FileSystemNode));
     strcpy(deviceNode->name, device->name);
     deviceNode->nodeType = device->deviceType;
@@ -120,6 +136,10 @@ BOOL registerDevice(Device* device)
     deviceNode->munmap = device->munmap;
     deviceNode->privateNodeData = device->privateData;
     deviceNode->parent = gDevRoot;
+
+    List_Append(gDeviceList, deviceNode);
+
+    Spinlock_Unlock(&gDeviceListLock);
 
     return TRUE;
 }
