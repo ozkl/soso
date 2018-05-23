@@ -55,6 +55,7 @@ kernel/syscalls.c
 kernel/syscalls.h
 kernel/syscalltable.h
 kernel/task.asm
+kernel/termios.h
 kernel/timer.c
 kernel/timer.h
 kernel/tty.c

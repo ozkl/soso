@@ -121,7 +121,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeSerial();
 
-    uint32 memoryKb = 96*1024;
+    uint32 memoryKb = mboot_ptr->mem_upper;//96*1024;
     initializeMemory(memoryKb);
 
     initializeVFS();
