@@ -127,9 +127,16 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeVFS();
     initializeDevFS();
 
-    Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
+    if (MULTIBOOT_FRAMEBUFFER_TYPE_RGB == mboot_ptr->framebuffer_type)
+    {
+        Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 32, mboot_ptr->framebuffer_pitch);
 
-    initializeTTYs(TRUE);
+        initializeTTYs(TRUE);
+    }
+    else
+    {
+        initializeTTYs(FALSE);
+    }
     //printkf works after TTY initialization
 
     printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
