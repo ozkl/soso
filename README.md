@@ -11,7 +11,10 @@ Soso is a 32-bit x86 operating system and its features are
 - FAT32 filesystem using FatFs
 - System calls
 - Libc (Newlib is ported with only basic calls like open, read,..)
-- Can run userspace ELF files
+- Userspace programs as ELF files
+- mmap support
+- Framebuffer graphics (userspace can access with mmap)
+- Shared memory
 
 Paging is written for 4MB page support, since it is easier to implement. Downside of this is, each process has to use at least 4MB memory.
 
@@ -36,15 +39,14 @@ Now an initrd (initial ramdisk) image is needed to put userspace binaries. To cr
 
 This will create initrd.fat file. This is a mountable FAT32 initrd image. Once kernel initialization is complete, initrd contents are copied into /dev/ramdisk1 and it is mounted to /initrd. After that kernel runs the /initrd/shell ELF file.
 
+    ./create-cd-image.sh
+    
+This will create soso.iso cd image.
+
 # running
-QEMU has multiboot implementation so you can try the kernel with QEMU without creating a system image. Just run:
+To try Soso in QEMU, just run:
 
-    qemu-system-i386 -kernel kernel.bin -initrd initrd.fat
+    qemu-system-i386 -cdrom soso.iso
 
-![Soso](screenshots/soso1.png)
+![Soso](screenshots/soso-v0.1_1.png)
 
-# creating a system image
-By creating an image, it is possible to run Soso on real hardware!
-To create it, run as root (linux specific):
-
-    ./create-image.sh
