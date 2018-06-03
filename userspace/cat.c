@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 int main(int argc, char** argv)
 {
@@ -14,31 +16,28 @@ int main(int argc, char** argv)
             n = atoi(argv[2]);
         }
 
-        setvbuf ( stdout , NULL , _IONBF , 0);
 
-        printf("trying to read %d bytes blocks\n", n);
-
-        FILE* f = fopen(file, "r");
+        int f = open(file, 0);
         if (f)
         {
             char buffer[1024];
 
-            setvbuf ( f , NULL , _IONBF , 0);
-
             int bytes = 0;
             do
             {
-                bytes = fread(buffer, 1, n, f);
+                bytes = read(f, buffer, n);
                 //printf("bytes:%d\n", bytes);
+                /*
                 for (int i = 0; i < bytes; ++i)
                 {
-                    //printf("buffer[%d]=%d\n", i, buffer[i]);
                     putchar(buffer[i]);
                 }
+                */
+                write(1, buffer, bytes);
 
             } while (bytes > 0);
 
-            fclose(f);
+            close(f);
         }
         else
         {

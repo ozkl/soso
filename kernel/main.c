@@ -26,6 +26,7 @@
 #include "gfx.h"
 #include "mouse.h"
 #include "sleep.h"
+#include "ptdriver.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -138,6 +139,8 @@ int kmain(struct Multiboot *mboot_ptr)
         initializeTTYs(FALSE);
     }
     //printkf works after TTY initialization
+
+    initializePseudoTerminal();
 
     printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
     printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);

@@ -26,8 +26,10 @@ static int32 ptmaster_write(File *file, uint32 size, uint8 *buffer);
 
 static BOOL ptslave_open(File *file, uint32 flags);
 static void ptslave_close(File *file);
+static int32 ptslave_read(File *file, uint32 size, uint8 *buffer);
+static int32 ptslave_write(File *file, uint32 size, uint8 *buffer);
 
-void initializeTerminalDriver()
+void initializePseudoTerminal()
 {
     gPtList = List_Create();
 
@@ -41,7 +43,7 @@ int getSlavePath(FileSystemNode* masterNode, char* buffer, uint32 bufferSize)
     return getFileSystemNodePath(device->slaveNode, buffer, bufferSize);
 }
 
-FileSystemNode* createDevice()
+FileSystemNode* createPseudoTerminal()
 {
     PtDevice* device = kmalloc(sizeof(PtDevice));
     memset((uint8*)device, 0, sizeof(PtDevice));
@@ -52,6 +54,8 @@ FileSystemNode* createDevice()
     pts.privateData = device;
     pts.open = ptslave_open;
     pts.close = ptslave_close;
+    pts.read = ptslave_read;
+    pts.write = ptslave_write;
 
     device->slaveNode = registerDevice(&pts);
 
@@ -84,6 +88,89 @@ FileSystemNode* createDevice()
     return masterNode;
 }
 
+static void blockAccessingThreads(PtDevice* ptDevice)
+{
+    disableInterrupts();
+
+    List_Foreach (n, ptDevice->accessingThreadsSlave)
+    {
+        Thread* reader = n->data;
+
+        reader->state = TS_WAITIO;
+
+        reader->state_privateData = ptDevice;
+    }
+
+    enableInterrupts();
+
+    halt();
+}
+
+//must be called with interrupts disabled
+static void wakeupAccessingThreads(PtDevice* ptDevice)
+{
+    List_Foreach (n, ptDevice->accessingThreadsSlave)
+    {
+        Thread* reader = n->data;
+
+        if (reader->state == TS_WAITIO)
+        {
+            if (reader->state_privateData == ptDevice)
+            {
+                reader->state = TS_RUN;
+            }
+        }
+    }
+}
+
+static int32 ptmaster_read(File *file, uint32 size, uint8 *buffer)
+{
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
+
+    PtDevice* device = (PtDevice*)file->node->privateNodeData;
+
+    uint32 used = 0;
+    while ((used = FifoBuffer_getSize(device->bufferSlaveWrite)) < size)
+    {
+        blockAccessingThreads(device);
+    }
+
+    disableInterrupts();
+
+    int32 readBytes = FifoBuffer_dequeue(device->bufferSlaveWrite, buffer, size);
+
+    wakeupAccessingThreads(device);
+
+    return readBytes;
+}
+
+static int32 ptmaster_write(File *file, uint32 size, uint8 *buffer)
+{
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
+
+    PtDevice* device = (PtDevice*)file->node->privateNodeData;
+
+    uint32 free = 0;
+    while ((free = FifoBuffer_getFree(device->bufferMasterWrite)) < size)
+    {
+        blockAccessingThreads(device);
+    }
+
+    disableInterrupts();
+
+    int32 bytesWritten = FifoBuffer_enqueue(device->bufferMasterWrite, buffer, size);
+
+    wakeupAccessingThreads(device);
+
+    return bytesWritten;
+}
+
 static BOOL ptslave_open(File *file, uint32 flags)
 {
     PtDevice* device = (PtDevice*)file->node->privateNodeData;
@@ -108,14 +195,50 @@ static void ptslave_close(File *file)
     Spinlock_Unlock(&device->accessingThreadsSlaveLock);
 }
 
-static int32 ptmaster_read(File *file, uint32 size, uint8 *buffer)
+static int32 ptslave_read(File *file, uint32 size, uint8 *buffer)
 {
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
 
-}
-
-static int32 ptmaster_write(File *file, uint32 size, uint8 *buffer)
-{
     PtDevice* device = (PtDevice*)file->node->privateNodeData;
 
-    uint32 available = FifoBuffer_getFree(device->bufferMasterWrite);
+    uint32 used = 0;
+    while ((used = FifoBuffer_getSize(device->bufferMasterWrite)) < size)
+    {
+        blockAccessingThreads(device);
+    }
+
+    disableInterrupts();
+
+    int32 readBytes = FifoBuffer_dequeue(device->bufferMasterWrite, buffer, size);
+
+    wakeupAccessingThreads(device);
+
+    return readBytes;
+}
+
+static int32 ptslave_write(File *file, uint32 size, uint8 *buffer)
+{
+    if (0 == size || NULL == buffer)
+    {
+        return -1;
+    }
+
+    PtDevice* device = (PtDevice*)file->node->privateNodeData;
+
+    uint32 free = 0;
+    while ((free = FifoBuffer_getFree(device->bufferSlaveWrite)) < size)
+    {
+        blockAccessingThreads(device);
+    }
+
+    disableInterrupts();
+
+    int32 bytesWritten = FifoBuffer_enqueue(device->bufferSlaveWrite, buffer, size);
+
+    wakeupAccessingThreads(device);
+
+    return bytesWritten;
 }

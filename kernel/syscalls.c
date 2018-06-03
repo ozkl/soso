@@ -14,6 +14,7 @@
 #include "syscalltable.h"
 #include "isr.h"
 #include "sharedmemory.h"
+#include "ptdriver.h"
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -61,6 +62,8 @@ int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_shm_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
+int syscall_posix_openpt(int flags);
+int syscall_ptsname_r(int fd, char *buf, int buflen);
 
 
 void initialiseSyscalls()
@@ -103,6 +106,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_shm_open] = syscall_shm_open;
     gSyscallTable[SYS_shm_unlink] = syscall_shm_unlink;
     gSyscallTable[SYS_ftruncate] = syscall_ftruncate;
+    gSyscallTable[SYS_posix_openpt] = syscall_posix_openpt;
+    gSyscallTable[SYS_ptsname_r] = syscall_ptsname_r;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -1116,4 +1121,64 @@ int syscall_ftruncate(int fd, int size)
     }
 
     return -1;
+}
+
+int syscall_posix_openpt(int flags)
+{
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        FileSystemNode* node = createPseudoTerminal();
+        if (node)
+        {
+            File* file = open_fs(node, flags);
+
+            if (file)
+            {
+                return file->fd;
+            }
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
+}
+
+int syscall_ptsname_r(int fd, char *buf, int buflen)
+{
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        if (fd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                int result = getSlavePath(file->node, buf, buflen);
+
+                if (result > 0)
+                {
+                    return 0; //return 0 on success
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+        else
+        {
+            //TODO: error invalid fd
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;//on error
 }

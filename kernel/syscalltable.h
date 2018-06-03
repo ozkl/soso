@@ -42,6 +42,8 @@ enum
     SYS_shm_open,
     SYS_shm_unlink,
     SYS_ftruncate,
+    SYS_posix_openpt,
+    SYS_ptsname_r,
 
     SYSCALL_COUNT
 };

@@ -18,8 +18,6 @@ static Tty* gActiveTty = NULL;
 
 static uint8 gKeyModifier = 0;
 
-static uint32 gCounterPt = 0;
-
 typedef enum KeyModifier
 {
     KM_LeftShift = 1,
@@ -167,33 +165,6 @@ void initializeTTYs(BOOL graphicMode)
     }
 
     gActiveTty = List_GetFirstNode(gTtyList)->data;
-
-    createPT();
-    createPT();
-}
-
-BOOL createPT()
-{
-    Tty* tty = createTty(25, 80, NULL);
-
-    tty->color = 0x0A;
-
-    List_Append(gTtyList, tty);
-
-    uint32 ptIndex = gCounterPt++;
-
-    Device device;
-    memset((uint8*)&device, 0, sizeof(Device));
-    sprintf(device.name, "pt%d", ptIndex);
-    device.deviceType = FT_CharacterDevice;
-    device.open = tty_open;
-    device.close = tty_close;
-    device.ioctl = tty_ioctl;
-    device.read = tty_read;
-    device.write = tty_write;
-    device.privateData = tty;
-
-    return registerDevice(&device) != NULL;
 }
 
 Tty* getActiveTTY()
