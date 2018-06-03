@@ -193,7 +193,7 @@ BOOL createPT()
     device.write = tty_write;
     device.privateData = tty;
 
-    return registerDevice(&device);
+    return registerDevice(&device) != NULL;
 }
 
 Tty* getActiveTTY()

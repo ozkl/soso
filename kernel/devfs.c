@@ -104,7 +104,7 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
     return result;
 }
 
-BOOL registerDevice(Device* device)
+FileSystemNode* registerDevice(Device* device)
 {
     Spinlock_Lock(&gDeviceListLock);
 
@@ -116,7 +116,7 @@ BOOL registerDevice(Device* device)
         {
             //There is already a device with the same name
             Spinlock_Unlock(&gDeviceListLock);
-            return FALSE;
+            return NULL;
         }
     }
 
@@ -141,5 +141,5 @@ BOOL registerDevice(Device* device)
 
     Spinlock_Unlock(&gDeviceListLock);
 
-    return TRUE;
+    return deviceNode;
 }

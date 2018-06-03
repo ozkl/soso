@@ -6,6 +6,6 @@
 #include "common.h"
 
 void initializeDevFS();
-BOOL registerDevice(Device* device);
+FileSystemNode* registerDevice(Device* device);
 
 #endif // DEVFS_H

@@ -34,9 +34,7 @@ BOOL createRamdisk(const char* devName, uint32 size)
     device.ioctl = ioctl;
     device.privateData = ramdisk;
 
-    BOOL success = registerDevice(&device);
-
-    if (success)
+    if (registerDevice(&device))
     {
         return TRUE;
     }

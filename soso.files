@@ -39,6 +39,8 @@ kernel/mouse.h
 kernel/multiboot.h
 kernel/process.c
 kernel/process.h
+kernel/ptdriver.c
+kernel/ptdriver.h
 kernel/ramdisk.c
 kernel/ramdisk.h
 kernel/random.c
