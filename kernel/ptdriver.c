@@ -21,6 +21,8 @@ static Spinlock gPtListLock;
 
 static uint32 gIdGenerator = 1;
 
+static BOOL ptmaster_open(File *file, uint32 flags);
+static void ptmaster_close(File *file);
 static int32 ptmaster_read(File *file, uint32 size, uint8 *buffer);
 static int32 ptmaster_write(File *file, uint32 size, uint8 *buffer);
 
@@ -51,6 +53,7 @@ FileSystemNode* createPseudoTerminal()
     Device pts;
     memset((uint8*)&pts, 0, sizeof(Device));
     sprintf(pts.name, "pts%d", gIdGenerator++);
+    pts.deviceType = FT_CharacterDevice;
     pts.privateData = device;
     pts.open = ptslave_open;
     pts.close = ptslave_close;
@@ -69,6 +72,8 @@ FileSystemNode* createPseudoTerminal()
     FileSystemNode* masterNode = kmalloc(sizeof(FileSystemNode));
     memset((uint8*)masterNode, 0, sizeof(FileSystemNode));
     masterNode->privateNodeData = device;
+    masterNode->open = ptmaster_open;
+    masterNode->close = ptmaster_close;
     masterNode->read = ptmaster_read;
     masterNode->write = ptmaster_write;
 
@@ -121,6 +126,15 @@ static void wakeupAccessingThreads(PtDevice* ptDevice)
             }
         }
     }
+}
+
+static BOOL ptmaster_open(File *file, uint32 flags)
+{
+    return TRUE;
+}
+
+static void ptmaster_close(File *file)
+{
 }
 
 static int32 ptmaster_read(File *file, uint32 size, uint8 *buffer)
