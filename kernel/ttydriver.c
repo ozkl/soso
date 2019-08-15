@@ -317,7 +317,7 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
     {
         struct termios* term = (struct termios*)argp;
 
-        Debug_PrintF("TCGETS\n");
+        //Debug_PrintF("TCGETS\n");
 
         memcpy((uint8*)term, (uint8*)&(tty->term), sizeof(struct termios));
 
@@ -331,7 +331,7 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
     {
         struct termios* term = (struct termios*)argp;
 
-        Debug_PrintF("TCSETSF\n");
+        //Debug_PrintF("TCSETSF\n");
 
         memcpy((uint8*)&(tty->term), (uint8*)term, sizeof(struct termios));
 

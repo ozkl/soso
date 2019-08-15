@@ -113,6 +113,19 @@ int executeFile(const char *path, char *const argv[], char *const envp[], FileSy
     return result;
 }
 
+void printAsciiArt()
+{
+    printkf("     ________       ________      ________       ________     \n");
+    printkf("    |\\   ____\\     |\\   __  \\    |\\   ____\\     |\\   __  \\    \n");
+    printkf("    \\ \\  \\___|_    \\ \\  \\|\\  \\   \\ \\  \\___|_    \\ \\  \\|\\  \\   \n");
+    printkf("     \\ \\_____  \\    \\ \\  \\\\\\  \\   \\ \\_____  \\    \\ \\  \\\\\\  \\  \n");
+    printkf("      \\|____|\\  \\    \\ \\  \\\\\\  \\   \\|____|\\  \\    \\ \\  \\\\\\  \\ \n");
+    printkf("        ____\\_\\  \\    \\ \\_______\\    ____\\_\\  \\    \\ \\_______\\\n");
+    printkf("       |\\_________\\    \\|_______|   |\\_________\\    \\|_______|\n");
+    printkf("       \\|_________|                 \\|_________|              \n");
+    printkf("\n");
+}
+
 int kmain(struct Multiboot *mboot_ptr)
 {
     int stack = 5;
@@ -138,6 +151,8 @@ int kmain(struct Multiboot *mboot_ptr)
         initializeTTYs(FALSE);
     }
     //printkf works after TTY initialization
+
+    printAsciiArt();
 
     printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
     printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
