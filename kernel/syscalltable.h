@@ -34,8 +34,8 @@ enum
     SYS_getUptimeMilliseconds,
     SYS_sleepMilliseconds,
     SYS_executeOnTTY,
-    SYS_getMessageQueue,
-    SYS_manageTTYBuffer,
+    SYS_manageMessage,
+    SYS_UNUSED,
 
     SYS_mmap,
     SYS_munmap,

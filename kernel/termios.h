@@ -1,6 +1,8 @@
 #ifndef TERMIOS_H
 #define TERMIOS_H
 
+//This file will also be included by C library.
+
 typedef unsigned char       cc_t;
 typedef unsigned int        speed_t;
 typedef unsigned int        tcflag_t;
@@ -180,5 +182,11 @@ struct termios
 #define        TCSANOW          0
 #define        TCSADRAIN        1
 #define        TCSAFLUSH        2
+
+//ioctl interface
+#define TCGETS		0x5001
+#define TCSETS		0x5002
+#define TCSETSW		0x5003
+#define TCSETSF		0x5004
 
 #endif // TERMIOS_H

@@ -26,7 +26,6 @@
 #include "gfx.h"
 #include "mouse.h"
 #include "sleep.h"
-#include "ptdriver.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -140,13 +139,12 @@ int kmain(struct Multiboot *mboot_ptr)
     }
     //printkf works after TTY initialization
 
-    initializePseudoTerminal();
-
     printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
     printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
     printkf("Memory initialized for %d MB\n", memoryKb / 1024);
     printkf("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
     printkf("Initial stack: %x\n", &stack);
+    printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
 
     initializeSystemFS();
     initializePipes();
@@ -173,7 +171,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeRandom();
     initializeNull();
 
-    createRamdisk("ramdisk1", 12*1024*1024);
+    createRamdisk("ramdisk1", 20*1024*1024);
 
     initializeFatFileSystem();
 

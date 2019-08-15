@@ -2,19 +2,12 @@
 #include "process.h"
 #include "fifobuffer.h"
 
-#include "sosomessage.h"
 
-void sendMesageKeyEvent(Thread* thread, uint8 scancode)
+void sendMesage(Thread* thread, SosoMessage* message)
 {
-    SosoMessage message;
-    message.messageType = SM_KEYEVENT;
-    message.parameter1 = scancode;
-    message.parameter2 = 0;
-    message.parameter3 = 0;
-
     Spinlock_Lock(&(thread->messageQueueLock));
 
-    FifoBuffer_enqueue(thread->messageQueue, (uint8*)&message, sizeof(SosoMessage));
+    FifoBuffer_enqueue(thread->messageQueue, (uint8*)message, sizeof(SosoMessage));
 
     Spinlock_Unlock(&(thread->messageQueueLock));
 }

@@ -14,7 +14,7 @@
 #include "syscalltable.h"
 #include "isr.h"
 #include "sharedmemory.h"
-#include "ptdriver.h"
+
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -55,8 +55,7 @@ int syscall_readDir(int fd, void *dirent, int index);
 int syscall_getUptimeMilliseconds();
 int syscall_sleepMilliseconds(int ms);
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
-int syscall_getMessageQueue(int command, void* message);
-int syscall_manageTTYBuffer(int fd, int command, void* userTTY);
+int syscall_manageMessage(int command, void* message);
 void* syscall_mmap(void *addr, int length, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
@@ -99,8 +98,8 @@ void initialiseSyscalls()
     gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
     gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
     gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
-    gSyscallTable[SYS_getMessageQueue] = syscall_getMessageQueue;
-    gSyscallTable[SYS_manageTTYBuffer] = syscall_manageTTYBuffer;
+    gSyscallTable[SYS_manageMessage] = syscall_manageMessage;
+    gSyscallTable[SYS_UNUSED] = NULL;
     gSyscallTable[SYS_mmap] = syscall_mmap;
     gSyscallTable[SYS_munmap] = syscall_munmap;
     gSyscallTable[SYS_shm_open] = syscall_shm_open;
@@ -909,7 +908,7 @@ int syscall_sleepMilliseconds(int ms)
     return 0;
 }
 
-int syscall_getMessageQueue(int command, void* message)
+int syscall_manageMessage(int command, void* message)
 {
     Thread* thread = getCurrentThread();
 
@@ -921,6 +920,10 @@ int syscall_getMessageQueue(int command, void* message)
         result = getMessageQueueCount(thread);
         break;
     case 1:
+        sendMesage(thread, (SosoMessage*)message);
+        result = 0;
+        break;
+    case 2:
         //make blocking
         result = getNextMessage(thread, (SosoMessage*)message);
         break;
@@ -929,51 +932,6 @@ int syscall_getMessageQueue(int command, void* message)
     }
 
     return result;
-}
-
-int syscall_manageTTYBuffer(int fd, int command, void* userTTY)
-{
-    Thread* thread = getCurrentThread();
-    File* file = thread->owner->fd[fd];
-
-    if (file)
-    {
-        Tty* tty = (Tty*)file->node->privateNodeData;
-
-        if (isValidTTY(tty))
-        {
-            switch (command)
-            {
-            case 0:
-                return tty->columnCount * tty->lineCount * 2;
-                break;
-            case 1:
-            {
-                //set
-                TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)userTTY;
-                memcpy(tty->buffer, (uint8*)userTtyBuffer->buffer, tty->columnCount * tty->lineCount * 2);
-                return 1;
-            }
-                break;
-            case 2:
-            {
-                //get
-                TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)userTTY;
-                userTtyBuffer->columnCount = tty->columnCount;
-                userTtyBuffer->lineCount = tty->lineCount;
-                userTtyBuffer->currentColumn = tty->currentColumn;
-                userTtyBuffer->currentLine = tty->currentLine;
-                memcpy((uint8*)userTtyBuffer->buffer, tty->buffer, tty->columnCount * tty->lineCount * 2);
-                return 1;
-            }
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
-    return -1;
 }
 
 void* syscall_mmap(void *addr, int length, int flags, int fd, int offset)
@@ -1158,12 +1116,14 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
 
             if (file)
             {
+                /*
                 int result = getSlavePath(file->node, buf, buflen);
 
                 if (result > 0)
                 {
                     return 0; //return 0 on success
                 }
+                */
             }
             else
             {

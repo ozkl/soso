@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dd if=/dev/zero of=soso.img bs=16M count=1
+dd if=/dev/zero of=soso.img bs=26M count=1
 fdisk soso.img << EOF
 n
 p

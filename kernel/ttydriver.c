@@ -9,6 +9,8 @@
 #include "fifobuffer.h"
 #include "gfx.h"
 #include "debugprint.h"
+#include "commonuser.h"
+#include "termios.h"
 
 static List* gTtyList = NULL;
 
@@ -17,6 +19,8 @@ static List* gReaderList = NULL;
 static Tty* gActiveTty = NULL;
 
 static uint8 gKeyModifier = 0;
+
+static uint32 gPseudoTerminalNameGenerator = 0;
 
 typedef enum KeyModifier
 {
@@ -172,6 +176,32 @@ Tty* getActiveTTY()
     return gActiveTty;
 }
 
+FileSystemNode* createPseudoTerminal()
+{
+    Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
+    tty->change = Gfx_ChangeTty;
+
+    tty->color = 0x0A;
+
+    Device device;
+    memset((uint8*)&device, 0, sizeof(Device));
+    sprintf(device.name, "pts%d", gPseudoTerminalNameGenerator++);
+    device.deviceType = FT_CharacterDevice;
+    device.open = tty_open;
+    device.close = tty_close;
+    device.ioctl = tty_ioctl;
+    device.read = tty_read;
+    device.write = tty_write;
+    device.privateData = tty;
+    FileSystemNode* node = registerDevice(&device);
+    if (NULL == node)
+    {
+        destroyTty(tty);
+    }
+
+    return node;
+}
+
 void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 {
     beginCriticalSection();
@@ -197,13 +227,21 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
             if (tty->lineBufferIndex > 0)
             {
                 tty->lineBuffer[--tty->lineBufferIndex] = '\0';
-                write(tty, 1, &character);
+
+                if ((tty->term.c_lflag & ECHO) == ECHO)
+                {
+                    write(tty, 1, &character);
+                }
             }
         }
         else
         {
             tty->lineBuffer[tty->lineBufferIndex++] = character;
-            write(tty, 1, &character);
+
+            if ((tty->term.c_lflag & ECHO) == ECHO)
+            {
+                write(tty, 1, &character);
+            }
         }
     }
 
@@ -243,11 +281,65 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
 {
     Tty* tty = (Tty*)file->node->privateNodeData;
 
-    if (0 == request)
+    switch (request)
+    {
+    case 0:
     {
         sendKeyInputToTTY(tty, (uint8)(uint32)argp);
 
         return 0;
+    }
+        break;
+    case 1:
+        return tty->columnCount * tty->lineCount * 2;
+        break;
+    case 2:
+    {
+        //set
+        TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)argp;
+        memcpy(tty->buffer, (uint8*)userTtyBuffer->buffer, tty->columnCount * tty->lineCount * 2);
+        return 0;
+    }
+        break;
+    case 3:
+    {
+        //get
+        TtyUserBuffer* userTtyBuffer = (TtyUserBuffer*)argp;
+        userTtyBuffer->columnCount = tty->columnCount;
+        userTtyBuffer->lineCount = tty->lineCount;
+        userTtyBuffer->currentColumn = tty->currentColumn;
+        userTtyBuffer->currentLine = tty->currentLine;
+        memcpy((uint8*)userTtyBuffer->buffer, tty->buffer, tty->columnCount * tty->lineCount * 2);
+        return 0;
+    }
+        break;
+    case TCGETS:
+    {
+        struct termios* term = (struct termios*)argp;
+
+        Debug_PrintF("TCGETS\n");
+
+        memcpy((uint8*)term, (uint8*)&(tty->term), sizeof(struct termios));
+
+        return 0;//success
+    }
+        break;
+    case TCSETS:
+    case TCSETSW:
+        break;
+    case TCSETSF:
+    {
+        struct termios* term = (struct termios*)argp;
+
+        Debug_PrintF("TCSETSF\n");
+
+        memcpy((uint8*)&(tty->term), (uint8*)term, sizeof(struct termios));
+
+        return 0;//success
+    }
+        break;
+    default:
+        break;
     }
 
     return -1;

@@ -3,7 +3,7 @@
 
 typedef struct SosoMessage
 {
-    unsigned int messageType;
+    int messageType;
     int parameter1;
     int parameter2;
     int parameter3;

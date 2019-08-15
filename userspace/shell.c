@@ -10,6 +10,8 @@
 
 #include <sosousdk.h>
 
+#include "../kernel/termios.h"
+
 typedef enum FileType
 {
     FT_File               = 1,
@@ -337,7 +339,16 @@ int main(int argc, char **argv)
                     printf("Killing:%d\n", number);
                     fflush(stdout);
 
-                    kill(number, 0);
+                    if (kill(number, 0) < 0)
+                    {
+                        printf("Pid %d not found!\n", number);
+                        fflush(stdout);
+                    }
+                    else
+                    {
+                        printf("Killed:%d\n", number);
+                        fflush(stdout);
+                    }
                 }
                 if (strncmp(bufferIn, "fork", 4) == 0)
                 {
@@ -385,6 +396,27 @@ int main(int argc, char **argv)
                     char* e = bufferIn + 7;
 
                     putenv(e);
+                }
+                else if (strncmp(bufferIn, "exit", 4) == 0)
+                {
+                    printf("Exiting\n");
+                    fflush(stdout);
+
+                    return 0;
+                }
+                else if (strncmp(bufferIn, "off", 3) == 0)
+                {
+                    struct termios raw;
+                    tcgetattr(STDIN_FILENO, &raw);
+                    raw.c_lflag &= ~(ECHO);
+                    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+                }
+                else if (strncmp(bufferIn, "on", 3) == 0)
+                {
+                    struct termios raw;
+                    tcgetattr(STDIN_FILENO, &raw);
+                    raw.c_lflag |= ECHO;
+                    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
                 }
             }
         }

@@ -1,5 +1,7 @@
 #include "sosousdk.h"
 #include "../kernel/syscalltable.h"
+#include "../kernel/termios.h"
+
 
 static int syscall0(int num)
 {
@@ -68,39 +70,39 @@ void sendCharacterToTTY(int fd, char c)
     syscall_ioctl(fd, 0, (void*)(int)c);
 }
 
-int syscall_getMessageQueue(int command, void* message)
+int syscall_manageMessage(int command, void* message)
 {
-    return syscall2(SYS_getMessageQueue, command, (int)message);
+    return syscall2(SYS_manageMessage, command, (int)message);
 }
 
 int getMessageQueueCount()
 {
-    return syscall_getMessageQueue(0, 0);
+    return syscall_manageMessage(0, 0);
+}
+
+void sendMessage(SosoMessage* message)
+{
+    syscall_manageMessage(1, message);
 }
 
 int getNextMessage(SosoMessage* message)
 {
-    return syscall_getMessageQueue(1, message);
-}
-
-int syscall_manageTTYBuffer(int fd, int command, void* userTTY)
-{
-    return syscall3(SYS_manageTTYBuffer, fd, command, (int)userTTY);
+    return syscall_manageMessage(2, message);
 }
 
 int getTTYBufferSize(int fd)
 {
-    return syscall_manageTTYBuffer(fd, 0, 0);
+    return syscall_ioctl(fd, 1, 0);
 }
 
 int getTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
 {
-    return syscall_manageTTYBuffer(fd, 2, ttyBuffer);
+    return syscall_ioctl(fd, 3, ttyBuffer);
 }
 
 int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
 {
-    return syscall_manageTTYBuffer(fd, 1, ttyBuffer);
+    return syscall_ioctl(fd, 2, ttyBuffer);
 }
 
 void* mmap(void *addr, int length, int flags, int fd, int offset)
@@ -126,6 +128,33 @@ int shm_unlink(const char *name)
 int ftruncate(int fd, int size)
 {
     return syscall2(SYS_ftruncate, fd, size);
+}
+
+int tcgetattr(int fd, struct termios *termios_p)
+{
+  return syscall_ioctl(fd, TCGETS, (void*)termios_p);
+}
+
+int tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
+{
+  int cmd;
+
+  switch (optional_actions)
+  {
+    case TCSANOW:
+      cmd = TCSETS;
+    break;
+    case TCSADRAIN:
+      cmd = TCSETSW;
+    break;
+    case TCSAFLUSH:
+      cmd = TCSETSF;
+    break;
+    default:
+      //errno = EINVAL;
+      return -1;
+  }
+  return syscall_ioctl(fd, cmd, (void*)termios_p);
 }
 
 #define PSF_FONT_MAGIC 0x864ab572

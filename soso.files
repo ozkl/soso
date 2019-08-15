@@ -39,8 +39,6 @@ kernel/mouse.h
 kernel/multiboot.h
 kernel/process.c
 kernel/process.h
-kernel/ptdriver.c
-kernel/ptdriver.h
 kernel/ramdisk.c
 kernel/ramdisk.h
 kernel/random.c
@@ -76,7 +74,6 @@ kernel/pipe.h
 kernel/pipe.c
 kernel/gfx.h
 kernel/gfx.c
-kernel/sosomessage.h
 kernel/message.h
 kernel/message.c
 kernel/spinlock.h

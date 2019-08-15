@@ -6,7 +6,7 @@
 
 typedef struct Thread Thread;
 
-void sendMesageKeyEvent(Thread* thread, uint8 scancode);
+void sendMesage(Thread* thread, SosoMessage* message);
 
 uint32 getMessageQueueCount(Thread* thread);
 

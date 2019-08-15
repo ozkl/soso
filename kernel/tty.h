@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "fifobuffer.h"
+#include "termios.h"
 
 #define TTY_LINEBUFFER_SIZE 1024
 
@@ -24,6 +25,7 @@ typedef struct Tty
     uint8 lineBuffer[TTY_LINEBUFFER_SIZE];
     uint32 lineBufferIndex;
     FifoBuffer* keyBuffer;
+    struct termios term;
     TtyFlushScreenFunction flushScreen;
     TtyUpdateFunction update;
     TtyChangeFunction change;
