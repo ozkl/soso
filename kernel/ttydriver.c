@@ -64,13 +64,13 @@ enum
 #define KEY_HOME        0xE0
 #define KEY_END         0xE1
 #define KEY_UP          0xE2
-#define KEY_DN          0xE3
-#define KEY_LF          0xE4
-#define KEY_RT          0xE5
-#define KEY_PGUP        0xE6
-#define KEY_PGDN        0xE7
-#define KEY_INS         0xE8
-#define KEY_DEL         0xE9
+#define KEY_DOWN        0xE3
+#define KEY_LEFT        0xE4
+#define KEY_RIGHT       0xE5
+#define KEY_PAGEUP      0xE6
+#define KEY_PAGEDOWN    0xE7
+#define KEY_INSERT      0xE8
+#define KEY_DELETE      0xE9
 
 // C('A') == Control-A
 #define C(x) (x - '@')
@@ -91,13 +91,28 @@ static uint8 gKeyMap[256] =
   NO,   NO,   NO,   NO,   NO,   NO,   NO,   '7',  // 0x40
   '8',  '9',  '-',  '4',  '5',  '6',  '+',  '1',
   '2',  '3',  '0',  '.',  NO,   NO,   NO,   NO,   // 0x50
+  [0x49] = KEY_PAGEUP,
+  [0x51] = KEY_PAGEDOWN,
+  [0x47] = KEY_HOME,
+  [0x4F] = KEY_END,
+  [0x52] = KEY_INSERT,
+  [0x53] = KEY_DELETE,
+  [0x48] = KEY_UP,
+  [0x50] = KEY_DOWN,
+  [0x4B] = KEY_LEFT,
+  [0x4D] = KEY_RIGHT,
   [0x9C] = '\n',      // KP_Enter
   [0xB5] = '/',       // KP_Div
-  [0xC8] = KEY_UP,    [0xD0] = KEY_DN,
-  [0xC9] = KEY_PGUP,  [0xD1] = KEY_PGDN,
-  [0xCB] = KEY_LF,    [0xCD] = KEY_RT,
-  [0x97] = KEY_HOME,  [0xCF] = KEY_END,
-  [0xD2] = KEY_INS,   [0xD3] = KEY_DEL
+  [0xC8] = KEY_UP,
+  [0xD0] = KEY_DOWN,
+  [0xC9] = KEY_PAGEUP,
+  [0xD1] = KEY_PAGEDOWN,
+  [0xCB] = KEY_LEFT,
+  [0xCD] = KEY_RIGHT,
+  [0x97] = KEY_HOME,
+  [0xCF] = KEY_END,
+  [0xD2] = KEY_INSERT,
+  [0xD3] = KEY_DELETE
 };
 
 static uint8 gKeyShiftMap[256] =
@@ -113,13 +128,28 @@ static uint8 gKeyShiftMap[256] =
   NO,   NO,   NO,   NO,   NO,   NO,   NO,   '7',  // 0x40
   '8',  '9',  '-',  '4',  '5',  '6',  '+',  '1',
   '2',  '3',  '0',  '.',  NO,   NO,   NO,   NO,   // 0x50
+  [0x49] = KEY_PAGEUP,
+  [0x51] = KEY_PAGEDOWN,
+  [0x47] = KEY_HOME,
+  [0x4F] = KEY_END,
+  [0x52] = KEY_INSERT,
+  [0x53] = KEY_DELETE,
+  [0x48] = KEY_UP,
+  [0x50] = KEY_DOWN,
+  [0x4B] = KEY_LEFT,
+  [0x4D] = KEY_RIGHT,
   [0x9C] = '\n',      // KP_Enter
   [0xB5] = '/',       // KP_Div
-  [0xC8] = KEY_UP,    [0xD0] = KEY_DN,
-  [0xC9] = KEY_PGUP,  [0xD1] = KEY_PGDN,
-  [0xCB] = KEY_LF,    [0xCD] = KEY_RT,
-  [0x97] = KEY_HOME,  [0xCF] = KEY_END,
-  [0xD2] = KEY_INS,   [0xD3] = KEY_DEL
+  [0xC8] = KEY_UP,
+  [0xD0] = KEY_DOWN,
+  [0xC9] = KEY_PAGEUP,
+  [0xD1] = KEY_PAGEDOWN,
+  [0xCB] = KEY_LEFT,
+  [0xCD] = KEY_RIGHT,
+  [0x97] = KEY_HOME,
+  [0xCF] = KEY_END,
+  [0xD2] = KEY_INSERT,
+  [0xD3] = KEY_DELETE
 };
 
 static BOOL tty_open(File *file, uint32 flags);
@@ -144,7 +174,6 @@ void initializeTTYs(BOOL graphicMode)
         if (graphicMode)
         {
             tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
-            tty->change = Gfx_ChangeTty;
         }
         else
         {
@@ -179,7 +208,6 @@ Tty* getActiveTTY()
 FileSystemNode* createPseudoTerminal()
 {
     Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
-    tty->change = Gfx_ChangeTty;
 
     tty->color = 0x0A;
 
@@ -202,14 +230,107 @@ FileSystemNode* createPseudoTerminal()
     return node;
 }
 
+static void sendInputToKeyBuffer(Tty* tty, uint8 scancode, uint8 character)
+{
+    char seq[8];
+    memset(seq, 0, 8);
+
+    switch (character) {
+    case KEY_PAGEUP:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 53;
+        seq[3] = 126;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 4);
+    }
+        break;
+    case KEY_PAGEDOWN:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 54;
+        seq[3] = 126;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 4);
+    }
+        break;
+    case KEY_HOME:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 72;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    case KEY_END:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 70;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    case KEY_INSERT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 50;
+        seq[3] = 126;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 4);
+    }
+        break;
+    case KEY_DELETE:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 51;
+        seq[3] = 126;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 4);
+    }
+        break;
+    case KEY_UP:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 65;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    case KEY_DOWN:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 66;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    case KEY_RIGHT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 67;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    case KEY_LEFT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 68;
+        FifoBuffer_enqueue(tty->keyBuffer, seq, 3);
+    }
+        break;
+    default:
+        FifoBuffer_enqueue(tty->keyBuffer, &character, 1);
+        break;
+    }
+}
+
 void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 {
     beginCriticalSection();
 
     processScancode(scancode);
-
-    //enqueue for TTY file readers
-    FifoBuffer_enqueue(tty->keyBuffer, &scancode, 1);
 
     uint8 character = getCharacterForScancode(gKeyModifier, scancode);
 
@@ -217,6 +338,10 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 
     if (character > 0 && keyRelease == 0)
     {
+        //enqueue for non-canonical readers
+        sendInputToKeyBuffer(tty, scancode, character);
+        //FifoBuffer_enqueue(tty->keyBuffer, &scancode, 1);
+
         if (tty->lineBufferIndex >= TTY_LINEBUFFER_SIZE - 1)
         {
             tty->lineBufferIndex = 0;
@@ -266,6 +391,10 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 static BOOL tty_open(File *file, uint32 flags)
 {
     //Screen_PrintF("tty_open: pid:%d\n", file->process->pid);
+
+    Tty* tty = (Tty*)file->node->privateNodeData;
+
+    FifoBuffer_clear(tty->keyBuffer);
 
     List_Append(gReaderList, file);
 
@@ -351,27 +480,53 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
     if (size > 0)
     {
-        while (TRUE)
+        Tty* tty = (Tty*)file->node->privateNodeData;
+
+        if ((tty->term.c_lflag & ICANON) == ICANON)
         {
-            Tty* tty = (Tty*)file->node->privateNodeData;
-
-            for (int i = 0; i < tty->lineBufferIndex; ++i)
+            while (TRUE)
             {
-                char chr = tty->lineBuffer[i];
-
-                if (chr == '\n')
+                for (int i = 0; i < tty->lineBufferIndex; ++i)
                 {
-                    int bytesToCopy = MIN(tty->lineBufferIndex, size);
-                    tty->lineBufferIndex = 0;
-                    memcpy(buffer, tty->lineBuffer, bytesToCopy);
+                    char chr = tty->lineBuffer[i];
 
-                    return bytesToCopy;
+                    if (chr == '\n')
+                    {
+                        int bytesToCopy = MIN(tty->lineBufferIndex, size);
+
+                        if (bytesToCopy >= tty->term.c_cc[VMIN])
+                        {
+                            tty->lineBufferIndex = 0;
+                            memcpy(buffer, tty->lineBuffer, bytesToCopy);
+
+                            return bytesToCopy;
+                        }
+                    }
                 }
-            }
 
-            file->thread->state = TS_WAITIO;
-            file->thread->state_privateData = tty;
-            halt();
+                file->thread->state = TS_WAITIO;
+                file->thread->state_privateData = tty;
+                halt();
+            }
+        }
+        else
+        {
+            while (TRUE)
+            {
+                uint32 neededSize = tty->term.c_cc[VMIN];
+                uint32 bufferLen = FifoBuffer_getSize(tty->keyBuffer);
+
+                if (bufferLen >= neededSize)
+                {
+                    int readSize = FifoBuffer_dequeue(tty->keyBuffer, buffer, MIN(bufferLen, size));
+
+                    return readSize;
+                }
+
+                file->thread->state = TS_WAITIO;
+                file->thread->state_privateData = tty;
+                halt();
+            }
         }
     }
 
@@ -404,10 +559,7 @@ static void setActiveTty(Tty* tty)
 {
     gActiveTty = tty;
 
-    if (tty->change)
-    {
-        tty->change(tty);
-    }
+    Gfx_Fill(0xFFFFFFFF);
 
     if (tty->flushScreen)
     {

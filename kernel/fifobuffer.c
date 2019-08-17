@@ -18,6 +18,13 @@ void FifoBuffer_destroy(FifoBuffer* fifoBuffer)
     kfree(fifoBuffer);
 }
 
+void FifoBuffer_clear(FifoBuffer* fifoBuffer)
+{
+    fifoBuffer->usedBytes = 0;
+    fifoBuffer->readIndex = 0;
+    fifoBuffer->writeIndex = 0;
+}
+
 BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer)
 {
     if (0 == fifoBuffer->usedBytes)

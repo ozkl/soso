@@ -18,7 +18,9 @@ Tty* createTty(uint16 lineCount, uint16 columnCount, TtyFlushScreenFunction flus
     tty->keyBuffer = FifoBuffer_create(64);
     tty->flushScreen = flushFunction;
 
+    tty->term.c_cc[VMIN] = 1;
     tty->term.c_lflag |= ECHO;
+    tty->term.c_lflag |= ICANON;
 
     Tty_Clear(tty);
 
