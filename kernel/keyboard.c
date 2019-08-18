@@ -18,10 +18,18 @@ static uint32 gKeyBufferReadIndex = 0;
 static BOOL keyboard_open(File *file, uint32 flags);
 static void keyboard_close(File *file);
 static int32 keyboard_read(File *file, uint32 size, uint8 *buffer);
+static int32 keyboard_ioctl(File *file, int32 request, void * argp);
+
+typedef enum ReadMode
+{
+    Blocking = 0,
+    NonBlocking = 1
+} ReadMode;
 
 typedef struct Reader
 {
     uint32 readIndex;
+    ReadMode readMode;
 } Reader;
 
 static List* gReaders = NULL;
@@ -37,6 +45,7 @@ void initializeKeyboard()
     device.open = keyboard_open;
     device.close = keyboard_close;
     device.read = keyboard_read;
+    device.ioctl = keyboard_ioctl;
 
     gKeyBuffer = kmalloc(KEYBUFFER_SIZE);
     memset((uint8*)gKeyBuffer, 0, KEYBUFFER_SIZE);
@@ -50,12 +59,15 @@ void initializeKeyboard()
 
 static BOOL keyboard_open(File *file, uint32 flags)
 {
-    int readIndex = 0;
+    Reader* reader = (Reader*)kmalloc(sizeof(Reader));
+    reader->readIndex = 0;
+    reader->readMode = Blocking;
+
     if (gKeyBufferWriteIndex > 0)
     {
-        readIndex = gKeyBufferWriteIndex;
+        reader->readIndex = gKeyBufferWriteIndex;
     }
-    file->privateData = (void*)readIndex;
+    file->privateData = (void*)reader;
 
     List_Append(gReaders, file);
 
@@ -66,30 +78,77 @@ static void keyboard_close(File *file)
 {
     //Screen_PrintF("keyboard_close\n");
 
+    Reader* reader = (Reader*)file->privateData;
+
+    kfree(reader);
+
     List_RemoveFirstOccurrence(gReaders, file);
 }
 
 static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
 {
-    int readIndex = (int)file->privateData;
+    Reader* reader = (Reader*)file->privateData;
 
-    while (readIndex == gKeyBufferWriteIndex)
+    uint32 readIndex = reader->readIndex;
+
+    if (reader->readMode == Blocking)
     {
-        file->thread->state = TS_WAITIO;
-        file->thread->state_privateData = keyboard_read;
-        enableInterrupts();
-        halt();
+        while (readIndex == gKeyBufferWriteIndex)
+        {
+            file->thread->state = TS_WAITIO;
+            file->thread->state_privateData = keyboard_read;
+            enableInterrupts();
+            halt();
+        }
     }
 
     disableInterrupts();
+
+    if (readIndex == gKeyBufferWriteIndex)
+    {
+        //non-blocking return here
+        return -1;
+    }
 
     buffer[0] = gKeyBuffer[readIndex];
     readIndex++;
     readIndex %= KEYBUFFER_SIZE;
 
-    file->privateData = (void*)readIndex;
+    reader->readIndex = readIndex;
 
     return 1;
+}
+
+static int32 keyboard_ioctl(File *file, int32 request, void * argp)
+{
+    Reader* reader = (Reader*)file->privateData;
+
+    int cmd = (int)argp;
+
+    switch (request)
+    {
+    case 0: //get
+        *(int*)argp = (int)reader->readMode;
+        return 0;
+        break;
+    case 1: //set
+        if (cmd == 0)
+        {
+            reader->readMode = Blocking;
+
+            return 0;
+        }
+        else if (cmd == 1)
+        {
+            reader->readMode = NonBlocking;
+            return 0;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return -1;
 }
 
 static void handleKeyboardInterrupt(Registers *regs)
