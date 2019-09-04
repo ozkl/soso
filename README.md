@@ -18,7 +18,7 @@ Soso is a 32-bit x86 operating system and its features are
 
 Paging is written for 4MB page support, since it is easier to implement. Downside of this is, each process has to use at least 4MB memory.
 
-Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua on Soso!
+Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua and Doom on Soso!
 
 # building
 To build kernel just run:
@@ -49,4 +49,6 @@ To try Soso in QEMU, just run:
     qemu-system-i386 -cdrom soso.iso
 
 ![Soso](screenshots/soso-v0.1_1.png)
+
+![Doom on Soso](screenshots/soso-doom.png)
 
