@@ -20,6 +20,23 @@ Paging is written for 4MB page support, since it is easier to implement. Downsid
 
 Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua and Doom on Soso!
 
+# running
+
+You can download a ![CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU.
+
+To try Soso in QEMU, just run:
+
+    qemu-system-i386 -cdrom soso.iso
+
+## Lua
+![Soso](screenshots/soso-v0.2_1.png)
+
+
+## Doom
+To demonstrate multitasking, two doom processes running at the same time:
+
+![Doom on Soso](screenshots/soso-doom.png)
+
 # building
 To build kernel just run:
 
@@ -42,13 +59,4 @@ This will create initrd.fat file. This is a mountable FAT32 initrd image. Once k
     ./create-cd-image.sh
     
 This will create soso.iso cd image.
-
-# running
-To try Soso in QEMU, just run:
-
-    qemu-system-i386 -cdrom soso.iso
-
-![Soso](screenshots/soso-v0.1_1.png)
-
-![Doom on Soso](screenshots/soso-doom.png)
 
