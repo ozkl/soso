@@ -1,0 +1,88 @@
+diff --git a/bfd/config.bfd b/bfd/config.bfd
+index 4c65e5ea32..efe79e287e 100644
+--- a/bfd/config.bfd
++++ b/bfd/config.bfd
+@@ -648,6 +648,11 @@ case "${targ}" in
+     targ_selvecs=
+     targ64_selvecs=x86_64_elf64_vec
+     ;;
++  i[3-7]86-*-soso*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
+ #ifdef BFD64
+   x86_64-*-cloudabi*)
+     targ_defvec=x86_64_elf64_cloudabi_vec
+diff --git a/config.sub b/config.sub
+index f02d43ad50..7b5f398c95 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1339,6 +1339,7 @@ case $os in
+ 	# Each alternative MUST end in a * to match a version number.
+ 	# sysv* is not here because it comes later, after sysvr4.
+ 	gnu* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	     | soso* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]*\
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* | kopensolaris* | plan9* \
+diff --git a/gas/configure.tgt b/gas/configure.tgt
+index 37224c5144..07e32a2354 100644
+--- a/gas/configure.tgt
++++ b/gas/configure.tgt
+@@ -259,6 +259,7 @@ case ${generic_target} in
+   i386-*-*nt*)				fmt=coff em=pe ;;
+   i386-*-rdos*)				fmt=elf ;;
+   i386-*-darwin*)			fmt=macho ;;
++  i386-*-soso*)				fmt=elf ;;
+ 
+   ia16-*-elf*)				fmt=elf ;;
+ 
+diff --git a/ld/Makefile.am b/ld/Makefile.am
+index 4a9b8404b7..3c41b3fb74 100644
+--- a/ld/Makefile.am
++++ b/ld/Makefile.am
+@@ -295,6 +295,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386_nacl.c \
+ 	eelf_i386_sol2.c \
+ 	eelf_i386_vxworks.c \
++	eelf_i386_soso.c \
+ 	eelf_iamcu.c \
+ 	eelf_s390.c \
+ 	eh8300elf.c \
+diff --git a/ld/Makefile.in b/ld/Makefile.in
+index 46d9b14077..45bef38139 100644
+--- a/ld/Makefile.in
++++ b/ld/Makefile.in
+@@ -785,6 +785,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386_nacl.c \
+ 	eelf_i386_sol2.c \
+ 	eelf_i386_vxworks.c \
++	eelf_i386_soso.c \
+ 	eelf_iamcu.c \
+ 	eelf_s390.c \
+ 	eh8300elf.c \
+diff --git a/ld/configure.tgt b/ld/configure.tgt
+index ced5d1f992..f7741909b0 100644
+--- a/ld/configure.tgt
++++ b/ld/configure.tgt
+@@ -410,6 +410,9 @@ i[3-7]86-*-nacl*)	targ_emul=elf_i386_nacl
+ 			targ64_extra_emuls="elf32_x86_64_nacl elf_x86_64_nacl"
+ 			targ64_extra_libpath=$targ64_extra_emuls
+ 			;;
++i[3-7]86-*-soso*)	targ_emul=elf_i386_soso
++			targ_extra_emuls=elf_i386
++			;;
+ ia16-*-elf*)		targ_emul=elf_i386
+ 			targ_extra_emuls=i386msdos
+ 			;;
+diff --git a/ld/emulparams/elf_i386_soso.sh b/ld/emulparams/elf_i386_soso.sh
+new file mode 100644
+index 0000000000..1369b90731
+--- /dev/null
++++ b/ld/emulparams/elf_i386_soso.sh
+@@ -0,0 +1,4 @@
++. ${srcdir}/emulparams/elf_i386.sh
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
++TEXT_START_ADDR=0x40000000
