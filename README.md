@@ -23,7 +23,7 @@ Soso has Libc, so existing applications depending only on a small part of Libc c
 
 # running
 
-You can download a ![CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU. When it is started, you can run: "doom", "ls", "lua". Executables are in /initrd.
+You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU. When it is started, you can run: "doom", "ls", "lua". Executables are in /initrd.
 
 To try Soso in QEMU, just run:
 
