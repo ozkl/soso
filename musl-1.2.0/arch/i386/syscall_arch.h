@@ -14,27 +14,43 @@
 
 static inline long __syscall0(long n)
 {
+	/*
 	unsigned long __ret;
 	__asm__ __volatile__ (SYSCALL_INSNS : "=a"(__ret) : "a"(n) : "memory");
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n));
+	return a;
 }
 
 static inline long __syscall1(long n, long a1)
 {
+	/*
 	unsigned long __ret;
 	__asm__ __volatile__ (SYSCALL_INSNS_12 : "=a"(__ret) : "a"(n), "d"(a1) : "memory");
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1));
+	return a;
 }
 
 static inline long __syscall2(long n, long a1, long a2)
 {
+	/*
 	unsigned long __ret;
 	__asm__ __volatile__ (SYSCALL_INSNS_12 : "=a"(__ret) : "a"(n), "d"(a1), "c"(a2) : "memory");
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1), "c" ((int)a2));
+	return a;
 }
 
 static inline long __syscall3(long n, long a1, long a2, long a3)
 {
+	/*
 	unsigned long __ret;
 #if !defined(__PIC__) || !defined(BROKEN_EBX_ASM)
 	__asm__ __volatile__ (SYSCALL_INSNS : "=a"(__ret) : "a"(n), "b"(a1), "c"(a2), "d"(a3) : "memory");
@@ -42,10 +58,15 @@ static inline long __syscall3(long n, long a1, long a2, long a3)
 	__asm__ __volatile__ (SYSCALL_INSNS_34 : "=a"(__ret) : "a"(n), "D"(a1), "c"(a2), "d"(a3) : "memory");
 #endif
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1), "c" ((int)a2), "d"((int)a3));
+	return a;
 }
 
 static inline long __syscall4(long n, long a1, long a2, long a3, long a4)
 {
+	/*
 	unsigned long __ret;
 #if !defined(__PIC__) || !defined(BROKEN_EBX_ASM)
 	__asm__ __volatile__ (SYSCALL_INSNS : "=a"(__ret) : "a"(n), "b"(a1), "c"(a2), "d"(a3), "S"(a4) : "memory");
@@ -53,10 +74,15 @@ static inline long __syscall4(long n, long a1, long a2, long a3, long a4)
 	__asm__ __volatile__ (SYSCALL_INSNS_34 : "=a"(__ret) : "a"(n), "D"(a1), "c"(a2), "d"(a3), "S"(a4) : "memory");
 #endif
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1), "c" ((int)a2), "d" ((int)a3), "S" ((int)a4));
+	return a;
 }
 
 static inline long __syscall5(long n, long a1, long a2, long a3, long a4, long a5)
 {
+	/*
 	unsigned long __ret;
 #if !defined(__PIC__) || !defined(BROKEN_EBX_ASM)
 	__asm__ __volatile__ (SYSCALL_INSNS
@@ -66,10 +92,15 @@ static inline long __syscall5(long n, long a1, long a2, long a3, long a4, long a
 		: "=a"(__ret) : "a"(n), "g"(a1), "c"(a2), "d"(a3), "S"(a4), "D"(a5) : "memory");
 #endif
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1), "c" ((int)a2), "d" ((int)a3), "S" ((int)a4), "D" ((int)a5));
+	return a;
 }
 
 static inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a5, long a6)
 {
+	/*
 	unsigned long __ret;
 #if !defined(__PIC__) || !defined(BROKEN_EBX_ASM)
 	__asm__ __volatile__ ("pushl %7 ; push %%ebp ; mov 4(%%esp),%%ebp ; " SYSCALL_INSNS " ; pop %%ebp ; add $4,%%esp"
@@ -80,6 +111,10 @@ static inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a
 		: "=a"(__ret) : "g"(&a1a6), "a"(n), "c"(a2), "d"(a3), "S"(a4), "D"(a5) : "memory");
 #endif
 	return __ret;
+	*/
+	int a;
+	__asm__ __volatile__("int $0x80" : "=a" (a) : "0" (n), "b" ((int)a1), "c" ((int)a2), "d" ((int)a3), "S" ((int)a4), "D" ((int)a5), "g" ((int)a6));
+	return a;
 }
 
 #define VDSO_USEFUL

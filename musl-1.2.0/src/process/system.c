@@ -10,6 +10,8 @@ extern char **__environ;
 
 int system(const char *cmd)
 {
+	return -1;
+	
 	pid_t pid;
 	sigset_t old, reset;
 	struct sigaction sa = { .sa_handler = SIG_IGN }, oldint, oldquit;

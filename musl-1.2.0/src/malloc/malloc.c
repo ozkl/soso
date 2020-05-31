@@ -355,7 +355,9 @@ void *calloc(size_t m, size_t n)
 		return 0;
 	}
 	n *= m;
+	
 	void *p = malloc(n);
+	
 	if (!p) return p;
 	if (!__malloc_replaced) {
 		if (IS_MMAPPED(MEM_TO_CHUNK(p)))

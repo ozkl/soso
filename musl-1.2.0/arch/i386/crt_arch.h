@@ -1,3 +1,4 @@
+
 __asm__(
 ".text\n"
 ".weak _DYNAMIC \n"

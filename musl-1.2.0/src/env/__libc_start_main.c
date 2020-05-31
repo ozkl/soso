@@ -17,30 +17,52 @@ weak_alias(dummy1, __init_ssp);
 
 #define AUX_CNT 38
 
+#define	USER_OFFSET 		0x40000000
+#define	USER_EXE_IMAGE 		0x200000 //2MB
+#define	USER_ARGV_ENV_SIZE	0x10000  //65KB
+#define	USER_ARGV_ENV_LOC	(USER_OFFSET + (USER_EXE_IMAGE - USER_ARGV_ENV_SIZE))
+#define AUXILARY_VECTOR_LOC (USER_ARGV_ENV_LOC - (8 * 38))
+
+//TODO: Refactor. Args, environment variables and auxilary vector should be passed like other systems (eg. end of the stack)
+
 #ifdef __GNUC__
 __attribute__((__noinline__))
 #endif
 void __init_libc(char **envp, char *pn)
 {
 	size_t i, *auxv, aux[AUX_CNT] = { 0 };
+	
 	__environ = envp;
-	for (i=0; envp[i]; i++);
-	libc.auxv = auxv = (void *)(envp+i+1);
+	
+	//for (i=0; envp[i]; i++);
+
+	libc.auxv = auxv = (void *)AUXILARY_VECTOR_LOC;//(envp+i+1);
+
+
 	for (i=0; auxv[i]; i+=2) if (auxv[i]<AUX_CNT) aux[auxv[i]] = auxv[i+1];
+
 	__hwcap = aux[AT_HWCAP];
+
 	if (aux[AT_SYSINFO]) __sysinfo = aux[AT_SYSINFO];
+
 	libc.page_size = aux[AT_PAGESZ];
+
+	//__syscall2(37, "__init_libc_soso:libc.page_size:%x\n", libc.page_size);
+	//__syscall2(37, "__init_libc_soso:PAGE_SIZE:%x\n", PAGE_SIZE);
 
 	if (!pn) pn = (void*)aux[AT_EXECFN];
 	if (!pn) pn = "";
 	__progname = __progname_full = pn;
 	for (i=0; pn[i]; i++) if (pn[i]=='/') __progname = pn+i+1;
 
+
 	__init_tls(aux);
+	
 	__init_ssp((void *)aux[AT_RANDOM]);
 
 	if (aux[AT_UID]==aux[AT_EUID] && aux[AT_GID]==aux[AT_EGID]
 		&& !aux[AT_SECURE]) return;
+
 
 	struct pollfd pfd[3] = { {.fd=0}, {.fd=1}, {.fd=2} };
 	int r =
@@ -49,11 +71,15 @@ void __init_libc(char **envp, char *pn)
 #else
 	__syscall(SYS_ppoll, pfd, 3, &(struct timespec){0}, 0, _NSIG/8);
 #endif
+
 	if (r<0) a_crash();
+
 	for (i=0; i<3; i++) if (pfd[i].revents&POLLNVAL)
 		if (__sys_open("/dev/null", O_RDWR)<0)
 			a_crash();
+
 	libc.secure = 1;
+
 }
 
 static void libc_start_init(void)
@@ -93,4 +119,11 @@ static int libc_start_main_stage2(int (*main)(int,char **,char **), int argc, ch
 	/* Pass control to the application */
 	exit(main(argc, argv, envp));
 	return 0;
+}
+
+void __init_libc_soso(char **envp, char *pn)
+{
+	__init_libc(envp, pn);
+
+	__libc_start_init();
 }

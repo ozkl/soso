@@ -5,6 +5,7 @@
 #include <limits.h>
 #include "syscall.h"
 
+
 static void dummy(void) { }
 weak_alias(dummy, __vm_wait);
 
@@ -25,11 +26,13 @@ void *__mmap(void *start, size_t len, int prot, int flags, int fd, off_t off)
 	if (flags & MAP_FIXED) {
 		__vm_wait();
 	}
-#ifdef SYS_mmap2
-	ret = __syscall(SYS_mmap2, start, len, prot, flags, fd, off/UNIT);
-#else
+	
+//#ifdef SYS_mmap2
+//	ret = __syscall(SYS_mmap2, start, len, prot, flags, fd, off/UNIT);
+//#else
 	ret = __syscall(SYS_mmap, start, len, prot, flags, fd, off);
-#endif
+//#endif
+	
 	/* Fixup incorrect EPERM from kernel. */
 	if (ret == -EPERM && !start && (flags&MAP_ANON) && !(flags&MAP_FIXED))
 		ret = -ENOMEM;

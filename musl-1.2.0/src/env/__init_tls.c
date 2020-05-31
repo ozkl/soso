@@ -9,6 +9,11 @@
 #include "atomic.h"
 #include "syscall.h"
 
+int __set_thread_area(void *p)
+{
+	return __syscall(SYS_set_thread_area, p);
+}
+
 volatile int __thread_list_lock;
 
 int __init_tp(void *p)
@@ -18,12 +23,16 @@ int __init_tp(void *p)
 	int r = __set_thread_area(TP_ADJ(p));
 	if (r < 0) return -1;
 	if (!r) libc.can_do_threads = 1;
+	
 	td->detach_state = DT_JOINABLE;
+	
 	td->tid = __syscall(SYS_set_tid_address, &__thread_list_lock);
+	
 	td->locale = &libc.global_locale;
 	td->robust_list.head = &td->robust_list.head;
 	td->sysinfo = __sysinfo;
 	td->next = td->prev = td;
+	
 	return 0;
 }
 
@@ -87,6 +96,8 @@ static void static_init_tls(size_t *aux)
 	size_t base = 0;
 	void *mem;
 
+	
+
 	for (p=(void *)aux[AT_PHDR],n=aux[AT_PHNUM]; n; n--,p+=aux[AT_PHENT]) {
 		phdr = (void *)p;
 		if (phdr->p_type == PT_PHDR)
@@ -102,6 +113,8 @@ static void static_init_tls(size_t *aux)
 				phdr->p_memsz : DEFAULT_STACK_MAX;
 	}
 
+	
+
 	if (tls_phdr) {
 		main_tls.image = (void *)(base + tls_phdr->p_vaddr);
 		main_tls.len = tls_phdr->p_filesz;
@@ -110,6 +123,8 @@ static void static_init_tls(size_t *aux)
 		libc.tls_cnt = 1;
 		libc.tls_head = &main_tls;
 	}
+
+	
 
 	main_tls.size += (-main_tls.size - (uintptr_t)main_tls.image)
 		& (main_tls.align-1);
@@ -122,6 +137,8 @@ static void static_init_tls(size_t *aux)
 #endif
 	if (main_tls.align < MIN_TLS_ALIGN) main_tls.align = MIN_TLS_ALIGN;
 
+	
+
 	libc.tls_align = main_tls.align;
 	libc.tls_size = 2*sizeof(void *) + sizeof(struct pthread)
 #ifdef TLS_ABOVE_TP
@@ -129,6 +146,8 @@ static void static_init_tls(size_t *aux)
 #endif
 		+ main_tls.size + main_tls.align
 		+ MIN_TLS_ALIGN-1 & -MIN_TLS_ALIGN;
+
+	
 
 	if (libc.tls_size > sizeof builtin_tls) {
 #ifndef SYS_mmap2
