@@ -212,7 +212,7 @@ void *sbrk(Process* process, int nBytes)
         if (nBytes > remainingInThePage)
         {
             int bytesNeededInNewPages = nBytes - remainingInThePage;
-            int neededNewPageCount = (bytesNeededInNewPages / PAGESIZE_4M) + 1;
+            int neededNewPageCount = ((bytesNeededInNewPages-1) / PAGESIZE_4M) + 1;
 
             //Screen_PrintF("sbrk:3: neededNewPageCount:%d\n", neededNewPageCount);
 
@@ -236,7 +236,7 @@ void *sbrk(Process* process, int nBytes)
         if (-nBytes > remainingInThePage)
         {
             int bytesInPreviousPages = -nBytes - remainingInThePage;
-            int neededNewPageCount = (bytesInPreviousPages / PAGESIZE_4M) + 1;
+            int neededNewPageCount = ((bytesInPreviousPages-1) / PAGESIZE_4M) + 1;
 
             //Screen_PrintF("sbrk:5: neededNewPageCount:%d\n", neededNewPageCount);
 

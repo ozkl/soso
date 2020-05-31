@@ -14,6 +14,14 @@
 #include "syscalltable.h"
 #include "isr.h"
 #include "sharedmemory.h"
+#include "serial.h"
+#include "vmm.h"
+#include "list.h"
+
+struct iovec {
+               void  *iov_base;    /* Starting address */
+               size_t iov_len;     /* Number of bytes to transfer */
+           };
 
 
 /**************
@@ -63,7 +71,16 @@ int syscall_shm_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
 int syscall_posix_openpt(int flags);
 int syscall_ptsname_r(int fd, char *buf, int buflen);
-
+int syscall_printk(const char *str, int num);
+int syscall_readv(int fd, const struct iovec *iovs, int iovcnt);
+int syscall_writev(int fd, const struct iovec *iovs, int iovcnt);
+int syscall_set_thread_area(void *p);
+int syscall_set_tid_address(void* p);
+int syscall_exit_group(int status);
+int syscall_llseek(unsigned int fd, unsigned int offset_high,
+            unsigned int offset_low, int64 *result,
+            unsigned int whence);
+void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset);
 
 void initialiseSyscalls()
 {
@@ -107,6 +124,14 @@ void initialiseSyscalls()
     gSyscallTable[SYS_ftruncate] = syscall_ftruncate;
     gSyscallTable[SYS_posix_openpt] = syscall_posix_openpt;
     gSyscallTable[SYS_ptsname_r] = syscall_ptsname_r;
+    gSyscallTable[SYS_printk] = syscall_printk;
+    gSyscallTable[SYS_readv] = syscall_readv;
+    gSyscallTable[SYS_writev] = syscall_writev;
+    gSyscallTable[SYS_set_thread_area] = syscall_set_thread_area;
+    gSyscallTable[SYS_set_tid_address] = syscall_set_tid_address;
+    gSyscallTable[SYS_exit_group] = syscall_exit_group;
+    gSyscallTable[SYS_llseek] = syscall_llseek;
+    gSyscallTable[SYS_mmap_new] = syscall_mmap_new;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -114,8 +139,13 @@ void initialiseSyscalls()
 
 static void handleSyscall(Registers* regs)
 {
+    Process* process = getCurrentThread()->owner;
+
     if (regs->eax >= SYSCALL_COUNT)
     {
+        printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+
+        regs->eax = -1;
         return;
     }
 
@@ -149,16 +179,21 @@ static void handleSyscall(Registers* regs)
     regs->eax = ret;
 }
 
+int syscall_printk(const char *str, int num)
+{
+    printkf(str, num);
+
+    return 0;
+}
+
 int syscall_open(const char *pathname, int flags)
 {
     Process* process = getCurrentThread()->owner;
     if (process)
     {
-        //Screen_PrintF("open():[%s]\n", pathname);
         FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(pathname, process);
         if (node)
         {
-            //Screen_PrintF("open():node:[%s]\n", node->name);
             File* file = open_fs(node, flags);
 
             if (file)
@@ -224,7 +259,9 @@ int syscall_read(int fd, void *buf, int nbytes)
                 //Each handler is free to enable interrupts.
                 //We don't enable them here.
 
-                return read_fs(file, nbytes, buf);
+                int ret = read_fs(file, nbytes, buf);
+
+                return ret;
             }
             else
             {
@@ -286,20 +323,82 @@ int syscall_write(int fd, void *buf, int nbytes)
     return -1;
 }
 
+int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
+{
+    int result = 0;
+    for (int i = 0; i < iovcnt; ++i)
+    {
+        const struct iovec *iov = iovs + i;
+
+        if (iov->iov_len > 0)
+        {
+            int bytes = syscall_read(fd, iov->iov_base, iov->iov_len);
+
+            if (bytes < 0)
+            {
+                return  -1;
+            }
+
+            result += bytes;
+        }
+    }
+
+    return result;
+}
+
+int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
+{
+    int result = 0;
+    for (int i = 0; i < iovcnt; ++i)
+    {
+        const struct iovec *iov = iovs + i;
+
+        if (iov->iov_len > 0)
+        {
+            int bytes = syscall_write(fd, iov->iov_base, iov->iov_len);
+
+            if (bytes < 0)
+            {
+                return  -1;
+            }
+
+            result += bytes;
+        }
+    }
+
+    return result;
+}
+
+int syscall_set_thread_area(void *p)
+{
+    return 0;
+}
+
+int syscall_set_tid_address(void* p)
+{
+    return getCurrentThread()->threadId;
+}
+
+int syscall_exit_group(int status)
+{
+    //TODO
+    return 0;
+}
+
 int syscall_lseek(int fd, int offset, int whence)
 {
     Process* process = getCurrentThread()->owner;
     if (process)
     {
-        //Screen_PrintF("syscall_lseek() called from process: %d. fd:%d\n", process->pid, fd);
-
         if (fd < MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
             if (file)
             {
-                return lseek_fs(file, offset, whence);
+                int result = lseek_fs(file, offset, whence);
+
+                return result;
             }
             else
             {
@@ -319,13 +418,37 @@ int syscall_lseek(int fd, int offset, int whence)
     return -1;
 }
 
+int syscall_llseek(unsigned int fd, unsigned int offset_high,
+            unsigned int offset_low, int64 *result,
+            unsigned int whence)
+{
+    //this syscall is used for large files in 32 bit systems for the offset (offset_high<<32) | offset_low
+
+    Process* process = getCurrentThread()->owner;
+    //printkf("syscall_llseek() called from process: %d. fd:%d\n", process->pid, fd);
+
+    if (offset_high != 0)
+    {
+        return -1;
+    }
+
+    int res = syscall_lseek(fd, offset_low, whence);
+
+    if (res < 0)
+    {
+        return -1;
+    }
+
+    *result = res;
+
+    return  0;
+}
+
 int syscall_stat(const char *path, struct stat *buf)
 {
     Process* process = getCurrentThread()->owner;
     if (process)
     {
-        //Screen_PrintF("syscall_stat() called from process: %d. path:%s\n", process->pid, path);
-
         FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
 
         if (node)
@@ -377,6 +500,8 @@ int syscall_ioctl(int fd, int32 request, void *arg)
     Process* process = getCurrentThread()->owner;
     if (process)
     {
+        //Serial_PrintF("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
+
         if (fd < MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
@@ -485,7 +610,12 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
                 if (bytesRead > 0)
                 {
-                    Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, NULL);
+                    char* name = "UserProcess";
+                    if (NULL != argv)
+                    {
+                        name = argv[0];
+                    }
+                    Process* newProcess = createUserProcessFromElfData(name, image, argv, envp, process, NULL);
 
                     if (newProcess)
                     {
@@ -531,7 +661,12 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
 
                 if (bytesRead > 0)
                 {
-                    Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, ttyNode);
+                    char* name = "UserProcess";
+                    if (NULL != argv)
+                    {
+                        name = argv[0];
+                    }
+                    Process* newProcess = createUserProcessFromElfData(name, image, argv, envp, process, ttyNode);
 
                     if (newProcess)
                     {
@@ -982,20 +1117,35 @@ int syscall_munmap(void *addr, int length)
 {
     //TODO: fd
 
-    /*
     Process* process = getCurrentThread()->owner;
 
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        int fd = -1;
+        if (fd < 0)
         {
-            File* file = process->fd[fd];
-
-            if (file)
+            if (TRUE == unmapMemory(process, length, (uint32)addr))
             {
-                if (munmap_fs(file, addr, length))
+                return 0;
+            }
+            return -1;
+        }
+        else
+        {
+            if (fd < MAX_OPENED_FILES)
+            {
+                File* file = process->fd[fd];
+
+                if (file)
                 {
-                    return 0;//on success
+                    if (munmap_fs(file, addr, length))
+                    {
+                        return 0;//on success
+                    }
+                }
+                else
+                {
+                    //TODO: error invalid fd
                 }
             }
             else
@@ -1003,18 +1153,92 @@ int syscall_munmap(void *addr, int length)
                 //TODO: error invalid fd
             }
         }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
+}
+
+void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset)
+{
+    if (addr)
+    {
+        //Mapping to a specified address is not implemented
+
+        return (void*)-1;
+    }
+
+    if (length <= 0)
+    {
+        return (void*)-1;
+    }
+
+    Process* process = getCurrentThread()->owner;
+
+    if (process)
+    {
+        if (fd < 0)
+        {
+            int neededPages = ((length-1) / PAGESIZE_4M) + 1;
+            uint32 freePages = getFreePageCount();
+            //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
+            if ((uint32)neededPages + 1 > freePages)
+            {
+                return (void*)-1;
+            }
+            List* physicalList = List_Create();
+            for (int i = 0; i < neededPages; ++i)
+            {
+                char* pageFrame = getPageFrame4M();
+                //printkf("pageFrame alloc from mmap:%x\n", pageFrame);
+                List_Append(physicalList, pageFrame);
+            }
+
+            void* mem = mapMemory(process, length, 0, physicalList, TRUE);
+            if (mem != (void*)-1 && mem != NULL)
+            {
+                memset((uint8*)mem, 0, length);
+            }
+
+            List_Destroy(physicalList);
+
+            return mem;
+        }
         else
         {
-            //TODO: error invalid fd
+            if (fd < MAX_OPENED_FILES)
+            {
+                File* file = process->fd[fd];
+
+                if (file)
+                {
+                    void* ret = mmap_fs(file, length, offset, flags);
+
+                    if (ret)
+                    {
+                        return ret;
+                    }
+                }
+                else
+                {
+                    //TODO: error invalid fd
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
         }
     }
     else
     {
         PANIC("Process is NULL!\n");
     }
-    */
 
-    return -1;
+    return (void*)-1;
 }
 
 #define O_CREAT 0x200

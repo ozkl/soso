@@ -40,6 +40,7 @@ struct Process
     char *heapNextUnallocatedPageBegin;
 
     uint8 mmappedVirtualMemory[RAM_AS_4M_PAGES / 8];
+    uint8 mmappedVirtualMemoryOwned[RAM_AS_4M_PAGES / 8]; //bookkeeping of if we own a mapped memory (for realeasing physical memory)
 
     uint32 signal;
     void* sigfn[32];

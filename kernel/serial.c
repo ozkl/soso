@@ -38,6 +38,14 @@ void writeSerial(char a)
    outb(PORT,a);
 }
 
+void Serial_Write(const char *buffer, int n)
+{
+    for (int i = 0; i < n; ++i)
+    {
+        writeSerial(buffer[i]);
+    }
+}
+
 void Serial_PrintF(const char *format, ...)
 {
   char **arg = (char **) &format;

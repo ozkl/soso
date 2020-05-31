@@ -163,13 +163,14 @@ uint32 *createPd()
     return pd;
 }
 
-void destroyPd(uint32 *pd)
+void destroyPd(Process* process)
 {
+    uint32 *pd = process->pd;
+
     int startIndex = PAGE_INDEX_4M(USER_OFFSET);
     int lastIndex = PAGE_INDEX_4M(USER_OFFSET_END);
 
-    ///we don't touch mmapped areas
-
+    //for sbrk heap
     for (int i = startIndex; i < lastIndex; ++i)
     {
         uint32 p_addr = pd[i] & 0xFFC00000;
@@ -177,6 +178,24 @@ void destroyPd(uint32 *pd)
         if (p_addr)
         {
             releasePageFrame4M(p_addr);
+        }
+
+        pd[i] = 0;
+    }
+
+    //for mmap
+    startIndex = PAGE_INDEX_4M(USER_OFFSET_MMAP);
+    lastIndex = PAGE_INDEX_4M(USER_OFFSET_MMAP_END);
+    for (int i = startIndex; i < lastIndex; ++i)
+    {
+        uint32 p_addr = pd[i] & 0xFFC00000;
+
+        if (p_addr)
+        {
+            if (IS_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, i))
+            {
+                releasePageFrame4M(p_addr);
+            }
         }
 
         pd[i] = 0;
@@ -213,6 +232,8 @@ uint32 *copyPd(uint32* pd)
             uint32 vAddr =  (i * 4) << 20;
 
             //Screen_PrintF("Copied page virtual %x\n", vAddr);
+
+            //TODO: think about mmapped areas
 
             addPageToPd(newPd, (char*)vAddr, newPagePhysical, PG_USER);
         }
@@ -437,6 +458,8 @@ void initializeProcessMmap(Process* process)
     for (page = 0; page < RAM_AS_4M_PAGES / 8; ++page)
     {
         process->mmappedVirtualMemory[page] = 0xFF;
+
+        process->mmappedVirtualMemoryOwned[page] = 0x00;
     }
 
     //Virtual pages reserved for mmap
@@ -448,7 +471,7 @@ void initializeProcessMmap(Process* process)
 
 //this functions uses either pAddress or pAddressList
 //both of them must not be null!
-void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList)
+void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList, BOOL own)
 {
     if (nBytes == 0)
     {
@@ -457,7 +480,7 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddress
 
     int pageIndex = 0;
 
-    int neededPages = (nBytes / PAGESIZE_4M) + 1;
+    int neededPages = ((nBytes-1) / PAGESIZE_4M) + 1;
 
     if (pAddressList)
     {
@@ -518,7 +541,14 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddress
         {
             addPageToPd(process->pd, (char*)v, (char*)p, PG_USER);
 
+            Debug_PrintF("MMAPPED: %s(%d) physical:%x virtual:%x owned:%d\n", process->name, process->pid, p, v, own);
+
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M(v));
+
+            if (own)
+            {
+                SET_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, PAGE_INDEX_4M(v));
+            }
 
             v += PAGESIZE_4M;
 
@@ -554,7 +584,12 @@ BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress)
 
     int pageIndex = 0;
 
-    int neededPages = (nBytes / PAGESIZE_4M) + 1;
+    int neededPages = ((nBytes-1) / PAGESIZE_4M) + 1;
+
+    uint32 old = vAddress;
+    vAddress &= 0xFFC00000;
+
+    printkf("pageFrame dealloc from munmap:%x aligned:%x\n", old, vAddress);
 
     int startIndex = PAGE_INDEX_4M(vAddress);
     int endIndex = startIndex + neededPages;
@@ -567,9 +602,15 @@ BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress)
         {
             char* vAddr = (char*)(pageIndex * PAGESIZE_4M);
 
-            removePageFromPd(process->pd, vAddr, FALSE);
+            BOOL owned = IS_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, pageIndex);
+
+            removePageFromPd(process->pd, vAddr, owned);
+
+            Debug_PrintF("UNMAPPED: %s(%d) virtual:%x owned:%d\n", process->name, process->pid, vAddr, owned);
 
             SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, vAddr);
+
+            SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemoryOwned, vAddr);
 
             result = TRUE;
         }

@@ -154,7 +154,7 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
 
     if (List_GetCount(sharedMem->physicalAddressList) > 0)
     {
-        result = mapMemory(file->thread->owner, size, 0, sharedMem->physicalAddressList);
+        result = mapMemory(file->thread->owner, size, 0, sharedMem->physicalAddressList, FALSE);
     }
 
     Spinlock_Unlock(&sharedMem->physicalAddressListLock);

@@ -43,14 +43,19 @@ uint32 loadElf(char *elfData)
             v_end = p_entry->p_vaddr + p_entry->p_memsz;
             if (v_begin < USER_OFFSET)
             {
-                printkf("INFO: loadElf(): can't load executable below %x\n", USER_OFFSET);
-                return 0;
+                //printkf("INFO: loadElf(): can't load executable below %x. Yours: %x\n", USER_OFFSET, v_begin);
+                //return 0;
+                printkf("Warning: skipped to load %d(%x) bytes to %x\n", p_entry->p_filesz, p_entry->p_filesz, v_begin);
+                continue;
             }
 
             if (v_end > USER_STACK)
             {
-                printkf("INFO: loadElf(): can't load executable above %x\n", USER_STACK);
-                return 0;
+                //printkf("INFO: loadElf(): can't load executable above %x. Yours: %x\n", USER_STACK, v_end);
+                //return 0;
+
+                printkf("Warning: skipped to load %d(%x) bytes to %x\n", p_entry->p_filesz, p_entry->p_filesz, v_begin);
+                continue;
             }
 
             //printkf("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);

@@ -60,8 +60,8 @@ typedef unsigned int  size_t;
 
 //KERN_HEAP_END ends and this one starts
 #define	USER_OFFSET         	0x40000000
-#define	USER_OFFSET_END     	0xF0000000
-#define	USER_OFFSET_MMAP    	0xF0000000
+#define	USER_OFFSET_END     	0x80000000 //sbrk end
+#define	USER_OFFSET_MMAP    	0x80000000
 #define	USER_OFFSET_MMAP_END    0xFFFFFFFF
 
 #define	USER_EXE_IMAGE 		0x200000 //2MB
@@ -73,6 +73,10 @@ typedef unsigned int  size_t;
 //So USER_EXE_IMAGE - USER_ARGV_ENV_SIZE = 0x1F0000
 //That means argv and env data will start from USER_OFFSET + 0x1F0000
 //Of course libc should know this numbers :)
+
+//TODO: Refactor. Args, environment variables and auxilary vector should be passed like other systems (eg. end of the stack)
+
+#define AUXILARY_VECTOR_LOC (USER_ARGV_ENV_LOC - (8 * 38))
 
 #define	USER_STACK 			0xF0000000
 

@@ -237,6 +237,74 @@ static void copyArgvEnvToProcess(char *const argv[], char *const envp[])
     destination[destinationIndex++] = NULL;
 }
 
+static void fillAuxilaryVector(void* elfData)
+{
+    Elf32_auxv_t* auxv = (Elf32_auxv_t*)AUXILARY_VECTOR_LOC;
+
+
+    memset((uint8*)auxv, 0, AUX_CNT * sizeof (Elf32_auxv_t));
+
+    Elf32_Ehdr *hdr = (Elf32_Ehdr *) elfData;
+    Elf32_Phdr *p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
+
+    auxv[0].a_type = AT_HWCAP2;
+    auxv[0].a_un.a_val = 0;
+
+    auxv[1].a_type = AT_IGNORE;
+    auxv[1].a_un.a_val = 0;
+
+    auxv[2].a_type = AT_EXECFD;
+    auxv[2].a_un.a_val = 0;
+
+    auxv[3].a_type = AT_PHDR;
+    auxv[3].a_un.a_val = 0;//(uint32)p_entry;
+
+    auxv[4].a_type = AT_PHENT;
+    auxv[4].a_un.a_val = 0;//(uint32)p_entry->p_memsz;
+
+    auxv[5].a_type = AT_PHNUM;
+    auxv[5].a_un.a_val = 0;//hdr->e_phnum;
+
+    auxv[6].a_type = AT_PAGESZ;
+    auxv[6].a_un.a_val = PAGESIZE_4M;
+
+    auxv[7].a_type = AT_BASE;
+    auxv[7].a_un.a_val = 0;
+
+    auxv[8].a_type = AT_FLAGS;
+    auxv[8].a_un.a_val = 0;
+
+    auxv[9].a_type = AT_ENTRY;
+    auxv[9].a_un.a_val = (uint32)hdr->e_entry;
+
+    auxv[10].a_type = AT_NOTELF;
+    auxv[10].a_un.a_val = 0;
+
+    auxv[11].a_type = AT_UID;
+    auxv[11].a_un.a_val = 0;
+
+    auxv[12].a_type = AT_EUID;
+    auxv[12].a_un.a_val = 0;
+
+    auxv[13].a_type = AT_GID;
+    auxv[13].a_un.a_val = 0;
+
+    auxv[14].a_type = AT_EGID;
+    auxv[14].a_un.a_val = 0;
+
+    auxv[15].a_type = AT_CLKTCK;
+    auxv[15].a_un.a_val = 100;
+
+    auxv[16].a_type = AT_PLATFORM;
+    auxv[16].a_un.a_val = 0;
+
+    auxv[16].a_type = AT_SECURE;
+    auxv[16].a_un.a_val = 0;
+
+    auxv[17].a_type = AT_NULL;
+    auxv[17].a_un.a_val = 0;
+}
+
 Process* createUserProcessFromElfData(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
     return createUserProcessEx(name, generateProcessId(), generateThreadId(), NULL, elfData, argv, envp, parent, tty);
@@ -311,6 +379,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     copyArgvEnvToProcess(newArgv, newEnvp);
 
+    fillAuxilaryVector(elfData);
+
     destroyStringArray(newArgv);
     destroyStringArray(newEnvp);
 
@@ -323,7 +393,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->regs.ds = selector;
     thread->regs.es = selector;
     thread->regs.fs = selector;
-    thread->regs.gs = selector;
+    thread->regs.gs = selector; //48 | 3;
 
     thread->regs.esp = stackp;
 
@@ -348,6 +418,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     if (elfData)
     {
         uint32 startLocation = loadElf((char*)elfData);
+
+        //printkf("process start location:%x\n", startLocation);
 
         if (startLocation > 0)
         {
@@ -460,7 +532,7 @@ void destroyProcess(Process* process)
 
     Debug_PrintF("destroying process %d\n", process->pid);
 
-    destroyPd(process->pd);
+    destroyPd(process);
     kfree(process);
 }
 

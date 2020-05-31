@@ -39,7 +39,7 @@ void initializeDescriptorTables()
 
 static void initializeGdt()
 {
-    gGdtPointer.limit = (sizeof(GdtEntry) * 6) - 1;
+    gGdtPointer.limit = (sizeof(GdtEntry) * 7) - 1;
     gGdtPointer.base  = (uint32)&gGdtEntries;
 
     setGdtEntry(0, 0, 0, 0, 0);                // 0x00 Null segment
@@ -60,6 +60,8 @@ static void initializeGdt()
     uint32 tss_base = (uint32) &gTss;
     uint32 tss_limit = tss_base + sizeof(gTss);
     setGdtEntry(5, tss_base, tss_limit, 0xE9, 0x00);
+
+    setGdtEntry(6, 0, 0xFFFFFFFF, 0x80, 0xCF); // Thread Local Storage pointer segment
 
     flushGdt((uint32)&gGdtPointer);
     flushTss();

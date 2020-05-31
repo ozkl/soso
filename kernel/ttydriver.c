@@ -466,6 +466,26 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
 
         return 0;//success
     }
+    case TIOCGWINSZ:
+    {
+        struct winsize
+        {
+          unsigned short ws_row;	/* rows, in characters */
+          unsigned short ws_col;	/* columns, in characters */
+          unsigned short ws_xpixel;	/* horizontal size, pixels */
+          unsigned short ws_ypixel;	/* vertical size, pixels */
+        };
+        struct winsize* ws = (struct winsize*)argp;
+
+        ws->ws_row = tty->lineCount;
+        ws->ws_col = tty->columnCount;
+        ws->ws_xpixel = Gfx_GetWidth();
+        ws->ws_ypixel = Gfx_GetHeight();
+
+        //printkf("ttydriver TIOCGWINSZ\n");
+
+        return 0;//success
+    }
         break;
     default:
         break;
@@ -535,6 +555,11 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
 
 static int32 write(Tty* tty, uint32 size, uint8 *buffer)
 {
+    if ((int32)size <= 0)
+    {
+        return -1;
+    }
+
     buffer[size] = '\0';
 
     Tty_PutText(tty, (const char*)buffer);

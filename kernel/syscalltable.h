@@ -45,6 +45,16 @@ enum
     SYS_posix_openpt,
     SYS_ptsname_r,
 
+    SYS_printk,
+
+    SYS_readv,
+    SYS_writev,
+    SYS_set_thread_area,
+    SYS_set_tid_address,
+    SYS_exit_group,
+    SYS_llseek,
+    SYS_mmap_new,
+
     SYSCALL_COUNT
 };
 
