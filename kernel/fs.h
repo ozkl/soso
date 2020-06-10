@@ -146,6 +146,7 @@ void initializeVFS();
 FileSystemNode* getFileSystemRootNode();
 FileSystemNode* getFileSystemNode(const char* path);
 FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* process);
+FileSystemNode* getFileSystemNodeRelativeToNode(const char* path, FileSystemNode* relativeTo);
 void copyFileDescriptors(Process* fromProcess, Process* toProcess);
 
 BOOL registerFileSystem(FileSystem* fs);

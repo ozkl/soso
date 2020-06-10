@@ -54,6 +54,7 @@ enum
     SYS_exit_group,
     SYS_llseek,
     SYS_mmap_new,
+    SYS_statx,
 
     SYSCALL_COUNT
 };

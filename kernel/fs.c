@@ -552,18 +552,28 @@ FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* p
 
             if (process->workingDirectory)
             {
-                char buffer[256];
-
-                if (getFileSystemNodePath(process->workingDirectory, buffer, 256) >= 0)
-                {
-                    strcat(buffer, "/");
-                    strcat(buffer, path);
-
-                    //Screen_PrintF("getFileSystemNodeAbsoluteOrRelative:[%s]\n", buffer);
-
-                    node = getFileSystemNode(buffer);
-                }
+                node = getFileSystemNodeRelativeToNode(path, process->workingDirectory);
             }
+        }
+    }
+
+    return node;
+}
+
+FileSystemNode* getFileSystemNodeRelativeToNode(const char* path, FileSystemNode* relativeTo)
+{
+    FileSystemNode* node = NULL;
+
+    if (relativeTo)
+    {
+        char buffer[256];
+
+        if (getFileSystemNodePath(relativeTo, buffer, 256) >= 0)
+        {
+            strcat(buffer, "/");
+            strcat(buffer, path);
+
+            node = getFileSystemNode(buffer);
         }
     }
 

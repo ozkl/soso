@@ -1,3 +1,5 @@
+//TODO: seperate files
+
 #include "syscalls.h"
 #include "fs.h"
 #include "process.h"
@@ -22,6 +24,31 @@ struct iovec {
                void  *iov_base;    /* Starting address */
                size_t iov_len;     /* Number of bytes to transfer */
            };
+
+struct statx {
+    uint32 stx_mask;
+    uint32 stx_blksize;
+    uint64 stx_attributes;
+    uint32 stx_nlink;
+    uint32 stx_uid;
+    uint32 stx_gid;
+    uint16 stx_mode;
+    uint16 pad1;
+    uint64 stx_ino;
+    uint64 stx_size;
+    uint64 stx_blocks;
+    uint64 stx_attributes_mask;
+    struct {
+        int64 tv_sec;
+        uint32 tv_nsec;
+        int32 pad;
+    } stx_atime, stx_btime, stx_ctime, stx_mtime;
+    uint32 stx_rdev_major;
+    uint32 stx_rdev_minor;
+    uint32 stx_dev_major;
+    uint32 stx_dev_minor;
+    uint64 spare[14];
+};
 
 
 /**************
@@ -81,6 +108,7 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
             unsigned int offset_low, int64 *result,
             unsigned int whence);
 void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset);
+int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
 
 void initialiseSyscalls()
 {
@@ -132,6 +160,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_exit_group] = syscall_exit_group;
     gSyscallTable[SYS_llseek] = syscall_llseek;
     gSyscallTable[SYS_mmap_new] = syscall_mmap_new;
+    gSyscallTable[SYS_statx] = syscall_statx;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -1239,6 +1268,84 @@ void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int 
     }
 
     return (void*)-1;
+}
+
+#define AT_FDCWD (-100)
+#define AT_SYMLINK_NOFOLLOW 0x100
+#define AT_REMOVEDIR 0x200
+#define AT_SYMLINK_FOLLOW 0x400
+#define AT_EACCESS 0x200
+#define AT_NO_AUTOMOUNT 0x800
+#define AT_EMPTY_PATH 0x1000
+#define AT_STATX_SYNC_TYPE 0x6000
+#define AT_STATX_SYNC_AS_STAT 0x0000
+#define AT_STATX_FORCE_SYNC 0x2000
+#define AT_STATX_DONT_SYNC 0x4000
+#define AT_RECURSIVE 0x8000
+
+int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf)
+{
+    Process* process = getCurrentThread()->owner;
+    if (process)
+    {
+        int pathLen = strlen(pathname);
+
+        FileSystemNode* node = NULL;
+
+        if (pathLen > 0)
+        {
+            if (pathname[0] == '/') //ignore dirfd. this is absolute path
+            {
+                node = getFileSystemNode(pathname);
+            }
+            else
+            {
+                if (dirfd == AT_FDCWD) //pathname is relative to Current Working Directory
+                {
+                    node = getFileSystemNodeRelativeToNode(pathname, process->workingDirectory);
+                }
+                else if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
+                {
+                    File* dirFdDir = process->fd[dirfd];
+                    if ((dirFdDir->node->nodeType & FT_Directory) == FT_Directory) //pathname is relative to the directory that dirfd refers to
+                    {
+                        node = getFileSystemNodeRelativeToNode(pathname, dirFdDir->node);
+                    }
+                }
+            }
+        }
+        else if (pathLen == 0)
+        {
+            if ((flags & AT_EMPTY_PATH) == AT_EMPTY_PATH)
+            {
+                if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
+                {
+                    node = process->fd[dirfd]->node;
+                }
+            }
+        }
+
+        if (node)
+        {
+            struct stat st;
+            memset((uint8*)&st, 0, sizeof(st));
+
+            int statResult = stat_fs(node, &st);
+
+            statxbuf->stx_mode = st.st_mode;
+            statxbuf->stx_size = st.st_size;
+
+            return statResult;
+        }
+
+
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
 }
 
 #define O_CREAT 0x200

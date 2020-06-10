@@ -381,7 +381,7 @@
 #define __NR_pkey_mprotect	1380
 #define __NR_pkey_alloc		1381
 #define __NR_pkey_free		1382
-#define __NR_statx		1383
+#define __NR_statx		45 //1383
 #define __NR_arch_prctl		1384
 #define __NR_io_pgetevents	1385
 #define __NR_rseq		1386

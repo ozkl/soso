@@ -189,8 +189,11 @@ char* strcat(char *dest, const char *src)
 int strlen(const char *src)
 {
     int i = 0;
-    while (*src++)
-        i++;
+    if (NULL != src)
+    {
+        while (*src++)
+            i++;
+    }
     return i;
 }
 
