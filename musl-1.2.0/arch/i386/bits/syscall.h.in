@@ -113,7 +113,7 @@
 #define __NR_vhangup		1111
 #define __NR_idle		1112
 #define __NR_vm86old		1113
-#define __NR_wait4		1114
+#define __NR_wait4		46 //1114
 #define __NR_swapoff		1115
 #define __NR_sysinfo		1116
 #define __NR_ipc		1117

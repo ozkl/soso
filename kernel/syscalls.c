@@ -61,6 +61,8 @@ static void handleSyscall(Registers* regs);
 
 static void* gSyscallTable[SYSCALL_COUNT];
 
+struct rusage;
+
 
 int syscall_open(const char *pathname, int flags);
 int syscall_close(int fd);
@@ -109,6 +111,7 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
             unsigned int whence);
 void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
+int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
 
 void initialiseSyscalls()
 {
@@ -161,6 +164,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_llseek] = syscall_llseek;
     gSyscallTable[SYS_mmap_new] = syscall_mmap_new;
     gSyscallTable[SYS_statx] = syscall_statx;
+    gSyscallTable[SYS_wait4] = syscall_wait4;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -782,6 +786,40 @@ int syscall_wait(int *wstatus)
                 while (currentThread->state == TS_WAITCHILD);
 
                 break;
+            }
+
+            thread = thread->next;
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
+}
+
+int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
+{
+    Thread* currentThread = getCurrentThread();
+
+    Process* process = currentThread->owner;
+    if (process)
+    {
+        Thread* thread = getMainKernelThread();
+        while (thread)
+        {
+            if (process == thread->owner->parent)
+            {
+                if (pid < 0 || pid == (int)thread->owner->pid)
+                {
+                    currentThread->state = TS_WAITCHILD;
+
+                    enableInterrupts();
+                    while (currentThread->state == TS_WAITCHILD);
+
+                    break;
+                }
             }
 
             thread = thread->next;

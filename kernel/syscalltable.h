@@ -55,6 +55,7 @@ enum
     SYS_llseek,
     SYS_mmap_new,
     SYS_statx,
+    SYS_wait4,
 
     SYSCALL_COUNT
 };
