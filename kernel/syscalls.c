@@ -1182,8 +1182,6 @@ void* syscall_mmap(void *addr, int length, int flags, int fd, int offset)
 
 int syscall_munmap(void *addr, int length)
 {
-    //TODO: fd
-
     Process* process = getCurrentThread()->owner;
 
     if (process)
@@ -1191,6 +1189,11 @@ int syscall_munmap(void *addr, int length)
         int fd = -1;
         if (fd < 0)
         {
+            if ((uint32)addr < USER_OFFSET)
+            {
+                return -1;
+            }
+
             if (TRUE == unmapMemory(process, length, (uint32)addr))
             {
                 return 0;
@@ -1231,11 +1234,11 @@ int syscall_munmap(void *addr, int length)
 
 void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset)
 {
-    if (addr)
-    {
-        //Mapping to a specified address is not implemented
+    uint32 vAddressHint = (uint32)addr;
 
-        return (void*)-1;
+    if (vAddressHint < USER_OFFSET)
+    {
+        vAddressHint = USER_MMAP_START;
     }
 
     if (length <= 0)
@@ -1264,7 +1267,7 @@ void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int 
                 List_Append(physicalList, pageFrame);
             }
 
-            void* mem = mapMemory(process, length, 0, physicalList, TRUE);
+            void* mem = mapMemory(process, length, vAddressHint, 0, physicalList, TRUE);
             if (mem != (void*)-1 && mem != NULL)
             {
                 memset((uint8*)mem, 0, length);

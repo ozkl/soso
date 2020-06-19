@@ -44,7 +44,7 @@ typedef unsigned int  size_t;
 #define PAGE_INDEX_4K(addr)		((addr) >> 12)
 #define PAGE_INDEX_4M(addr)		((addr) >> 22)
 #define	PAGING_FLAG 		0x80000000	// CR0 - bit 31
-#define PSE_FLAG			0x00000010	// CR4 - bit 4
+#define PSE_FLAG			0x00000010	// CR4 - bit 4 //For 4M page support.
 #define PG_PRESENT			0x00000001	// page directory / table
 #define PG_WRITE			0x00000002
 #define PG_USER				0x00000004
@@ -60,9 +60,8 @@ typedef unsigned int  size_t;
 
 //KERN_HEAP_END ends and this one starts
 #define	USER_OFFSET         	0x40000000
-#define	USER_OFFSET_END     	0x80000000 //sbrk end
-#define	USER_OFFSET_MMAP    	0x80000000
-#define	USER_OFFSET_MMAP_END    0xFFFFFFFF
+#define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
+#define	MEMORY_END              0xFFFFFFFF
 
 #define	USER_EXE_IMAGE 		0x200000 //2MB
 #define	USER_ARGV_ENV_SIZE	0x10000  //65KB

@@ -41,8 +41,8 @@ uint32 getTotalPageCount();
 uint32 getUsedPageCount();
 uint32 getFreePageCount();
 
-void initializeProcessMmap(Process* process);
-void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList, BOOL own);
+void initializeProcessPages(Process* process);
+void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uint32 pAddress, List* pAddressList, BOOL own);
 BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress);
 
 #endif // VMM_H

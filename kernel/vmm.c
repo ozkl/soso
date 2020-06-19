@@ -91,7 +91,8 @@ char* getPageFrame4M()
                 {
                     page = 8 * byte + bit;
                     SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, page);
-                    Debug_PrintF("DEBUG: got 4M on physical %x\n", page * PAGESIZE_4M);
+
+                    Debug_PrintF("DEBUG: Acquired 4M Physical %x\n", page * PAGESIZE_4M);
                     return (char *) (page * PAGESIZE_4M);
                 }
             }
@@ -104,7 +105,7 @@ char* getPageFrame4M()
 
 void releasePageFrame4M(uint32 p_addr)
 {
-    Debug_PrintF("DEBUG: released 4M on physical %x\n", p_addr);
+    Debug_PrintF("DEBUG: Released 4M Physical %x\n", p_addr);
 
     SET_PAGEFRAME_UNUSED(gPhysicalPageFrameBitmap, p_addr);
 }
@@ -168,24 +169,11 @@ void destroyPd(Process* process)
     uint32 *pd = process->pd;
 
     int startIndex = PAGE_INDEX_4M(USER_OFFSET);
-    int lastIndex = PAGE_INDEX_4M(USER_OFFSET_END);
+    int lastIndex = PAGE_INDEX_4M(MEMORY_END);
 
-    //for sbrk heap
-    for (int i = startIndex; i < lastIndex; ++i)
-    {
-        uint32 p_addr = pd[i] & 0xFFC00000;
+    //contains all user memory (both sbrk and mmap)
 
-        if (p_addr)
-        {
-            releasePageFrame4M(p_addr);
-        }
 
-        pd[i] = 0;
-    }
-
-    //for mmap
-    startIndex = PAGE_INDEX_4M(USER_OFFSET_MMAP);
-    lastIndex = PAGE_INDEX_4M(USER_OFFSET_MMAP_END);
     for (int i = startIndex; i < lastIndex; ++i)
     {
         uint32 p_addr = pd[i] & 0xFFC00000;
@@ -252,6 +240,7 @@ BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
     uint32 *pde = NULL;
 
     //Screen_PrintF("DEBUG: addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
+    //Debug_PrintF("addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
 
 
     int index = (((uint32) v_addr & 0xFFC00000) >> 22);
@@ -451,7 +440,7 @@ static void handlePageFault(Registers *regs)
     }
 }
 
-void initializeProcessMmap(Process* process)
+void initializeProcessPages(Process* process)
 {
     int page = 0;
 
@@ -462,8 +451,7 @@ void initializeProcessMmap(Process* process)
         process->mmappedVirtualMemoryOwned[page] = 0x00;
     }
 
-    //Virtual pages reserved for mmap
-    for (page = PAGE_INDEX_4M(USER_OFFSET_MMAP); page < (int)(PAGE_INDEX_4M(USER_OFFSET_MMAP_END)); ++page)
+    for (page = PAGE_INDEX_4M(USER_OFFSET); page < (int)(PAGE_INDEX_4M(MEMORY_END)); ++page)
     {
         SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page * PAGESIZE_4M);
     }
@@ -471,7 +459,7 @@ void initializeProcessMmap(Process* process)
 
 //this functions uses either pAddress or pAddressList
 //both of them must not be null!
-void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddressList, BOOL own)
+void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uint32 pAddress, List* pAddressList, BOOL own)
 {
     if (nBytes == 0)
     {
@@ -498,7 +486,7 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddress
 
     uint32 vMem = 0;
 
-    for (pageIndex = PAGE_INDEX_4M(USER_OFFSET_MMAP); pageIndex < (int)(PAGE_INDEX_4M(USER_OFFSET_MMAP_END)); ++pageIndex)
+    for (pageIndex = PAGE_INDEX_4M(vAddressSearchStart); pageIndex < (int)(PAGE_INDEX_4M(MEMORY_END)); ++pageIndex)
     {
         if (IS_PAGEFRAME_USED(process->mmappedVirtualMemory, pageIndex))
         {
@@ -541,7 +529,7 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddress
         {
             addPageToPd(process->pd, (char*)v, (char*)p, PG_USER);
 
-            Debug_PrintF("MMAPPED: %s(%d) physical:%x virtual:%x owned:%d\n", process->name, process->pid, p, v, own);
+            Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M(v));
 
@@ -573,11 +561,6 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 pAddress, List* pAddress
 BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress)
 {
     if (nBytes == 0)
-    {
-        return FALSE;
-    }
-
-    if (vAddress < USER_OFFSET_MMAP)
     {
         return FALSE;
     }

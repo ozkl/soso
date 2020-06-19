@@ -149,7 +149,7 @@ static void sbrkPage(Process* process, int pageCount)
     {
         for (int i = 0; i < pageCount; ++i)
         {
-            if ((process->heapNextUnallocatedPageBegin + PAGESIZE_4M) > (char*)USER_OFFSET_END)
+            if ((process->heapNextUnallocatedPageBegin + PAGESIZE_4M) > (char*)(MEMORY_END - PAGESIZE_4M))
             {
                 return;
             }
@@ -163,6 +163,9 @@ static void sbrkPage(Process* process, int pageCount)
             }
 
             addPageToPd(process->pd, process->heapNextUnallocatedPageBegin, p_addr, PG_USER);
+
+            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M((uint32)process->heapNextUnallocatedPageBegin));
+            SET_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, PAGE_INDEX_4M((uint32)process->heapNextUnallocatedPageBegin));
 
             process->heapNextUnallocatedPageBegin += PAGESIZE_4M;
         }
@@ -179,6 +182,9 @@ static void sbrkPage(Process* process, int pageCount)
 
                 //This also releases the page frame
                 removePageFromPd(process->pd, process->heapNextUnallocatedPageBegin, TRUE);
+
+                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, (uint32)process->heapNextUnallocatedPageBegin);
+                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemoryOwned, (uint32)process->heapNextUnallocatedPageBegin);
             }
         }
     }

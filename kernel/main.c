@@ -95,7 +95,12 @@ int executeFile(const char *path, char *const argv[], char *const envp[], FileSy
 
                 if (bytesRead > 0)
                 {
-                    Process* newProcess = createUserProcessFromElfData("userProcess", image, argv, envp, process, tty);
+                    char* name = "userProcess";
+                    if (NULL != argv && NULL != argv[0])
+                    {
+                        name = argv[0];
+                    }
+                    Process* newProcess = createUserProcessFromElfData(name, image, argv, envp, process, tty);
 
                     if (newProcess)
                     {

@@ -350,9 +350,6 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     thread->regs.cr3 = (uint32) process->pd;
 
-    //Since stack grows backwards, we must allocate previous page. So lets substract a small amount.
-    uint32 stackp = USER_STACK-4;
-
     if (parent)
     {
         process->parent = parent;
@@ -373,9 +370,9 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     //Change memory view (page directory)
     asm("mov %0, %%eax; mov %%eax, %%cr3"::"m"(process->pd));
 
-    initializeProcessHeap(process);
+    initializeProcessPages(process);
 
-    initializeProcessMmap(process);
+    initializeProcessHeap(process);
 
     copyArgvEnvToProcess(newArgv, newEnvp);
 
@@ -395,11 +392,14 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    thread->regs.esp = stackp;
+    //Since stack grows backwards, we must allocate previous page. So lets substract a small amount.
+    uint32 stackPointer = USER_STACK - 4;
 
-    char* p_addr = getPageFrame4M();
-    char* v_addr = (char *) (USER_STACK - PAGESIZE_4M);
-    addPageToPd(process->pd, v_addr, p_addr, PG_USER);
+    thread->regs.esp = stackPointer;
+
+    char* pAddressStackPage = getPageFrame4M();
+    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4M);
+    mapMemory(process, PAGESIZE_4M, (uint32)vAddressStackPage, (uint32)pAddressStackPage, NULL, TRUE);
 
     thread->kstack.ss0 = 0x10;
     uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
