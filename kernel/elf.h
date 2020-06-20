@@ -246,7 +246,8 @@ typedef struct {
 
 #define AUX_CNT 38
 
-BOOL isElf(char *elfData);
-uint32 loadElf(char *elfData);
+BOOL isElf(const char *elfData);
+uint32 loadElf(const char *elfData);
+uint32 getElfEndInMemory(const char *elfData);
 
 #endif // ELF_H

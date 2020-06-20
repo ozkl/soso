@@ -3,7 +3,7 @@
 #include "process.h"
 #include "screen.h"
 
-BOOL isElf(char *elfData)
+BOOL isElf(const char *elfData)
 {
     Elf32_Ehdr *hdr = (Elf32_Ehdr *) elfData;
 
@@ -16,7 +16,7 @@ BOOL isElf(char *elfData)
     return FALSE;
 }
 
-uint32 loadElf(char *elfData)
+uint32 loadElf(const char *elfData)
 {
     uint32 v_begin, v_end;
     Elf32_Ehdr *hdr;
@@ -77,3 +77,36 @@ uint32 loadElf(char *elfData)
     return hdr->e_entry;
 }
 
+uint32 getElfEndInMemory(const char *elfData)
+{
+    uint32 v_end;
+    Elf32_Ehdr *hdr;
+    Elf32_Phdr *p_entry;
+
+    hdr = (Elf32_Ehdr *) elfData;
+    p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
+
+    if (isElf(elfData) == FALSE)
+    {
+        return 0;
+    }
+
+    uint32 result = 0;
+
+    for (int pe = 0; pe < hdr->e_phnum; pe++, p_entry++)
+    {
+        //Read each entry
+
+        if (p_entry->p_type == PT_LOAD)
+        {
+            v_end = p_entry->p_vaddr + p_entry->p_memsz;
+
+            if (v_end > result)
+            {
+                result = v_end;
+            }
+        }
+    }
+
+    return result;
+}

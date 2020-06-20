@@ -194,9 +194,9 @@ static void destroyStringArray(char** array)
 }
 
 //This function must be called within the correct page directory for target process
-static void copyArgvEnvToProcess(char *const argv[], char *const envp[])
+static void copyArgvEnvToProcess(uint32 location, char *const argv[], char *const envp[])
 {
-    char** destination = (char**)USER_ARGV_ENV_LOC;
+    char** destination = (char**)location;
     int destinationIndex = 0;
 
     //Screen_PrintF("ARGVENV: destination:%x\n", destination);
@@ -206,7 +206,7 @@ static void copyArgvEnvToProcess(char *const argv[], char *const envp[])
 
     //Screen_PrintF("ARGVENV: argvCount:%d envpCount:%d\n", argvCount, envpCount);
 
-    char* stringTable = (char*)USER_ARGV_ENV_LOC + sizeof(char*) * (argvCount + envpCount + 2);
+    char* stringTable = (char*)location + sizeof(char*) * (argvCount + envpCount + 2);
 
     //Screen_PrintF("ARGVENV: stringTable:%x\n", stringTable);
 
@@ -317,6 +317,13 @@ Process* createUserProcessFromFunction(const char* name, Function0 func, char *c
 
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
+    uint32 imageDataEndInMemory = getElfEndInMemory((char*)elfData);
+
+    if (imageDataEndInMemory <= USER_OFFSET)
+    {
+        return NULL;
+    }
+
     if (0 == processId)
     {
         processId = generateProcessId();
@@ -372,9 +379,13 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     initializeProcessPages(process);
 
-    initializeProcessHeap(process);
+    uint32 sizeInMemory = imageDataEndInMemory - USER_OFFSET;
 
-    copyArgvEnvToProcess(newArgv, newEnvp);
+    //printkf("image sizeInMemory:%d\n", sizeInMemory);
+
+    initializeProgramBreak(process, sizeInMemory);
+
+    copyArgvEnvToProcess(USER_ARGV_ENV_LOC, newArgv, newEnvp);
 
     fillAuxilaryVector(elfData);
 

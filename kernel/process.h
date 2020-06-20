@@ -35,9 +35,9 @@ struct Process
     uint32 b_bss;
     uint32 e_bss;
 
-    char *heapBegin;
-    char *heapEnd;
-    char *heapNextUnallocatedPageBegin;
+    char *brkBegin;
+    char *brkEnd;
+    char *brkNextUnallocatedPageBegin;
 
     uint8 mmappedVirtualMemory[RAM_AS_4M_PAGES / 8];
     uint8 mmappedVirtualMemoryOwned[RAM_AS_4M_PAGES / 8]; //bookkeeping of if we own a mapped memory (for realeasing physical memory)

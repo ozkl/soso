@@ -149,7 +149,7 @@ static void sbrkPage(Process* process, int pageCount)
     {
         for (int i = 0; i < pageCount; ++i)
         {
-            if ((process->heapNextUnallocatedPageBegin + PAGESIZE_4M) > (char*)(MEMORY_END - PAGESIZE_4M))
+            if ((process->brkNextUnallocatedPageBegin + PAGESIZE_4M) > (char*)(MEMORY_END - PAGESIZE_4M))
             {
                 return;
             }
@@ -162,12 +162,12 @@ static void sbrkPage(Process* process, int pageCount)
                 return;
             }
 
-            addPageToPd(process->pd, process->heapNextUnallocatedPageBegin, p_addr, PG_USER);
+            addPageToPd(process->pd, process->brkNextUnallocatedPageBegin, p_addr, PG_USER);
 
-            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M((uint32)process->heapNextUnallocatedPageBegin));
-            SET_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, PAGE_INDEX_4M((uint32)process->heapNextUnallocatedPageBegin));
+            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M((uint32)process->brkNextUnallocatedPageBegin));
+            SET_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, PAGE_INDEX_4M((uint32)process->brkNextUnallocatedPageBegin));
 
-            process->heapNextUnallocatedPageBegin += PAGESIZE_4M;
+            process->brkNextUnallocatedPageBegin += PAGESIZE_4M;
         }
     }
     else if (pageCount < 0)
@@ -176,42 +176,41 @@ static void sbrkPage(Process* process, int pageCount)
 
         for (int i = 0; i < pageCount; ++i)
         {
-            if (process->heapNextUnallocatedPageBegin - PAGESIZE_4M >= process->heapBegin)
+            if (process->brkNextUnallocatedPageBegin - PAGESIZE_4M >= process->brkBegin)
             {
-                process->heapNextUnallocatedPageBegin -= PAGESIZE_4M;
+                process->brkNextUnallocatedPageBegin -= PAGESIZE_4M;
 
                 //This also releases the page frame
-                removePageFromPd(process->pd, process->heapNextUnallocatedPageBegin, TRUE);
+                removePageFromPd(process->pd, process->brkNextUnallocatedPageBegin, TRUE);
 
-                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, (uint32)process->heapNextUnallocatedPageBegin);
-                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemoryOwned, (uint32)process->heapNextUnallocatedPageBegin);
+                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, (uint32)process->brkNextUnallocatedPageBegin);
+                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemoryOwned, (uint32)process->brkNextUnallocatedPageBegin);
             }
         }
     }
 }
 
-void initializeProcessHeap(Process* process)
+void initializeProgramBreak(Process* process, uint32 size)
 {
-    process->heapBegin = (char*) USER_OFFSET;
-    process->heapEnd = process->heapBegin;
-    process->heapNextUnallocatedPageBegin = process->heapBegin;
+    process->brkBegin = (char*) USER_OFFSET;
+    process->brkEnd = process->brkBegin;
+    process->brkNextUnallocatedPageBegin = process->brkBegin;
 
     //Userland programs (their code, data,..) start from USER_OFFSET
-    //So we should leave some space for them by moving heap pointer.
-    //As a result userspace malloc functions start from a forward point (+ USER_EXE_IMAGE).
+    //Lets allocate some space for them by moving program break.
 
-    sbrk(process, USER_EXE_IMAGE);
+    sbrk(process, size);
 }
 
 void *sbrk(Process* process, int nBytes)
 {
     //Screen_PrintF("sbrk:1: pid:%d nBytes:%d\n", process->pid, nBytes);
 
-    char* previousBreak = process->heapEnd;
+    char* previousBreak = process->brkEnd;
 
     if (nBytes > 0)
     {
-        int remainingInThePage = process->heapNextUnallocatedPageBegin - process->heapEnd;
+        int remainingInThePage = process->brkNextUnallocatedPageBegin - process->brkEnd;
 
         //Screen_PrintF("sbrk:2: remainingInThePage:%d\n", remainingInThePage);
 
@@ -233,9 +232,9 @@ void *sbrk(Process* process, int nBytes)
     }
     else if (nBytes < 0)
     {
-        char* currentPageBegin = process->heapNextUnallocatedPageBegin - PAGESIZE_4M;
+        char* currentPageBegin = process->brkNextUnallocatedPageBegin - PAGESIZE_4M;
 
-        int remainingInThePage = process->heapEnd - currentPageBegin;
+        int remainingInThePage = process->brkEnd - currentPageBegin;
 
         //Screen_PrintF("sbrk:4: remainingInThePage:%d\n", remainingInThePage);
 
@@ -250,7 +249,7 @@ void *sbrk(Process* process, int nBytes)
         }
     }
 
-    process->heapEnd += nBytes;
+    process->brkEnd += nBytes;
 
     return previousBreak;
 }
