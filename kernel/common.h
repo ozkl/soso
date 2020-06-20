@@ -63,19 +63,7 @@ typedef unsigned int  size_t;
 #define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
 #define	MEMORY_END              0xFFFFFFFF
 
-#define	USER_EXE_IMAGE 		0x200000 //2MB
-#define	USER_ARGV_ENV_SIZE	0x10000  //65KB
-#define	USER_ARGV_ENV_LOC	(USER_OFFSET + (USER_EXE_IMAGE - USER_ARGV_ENV_SIZE))
-//This means we support executable images up to 2MB
-//And user malloc functions will start from USER_OFFSET + USER_EXE_IMAGE
-//We will 65KB (0x10000) for argv and environ just before user malloc start
-//So USER_EXE_IMAGE - USER_ARGV_ENV_SIZE = 0x1F0000
-//That means argv and env data will start from USER_OFFSET + 0x1F0000
-//Of course libc should know this numbers :)
-
-//TODO: Refactor. Args, environment variables and auxilary vector should be passed like other systems (eg. end of the stack)
-
-#define AUXILARY_VECTOR_LOC (USER_ARGV_ENV_LOC - (8 * 38))
+#define	SIZE_2MB        	0x200000 //2MB
 
 #define	USER_STACK 			0xF0000000
 

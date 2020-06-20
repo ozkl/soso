@@ -17,14 +17,6 @@ weak_alias(dummy1, __init_ssp);
 
 #define AUX_CNT 38
 
-#define	USER_OFFSET 		0x40000000
-#define	USER_EXE_IMAGE 		0x200000 //2MB
-#define	USER_ARGV_ENV_SIZE	0x10000  //65KB
-#define	USER_ARGV_ENV_LOC	(USER_OFFSET + (USER_EXE_IMAGE - USER_ARGV_ENV_SIZE))
-#define AUXILARY_VECTOR_LOC (USER_ARGV_ENV_LOC - (8 * 38))
-
-//TODO: Refactor. Args, environment variables and auxilary vector should be passed like other systems (eg. end of the stack)
-
 #ifdef __GNUC__
 __attribute__((__noinline__))
 #endif
@@ -34,9 +26,9 @@ void __init_libc(char **envp, char *pn)
 	
 	__environ = envp;
 	
-	//for (i=0; envp[i]; i++);
+	for (i=0; envp[i]; i++);
 
-	libc.auxv = auxv = (void *)AUXILARY_VECTOR_LOC;//(envp+i+1);
+	libc.auxv = auxv = (void *)(envp+i+1);
 
 
 	for (i=0; auxv[i]; i+=2) if (auxv[i]<AUX_CNT) aux[auxv[i]] = auxv[i+1];

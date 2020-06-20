@@ -41,12 +41,8 @@ char **environ; // pointer to array of char * strings that define the current en
 
 //The defines below are from kernel the header and they must be the same.
 #define	USER_OFFSET 		0x40000000
-#define	USER_EXE_IMAGE 		0x200000 //2MB
-#define	USER_ARGV_ENV_SIZE	0x10000  //65KB
-#define	USER_ARGV_ENV_LOC	(USER_OFFSET + (USER_EXE_IMAGE - USER_ARGV_ENV_SIZE))
-
-//TODO: Refactor. Args, environment variables and auxilary vector should be passed like other systems (eg. end of the stack)
-
+#define	USER_STACK 			0xF0000000
+#define	SIZE_2MB     		0x200000 //2MB
 
 void __init_libc_soso(char **envp, char *pn);
 
@@ -58,7 +54,7 @@ void _start_c(long *p)
     int argc = 0;
     char** argv = NULL;
 
-    char** const argvenv = (char**)USER_ARGV_ENV_LOC;
+    char** const argvenv = (char**)(USER_STACK - SIZE_2MB);
 
     int i = 0;
     const char* a = argvenv[0];

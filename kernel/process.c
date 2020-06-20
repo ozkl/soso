@@ -12,6 +12,8 @@
 
 #define MESSAGE_QUEUE_SIZE 64
 
+#define AUX_VECTOR_SIZE_BYTES (AUX_CNT * sizeof (Elf32_auxv_t))
+
 Process* gKernelProcess = NULL;
 
 Thread* gFirstThread = NULL;
@@ -26,6 +28,8 @@ uint32 gSystemContextSwitchCount = 0;
 uint32 gLastUptimeSeconds = 0;
 
 extern Tss gTss;
+
+static void fillAuxilaryVector(uint32 location, void* elfData);
 
 uint32 generateProcessId()
 {
@@ -194,7 +198,7 @@ static void destroyStringArray(char** array)
 }
 
 //This function must be called within the correct page directory for target process
-static void copyArgvEnvToProcess(uint32 location, char *const argv[], char *const envp[])
+static void copyArgvEnvToProcess(uint32 location, void* elfData, char *const argv[], char *const envp[])
 {
     char** destination = (char**)location;
     int destinationIndex = 0;
@@ -206,7 +210,9 @@ static void copyArgvEnvToProcess(uint32 location, char *const argv[], char *cons
 
     //Screen_PrintF("ARGVENV: argvCount:%d envpCount:%d\n", argvCount, envpCount);
 
-    char* stringTable = (char*)location + sizeof(char*) * (argvCount + envpCount + 2);
+    char* stringTable = (char*)location + sizeof(char*) * (argvCount + envpCount + 3) + AUX_VECTOR_SIZE_BYTES;
+
+    uint32 auxVectorLocation = location + sizeof(char*) * (argvCount + envpCount + 2);
 
     //Screen_PrintF("ARGVENV: stringTable:%x\n", stringTable);
 
@@ -235,14 +241,16 @@ static void copyArgvEnvToProcess(uint32 location, char *const argv[], char *cons
     }
 
     destination[destinationIndex++] = NULL;
+
+    fillAuxilaryVector(auxVectorLocation, elfData);
 }
 
-static void fillAuxilaryVector(void* elfData)
+static void fillAuxilaryVector(uint32 location, void* elfData)
 {
-    Elf32_auxv_t* auxv = (Elf32_auxv_t*)AUXILARY_VECTOR_LOC;
+    Elf32_auxv_t* auxv = (Elf32_auxv_t*)location;
 
 
-    memset((uint8*)auxv, 0, AUX_CNT * sizeof (Elf32_auxv_t));
+    memset((uint8*)auxv, 0, AUX_VECTOR_SIZE_BYTES);
 
     Elf32_Ehdr *hdr = (Elf32_Ehdr *) elfData;
     Elf32_Phdr *p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
@@ -385,9 +393,11 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     initializeProgramBreak(process, sizeInMemory);
 
-    copyArgvEnvToProcess(USER_ARGV_ENV_LOC, newArgv, newEnvp);
+    char* pAddressStackPage = getPageFrame4M();
+    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4M);
+    mapMemory(process, PAGESIZE_4M, (uint32)vAddressStackPage, (uint32)pAddressStackPage, NULL, TRUE);
 
-    fillAuxilaryVector(elfData);
+    copyArgvEnvToProcess(USER_STACK - SIZE_2MB, elfData, newArgv, newEnvp);
 
     destroyStringArray(newArgv);
     destroyStringArray(newEnvp);
@@ -403,14 +413,12 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    //Since stack grows backwards, we must allocate previous page. So lets substract a small amount.
-    uint32 stackPointer = USER_STACK - 4;
+    //Since stack grows backwards. Bottom 2MB of the page is reserved for the stack. Upper half is filled with argv, env, auxv.
+    uint32 stackPointer = USER_STACK - SIZE_2MB - 4;
 
     thread->regs.esp = stackPointer;
 
-    char* pAddressStackPage = getPageFrame4M();
-    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4M);
-    mapMemory(process, PAGESIZE_4M, (uint32)vAddressStackPage, (uint32)pAddressStackPage, NULL, TRUE);
+
 
     thread->kstack.ss0 = 0x10;
     uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);

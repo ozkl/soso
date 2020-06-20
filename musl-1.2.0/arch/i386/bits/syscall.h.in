@@ -36,7 +36,7 @@
 #define __NR_nice		 1034
 #define __NR_ftime		 1035
 #define __NR_sync		 1036
-#define __NR_kill		 1037
+#define __NR_kill		 15 //1037
 #define __NR_rename		 1038
 #define __NR_mkdir		 1039
 #define __NR_rmdir		 1040
