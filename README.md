@@ -1,7 +1,7 @@
 # soso
 Soso is a simple unix-like operating system written in Nasm assembly and mostly in C. It supports multiboot, so it is started by Grub.
-It can be built using Nasm and Clang. You can use GCC instead of Clang, if you want.
-Tested build environments are Linux, FreeBSD, and Windows 10 (Windows Subsystem for Linux).
+It can be built using Nasm and Clang.
+Tested build environments are Linux, FreeBSD, and Windows 10 (Windows Subsystem for Linux). For installing Grub to disk image, Windows host is not supported.
 
 Soso is a 32-bit x86 operating system and its features are
 - Multitasking with processes and threads
@@ -10,7 +10,7 @@ Soso is a 32-bit x86 operating system and its features are
 - Virtual File System
 - FAT32 filesystem using FatFs
 - System calls
-- Libc (Newlib is ported with only basic calls like open, read,..)
+- Libc (Musl is ported with basic calls like open, read,..)
 - Userspace programs as ELF files
 - mmap support
 - Framebuffer graphics (userspace can access with mmap)
