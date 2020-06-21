@@ -93,7 +93,7 @@ int syscall_getUptimeMilliseconds();
 int syscall_sleepMilliseconds(int ms);
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 int syscall_manageMessage(int command, void* message);
-void* syscall_mmap(void *addr, int length, int flags, int fd, int offset);
+void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_shm_unlink(const char *name);
@@ -109,7 +109,7 @@ int syscall_exit_group(int status);
 int syscall_llseek(unsigned int fd, unsigned int offset_high,
             unsigned int offset_low, int64 *result,
             unsigned int whence);
-void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset);
+
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
 
@@ -162,7 +162,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_set_tid_address] = syscall_set_tid_address;
     gSyscallTable[SYS_exit_group] = syscall_exit_group;
     gSyscallTable[SYS_llseek] = syscall_llseek;
-    gSyscallTable[SYS_mmap_new] = syscall_mmap_new;
+    gSyscallTable[SYS_UNUSED2] = NULL;
     gSyscallTable[SYS_statx] = syscall_statx;
     gSyscallTable[SYS_wait4] = syscall_wait4;
 
@@ -186,6 +186,8 @@ static void handleSyscall(Registers* regs)
 
     if (NULL == location)
     {
+        printkf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+
         regs->eax = -1;
         return;
     }
@@ -1136,103 +1138,7 @@ int syscall_manageMessage(int command, void* message)
     return result;
 }
 
-void* syscall_mmap(void *addr, int length, int flags, int fd, int offset)
-{
-    if (addr)
-    {
-        //Mapping to a specified address is not implemented
-
-        return (void*)-1;
-    }
-
-    Process* process = getCurrentThread()->owner;
-
-    if (process)
-    {
-        if (fd < MAX_OPENED_FILES)
-        {
-            File* file = process->fd[fd];
-
-            if (file)
-            {
-                void* ret = mmap_fs(file, length, offset, flags);
-
-                if (ret)
-                {
-                    return ret;
-                }
-            }
-            else
-            {
-                //TODO: error invalid fd
-            }
-        }
-        else
-        {
-            //TODO: error invalid fd
-        }
-    }
-    else
-    {
-        PANIC("Process is NULL!\n");
-    }
-
-    return (void*)-1;
-}
-
-int syscall_munmap(void *addr, int length)
-{
-    Process* process = getCurrentThread()->owner;
-
-    if (process)
-    {
-        int fd = -1;
-        if (fd < 0)
-        {
-            if ((uint32)addr < USER_OFFSET)
-            {
-                return -1;
-            }
-
-            if (TRUE == unmapMemory(process, length, (uint32)addr))
-            {
-                return 0;
-            }
-            return -1;
-        }
-        else
-        {
-            if (fd < MAX_OPENED_FILES)
-            {
-                File* file = process->fd[fd];
-
-                if (file)
-                {
-                    if (munmap_fs(file, addr, length))
-                    {
-                        return 0;//on success
-                    }
-                }
-                else
-                {
-                    //TODO: error invalid fd
-                }
-            }
-            else
-            {
-                //TODO: error invalid fd
-            }
-        }
-    }
-    else
-    {
-        PANIC("Process is NULL!\n");
-    }
-
-    return -1;
-}
-
-void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int offset)
+void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset)
 {
     uint32 vAddressHint = (uint32)addr;
 
@@ -1309,6 +1215,58 @@ void* syscall_mmap_new(void *addr, int length, int flags, int prot, int fd, int 
     }
 
     return (void*)-1;
+}
+
+int syscall_munmap(void *addr, int length)
+{
+    Process* process = getCurrentThread()->owner;
+
+    if (process)
+    {
+        int fd = -1;
+        if (fd < 0)
+        {
+            if ((uint32)addr < USER_OFFSET)
+            {
+                return -1;
+            }
+
+            if (TRUE == unmapMemory(process, length, (uint32)addr))
+            {
+                return 0;
+            }
+            return -1;
+        }
+        else
+        {
+            if (fd < MAX_OPENED_FILES)
+            {
+                File* file = process->fd[fd];
+
+                if (file)
+                {
+                    if (munmap_fs(file, addr, length))
+                    {
+                        return 0;//on success
+                    }
+                }
+                else
+                {
+                    //TODO: error invalid fd
+                }
+            }
+            else
+            {
+                //TODO: error invalid fd
+            }
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
 }
 
 #define AT_FDCWD (-100)

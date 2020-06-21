@@ -89,7 +89,7 @@
 #define __NR_swapon		 1087
 #define __NR_reboot		 1088
 #define __NR_readdir		 1089
-#define __NR_mmap		 44 //1090
+#define __NR_mmap		 30 //1090
 #define __NR_munmap		 31 //1091
 #define __NR_truncate		 1092
 #define __NR_ftruncate		 1093

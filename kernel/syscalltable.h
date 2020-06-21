@@ -53,7 +53,7 @@ enum
     SYS_set_tid_address,
     SYS_exit_group,
     SYS_llseek,
-    SYS_mmap_new,
+    SYS_UNUSED2,
     SYS_statx,
     SYS_wait4,
 

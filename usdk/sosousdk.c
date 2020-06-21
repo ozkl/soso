@@ -1,6 +1,8 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include "sosousdk.h"
 #include "../kernel/syscalltable.h"
-#include "../kernel/termios.h"
 
 
 static int syscall0(int num)
@@ -105,127 +107,81 @@ int setTTYBuffer(int fd, TtyUserBuffer* ttyBuffer)
     return syscall_ioctl(fd, 2, ttyBuffer);
 }
 
-void* mmap(void *addr, int length, int flags, int fd, int offset)
+int getdents(int fd, char *buf, int nbytes)
 {
-    return (void*)syscall5(SYS_mmap, (int)addr, length, flags, fd, offset);
+    return syscall3(SYS_getdents, fd, (int)buf, nbytes);
 }
 
-int munmap(void *addr, int length)
+int execute(const char *path, char *const argv[], char *const envp[])
 {
-    return syscall2(SYS_munmap, (int)addr, length);
+    return syscall3(SYS_execute, (int)path, (int)argv, (int)envp);
 }
 
-int shm_open(const char *name, int oflag, int mode)
+int executep(const char *filename, char *const argv[], char *const envp[])
 {
-    return syscall3(SYS_shm_open, (int)name, (int)oflag, (int)mode);
-}
+    const char* path = getenv("PATH");
 
-int shm_unlink(const char *name)
-{
-    return syscall1(SYS_shm_unlink, (int)name);
-}
+    if (path)
+    {
+        const char* path2 = path;
 
-int ftruncate(int fd, int size)
-{
-    return syscall2(SYS_ftruncate, fd, size);
-}
+        char* bb = path2;
 
-int tcgetattr(int fd, struct termios *termios_p)
-{
-  return syscall_ioctl(fd, TCGETS, (void*)termios_p);
-}
-
-int tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
-{
-  int cmd;
-
-  switch (optional_actions)
-  {
-    case TCSANOW:
-      cmd = TCSETS;
-    break;
-    case TCSADRAIN:
-      cmd = TCSETSW;
-    break;
-    case TCSAFLUSH:
-      cmd = TCSETSF;
-    break;
-    default:
-      //errno = EINVAL;
-      return -1;
-  }
-  return syscall_ioctl(fd, cmd, (void*)termios_p);
-}
-
-#define PSF_FONT_MAGIC 0x864ab572
-
-extern char _binary_font_psf_start;
-
-typedef struct {
-    unsigned int magic;         /* magic bytes to identify PSF */
-    unsigned int version;       /* zero */
-    unsigned int headersize;    /* offset of bitmaps in file, 32 */
-    unsigned int flags;         /* 0 if there's no unicode table */
-    unsigned int numglyph;      /* number of glyphs */
-    unsigned int bytesperglyph; /* size of each glyph */
-    unsigned int height;        /* height in pixels */
-    unsigned int width;         /* width in pixels */
-} PSF_font;
-
-void drawCharAt(
-    unsigned char* windowBuffer,
-    /* note that this is int, not char as it's a unicode character */
-    unsigned short int c,
-    /* cursor position on screen, in characters not in pixels */
-    int cx, int cy,
-    int windowWidth, int windowHeight,
-    /* foreground and background colors, say 0xFFFFFF and 0x000000 */
-    unsigned int fg, unsigned int bg)
-{
-    /* cast the address to PSF header struct */
-    PSF_font *font = (PSF_font*)&_binary_font_psf_start;
-    /* we need to know how many bytes encode one row */
-    int bytesperline=(font->width+7)/8;
-    /* unicode translation */
-    /*
-    if(gUnicode != NULL) {
-        c = gUnicode[c];
-    }*/
-    /* get the glyph for the character. If there's no
-       glyph for a given character, we'll display the first glyph. */
-    unsigned char *glyph =
-     (unsigned char*)&_binary_font_psf_start +
-     font->headersize +
-     (c>0&&c<font->numglyph?c:0)*font->bytesperglyph;
-    /* calculate the upper left corner on screen where we want to display.
-       we only do this once, and adjust the offset later. This is faster. */
-    int offs =
-        (cy * font->height * windowWidth * 4) +
-        (cx * (font->width+1) * 4);
-    /* finally display pixels according to the bitmap */
-    int x,y, line,mask;
-    for(y=0;y<font->height;y++){
-        /* save the starting position of the line */
-        line=offs;
-        mask=1<<(font->width-1);
-        /* display a row */
-        for(x=0;x<font->width;x++)
+        char single[128];
+        while (bb != NULL)
         {
-            if (c == 0)
+            char* token = strstr(bb, ":");
+
+            if (NULL == token)
             {
-                *((unsigned int*)(windowBuffer + line)) = bg;
+                int l = strlen(bb);
+                if (l > 0)
+                {
+                    token = bb + l;
+                }
+            }
+
+            if (token)
+            {
+                int len = token - bb;
+
+                if (len > 0)
+                {
+                    strncpy(single, bb, len);
+                    single[len] = '\0';
+
+                    //printf("%d:[%s]\n", len, single);
+
+                    strcat(single, "/");
+                    strcat(single, filename);
+
+                    int result = execute(single, argv, envp);
+
+                    if (result > 0)
+                    {
+                        return result;
+                    }
+                }
+
+                bb = token + 1;
             }
             else
             {
-                *((unsigned int*)(windowBuffer + line)) = ((int)*glyph) & (mask) ? fg : bg;
+                break;
             }
-
-            /* adjust to the next pixel */
-            mask >>= 1;
-            line += 4;
         }
-        /* adjust to the next line */
-        glyph += bytesperline;
-        offs  += windowWidth * 4;
     }
+
+    return -1;
 }
+
+int getWorkingDirectory(char *buf, int size)
+{
+    return syscall2(SYS_getWorkingDirectory, (int)buf, size);
+}
+
+int setWorkingDirectory(const char *path)
+{
+    return syscall1(SYS_setWorkingDirectory, (int)path);
+}
+
