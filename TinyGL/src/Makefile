@@ -12,17 +12,16 @@ ifdef TINYGL_USE_NANOX
 OBJS += nglx.o
 endif
 
-INCLUDES = -I../include -I../../usr/i686-soso/include
+INCLUDES = -I../include
 LIB = libTinyGL.a
 
 all: $(LIB)
 
 $(LIB): $(OBJS)
 	rm -f $(LIB)
-	ar rcs $(LIB) $(OBJS)
-	cp $(LIB) ../lib
-	cp $(LIB) ../../usr/i686-soso/lib
-	cp -r ../include/* ../../usr/i686-soso/include
+	ar --target=elf32-i386 rcs $(LIB) $(OBJS)
+	cp $(LIB) ../../root/lib/
+	cp -r ../include/* ../../root/include
 clean:
 	rm -f *~ *.o *.a
 

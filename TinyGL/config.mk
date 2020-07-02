@@ -2,8 +2,8 @@
 # C compiler
 
 # linux
-CC= gcc
-CFLAGS= -g -Wall -O2 -nostdlib -fno-builtin -m32
+CC=soso-clang
+CFLAGS=-Wall -O2
 LFLAGS=
 
 # for BeOS PPC
