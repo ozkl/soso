@@ -8,31 +8,24 @@ typedef struct List List;
 
 extern uint32 *gKernelPageDirectory;
 
-extern uint8 gKernelPageHeapBitmap[];
-
 
 #define SET_PAGEFRAME_USED(bitmap, pageIndex)	bitmap[((uint32) pageIndex)/8] |= (1 << (((uint32) pageIndex)%8))
-#define SET_PAGEFRAME_UNUSED(bitmap, p_addr)	bitmap[((uint32) p_addr/PAGESIZE_4M)/8] &= ~(1 << (((uint32) p_addr/PAGESIZE_4M)%8))
+#define SET_PAGEFRAME_UNUSED(bitmap, p_addr)	bitmap[((uint32) p_addr/PAGESIZE_4K)/8] &= ~(1 << (((uint32) p_addr/PAGESIZE_4K)%8))
 #define IS_PAGEFRAME_USED(bitmap, pageIndex)	(bitmap[((uint32) pageIndex)/8] & (1 << (((uint32) pageIndex)%8)))
 
-#define SET_PAGEHEAP_USED(pageIndex)	gKernelPageHeapBitmap[((uint32) pageIndex)/8] |= (1 << (((uint32) pageIndex)%8))
-#define SET_PAGEHEAP_UNUSED(p_addr)	gKernelPageHeapBitmap[((uint32) p_addr/PAGESIZE_4K)/8] &= ~(1 << (((uint32) p_addr/PAGESIZE_4K)%8))
-#define IS_PAGEHEAP_USED(pageIndex)	(gKernelPageHeapBitmap[((uint32) pageIndex)/8] & (1 << (((uint32) pageIndex)%8)))
+#define CHANGE_PD(pd) asm("mov %0, %%eax ;mov %%eax, %%cr3":: "m"(pd))
+#define INVALIDATE(v_addr) asm("invlpg %0"::"m"(v_addr))
 
-char* getPageFrame4M();
-void releasePageFrame4M(uint32 p_addr);
-
-uint32 *getPdFromReservedArea4K();
-void releasePdFromReservedArea4K(uint32 *);
+uint32 acquirePageFrame4K();
+void releasePageFrame4K(uint32 p_addr);
 
 void initializeMemory(uint32 high_mem);
 
-uint32 *createPd();
-void destroyPd(Process* process);
-uint32 *copyPd(uint32* pd);
+uint32 *acquirePageDirectory();
+void destroyPageDirectoryWithMemory(uint32 physicalPd);
 
-BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags);
-BOOL removePageFromPd(uint32* pd, char *v_addr, BOOL releasePageFrame);
+BOOL addPageToPd(uint32* physicalPd, char *v_addr, uint32 p_addr, int flags);
+BOOL removePageFromPd(uint32* pd, char *v_addr);
 
 void enablePaging();
 void disablePaging();
@@ -42,7 +35,7 @@ uint32 getUsedPageCount();
 uint32 getFreePageCount();
 
 void initializeProcessPages(Process* process);
-void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uint32 pAddress, List* pAddressList, BOOL own);
-BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress);
+void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressArray, uint32 pageCount, BOOL own);
+BOOL unmapMemory(Process* process, uint32 vAddress, uint32 pageCount);
 
 #endif // VMM_H

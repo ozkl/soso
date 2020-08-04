@@ -24,7 +24,7 @@ static uint16 gCurrentColumn = 0;
 
 void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch)
 {
-    char* p_address = (char*)pixels;
+    uint32 p_address = (uint32)pixels;
     char* v_address = (char*)GFX_MEMORY;
 
     //Usually physical and virtual are the same here but of course they don't have to
@@ -38,22 +38,22 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPer
     gLineCount = gHeight / LINE_HEIGHT;
     gColumnCount = gWidth / 8;
 
+    uint32 sizeBytes = gWidth * gHeight * gBytesPerPixel;
+    uint32 neededPageCount = sizeBytes / PAGESIZE_4K;
 
-    BOOL success = addPageToPd(gKernelPageDirectory, v_address, p_address, 0);
-
-    if (success)
+    for (uint32 i = 0; i < neededPageCount; ++i)
     {
-        for (int y = 0; y < gHeight; ++y)
-        {
-            for (int x = 0; x < gWidth; ++x)
-            {
-                gPixels[x + y * gWidth] = 0xFFFFFFFF;
-            }
-        }
+        uint32 offset = i * PAGESIZE_4K;
+
+        addPageToPd(gKernelPageDirectory, v_address + offset, p_address + offset, 0);
     }
-    else
+
+    for (int y = 0; y < gHeight; ++y)
     {
-        Debug_PrintF("Gfx initialization failed!\n");
+        for (int x = 0; x < gWidth; ++x)
+        {
+            gPixels[x + y * gWidth] = 0xFFFFFFFF;
+        }
     }
 
     initializeFrameBuffer((uint8*)p_address, (uint8*)v_address);

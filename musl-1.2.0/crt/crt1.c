@@ -54,7 +54,8 @@ void _start_c(long *p)
     int argc = 0;
     char** argv = NULL;
 
-    char** const argvenv = (char**)(USER_STACK - SIZE_2MB);
+    //char** const argvenv = (char**)(USER_STACK - SIZE_2MB);
+    char** const argvenv = (char**)(USER_STACK);
 
     int i = 0;
     const char* a = argvenv[0];

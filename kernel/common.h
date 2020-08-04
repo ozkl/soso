@@ -5,7 +5,6 @@
 #define disableInterrupts() asm volatile("cli")
 #define halt() asm volatile("hlt")
 
-
 typedef unsigned long long 	uint64;
 typedef signed long long	int64;
 typedef unsigned int   uint32;
@@ -23,8 +22,6 @@ typedef unsigned int  size_t;
 
 #define	KERN_PAGE_DIRECTORY			0x00001000
 
-#define	KERN_BASE			0x00100000
-
 //16M is identity mapped as below.
 //First 8M we don't touch. Kernel code is there.
 //4M is reserved for 4K page directories.
@@ -40,28 +37,29 @@ typedef unsigned int  size_t;
 #define KERN_HEAP_BEGIN 		0x02000000 //32 mb
 #define KERN_HEAP_END    		0x40000000 // 1 gb
 
-
-#define PAGE_INDEX_4K(addr)		((addr) >> 12)
-#define PAGE_INDEX_4M(addr)		((addr) >> 22)
 #define	PAGING_FLAG 		0x80000000	// CR0 - bit 31
 #define PSE_FLAG			0x00000010	// CR4 - bit 4 //For 4M page support.
 #define PG_PRESENT			0x00000001	// page directory / table
 #define PG_WRITE			0x00000002
 #define PG_USER				0x00000004
 #define PG_4MB				0x00000080
+#define PG_OWNED			0x00000200  // We use 9th bit for bookkeeping of owned pages (9-11th bits are available for OS)
 #define	PAGESIZE_4K 		0x00001000
 #define	PAGESIZE_4M			0x00400000
 #define	RAM_AS_4K_PAGES		0x100000
 #define	RAM_AS_4M_PAGES		1024
+#define PAGE_COUNT(bytes)       (((bytes-1) / PAGESIZE_4K) + 1)
+#define PAGE_INDEX_4K(addr)		((addr) >> 12)
+#define PAGE_INDEX_4M(addr)		((addr) >> 22)
 
-#define KERNELMEMORY_PAGE_COUNT 256 //(KERN_HEAP_END / PAGESIZE_4M)
+#define KERNELMEMORY_PAGE_COUNT 256 //First 1GB kernel-space (first 256 entries in the page directory)
 
 #define	KERN_STACK_SIZE		PAGESIZE_4K
 
 //KERN_HEAP_END ends and this one starts
 #define	USER_OFFSET         	0x40000000
 #define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
-#define	MEMORY_END              0xFFFFFFFF
+#define	MEMORY_END              0xFFC00000 //After this address is not usable. Because Page Tables sit there!
 
 #define	SIZE_2MB        	0x200000 //2MB
 
@@ -107,6 +105,7 @@ uint32 rand();
 
 uint32 readEip();
 uint32 readEsp();
+uint32 readCr3();
 uint32 getCpuFlags();
 BOOL isInterruptsEnabled();
 

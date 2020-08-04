@@ -9,6 +9,7 @@
 #include "isr.h"
 #include "timer.h"
 #include "message.h"
+#include "list.h"
 
 #define MESSAGE_QUEUE_SIZE 64
 
@@ -203,18 +204,18 @@ static void copyArgvEnvToProcess(uint32 location, void* elfData, char *const arg
     char** destination = (char**)location;
     int destinationIndex = 0;
 
-    //Screen_PrintF("ARGVENV: destination:%x\n", destination);
+    //printkf("ARGVENV: destination:%x\n", destination);
 
     int argvCount = getStringArrayItemCount(argv);
     int envpCount = getStringArrayItemCount(envp);
 
-    //Screen_PrintF("ARGVENV: argvCount:%d envpCount:%d\n", argvCount, envpCount);
+    //printkf("ARGVENV: argvCount:%d envpCount:%d\n", argvCount, envpCount);
 
     char* stringTable = (char*)location + sizeof(char*) * (argvCount + envpCount + 3) + AUX_VECTOR_SIZE_BYTES;
 
     uint32 auxVectorLocation = location + sizeof(char*) * (argvCount + envpCount + 2);
 
-    //Screen_PrintF("ARGVENV: stringTable:%x\n", stringTable);
+    //printkf("ARGVENV: stringTable:%x\n", stringTable);
 
     for (int i = 0; i < argvCount; ++i)
     {
@@ -249,6 +250,7 @@ static void fillAuxilaryVector(uint32 location, void* elfData)
 {
     Elf32_auxv_t* auxv = (Elf32_auxv_t*)location;
 
+    //printkf("auxv:%x\n", auxv);
 
     memset((uint8*)auxv, 0, AUX_VECTOR_SIZE_BYTES);
 
@@ -274,7 +276,7 @@ static void fillAuxilaryVector(uint32 location, void* elfData)
     auxv[5].a_un.a_val = 0;//hdr->e_phnum;
 
     auxv[6].a_type = AT_PAGESZ;
-    auxv[6].a_un.a_val = PAGESIZE_4M;
+    auxv[6].a_un.a_val = PAGESIZE_4K;
 
     auxv[7].a_type = AT_BASE;
     auxv[7].a_un.a_val = 0;
@@ -346,7 +348,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     memset((uint8*)process, 0, sizeof(Process));
     strcpy(process->name, name);
     process->pid = processId;
-    process->pd = createPd();//our page directories are identity mapped so this is also a physical address.
+    process->pd = acquirePageDirectory();
     process->workingDirectory = getFileSystemRootNode();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
@@ -383,7 +385,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     char** newEnvp = cloneStringArray(envp);
 
     //Change memory view (page directory)
-    asm("mov %0, %%eax; mov %%eax, %%cr3"::"m"(process->pd));
+    CHANGE_PD(process->pd);
 
     initializeProcessPages(process);
 
@@ -393,11 +395,35 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     initializeProgramBreak(process, sizeInMemory);
 
-    char* pAddressStackPage = getPageFrame4M();
-    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4M);
-    mapMemory(process, PAGESIZE_4M, (uint32)vAddressStackPage, (uint32)pAddressStackPage, NULL, TRUE);
 
-    copyArgvEnvToProcess(USER_STACK - SIZE_2MB, elfData, newArgv, newEnvp);
+    const uint32 stackPageCount = 5;
+    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4K * stackPageCount);
+    uint32 stackFrames[stackPageCount];
+    for (uint32 i = 0; i < stackPageCount; ++i)
+    {
+        stackFrames[i] = acquirePageFrame4K();
+    }
+    void* stackVMem = mapMemory(process, (uint32)vAddressStackPage, stackFrames, stackPageCount, TRUE);
+    if (NULL == stackVMem)
+    {
+        for (uint32 i = 0; i < stackPageCount; ++i)
+        {
+            releasePageFrame4K(stackFrames[i]);
+        }
+    }
+
+    uint32 pAddressArgsEnvAux[1];
+    pAddressArgsEnvAux[0] = acquirePageFrame4K();
+    char* vAddressArgsEnvAux = (char *) (USER_STACK);
+    void* mapped = mapMemory(process, (uint32)vAddressArgsEnvAux, pAddressArgsEnvAux, 1, TRUE);
+    if (NULL == mapped)
+    {
+        releasePageFrame4K(pAddressArgsEnvAux[0]);
+    }
+    else
+    {
+        copyArgvEnvToProcess(USER_STACK, elfData, newArgv, newEnvp);
+    }
 
     destroyStringArray(newArgv);
     destroyStringArray(newEnvp);
@@ -413,8 +439,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    //Since stack grows backwards. Bottom 2MB of the page is reserved for the stack. Upper half is filled with argv, env, auxv.
-    uint32 stackPointer = USER_STACK - SIZE_2MB - 4;
+    uint32 stackPointer = USER_STACK - 4;
 
     thread->regs.esp = stackPointer;
 
@@ -447,7 +472,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     }
 
     //Restore memory view (page directory)
-    asm("mov %0, %%eax ;mov %%eax, %%cr3":: "m"(gCurrentThread->regs.cr3));
+    CHANGE_PD(gCurrentThread->regs.cr3);
 
     open_fs_forProcess(thread, process->tty, 0);//0: standard input
     open_fs_forProcess(thread, process->tty, 0);//1: standard output
@@ -551,8 +576,11 @@ void destroyProcess(Process* process)
 
     Debug_PrintF("destroying process %d\n", process->pid);
 
-    destroyPd(process);
+    uint32 physicalPD = (uint32)process->pd;
+
     kfree(process);
+
+    destroyPageDirectoryWithMemory(physicalPD);
 }
 
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)

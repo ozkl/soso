@@ -1,6 +1,7 @@
 #include "common.h"
 #include "screen.h"
 #include "ttydriver.h"
+#include "serial.h"
 
 static BOOL gInterruptsWereEnabled = FALSE;
 
@@ -385,6 +386,8 @@ void panic(const char *message, const char *file, uint32 line)
 
     printkf("PANIC:%s:%d:%s\n", file, line, message);
 
+    Serial_PrintF("PANIC:%s:%d:%s\n", file, line, message);
+
     halt();
 }
 
@@ -408,6 +411,14 @@ uint32 readEsp()
     asm volatile("mov %%esp, %0" : "=r" (stack_pointer));
 
     return stack_pointer;
+}
+
+uint32 readCr3()
+{
+    uint32 value;
+    asm volatile("mov %%cr3, %0" : "=r" (value));
+
+    return value;
 }
 
 uint32 getCpuFlags()

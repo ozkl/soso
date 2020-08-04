@@ -5,6 +5,7 @@
 #include "framebuffer.h"
 #include "vmm.h"
 #include "process.h"
+#include "alloc.h"
 
 static BOOL fb_open(File *file, uint32 flags);
 static int32 fb_read(File *file, uint32 size, uint8 *buffer);
@@ -99,10 +100,24 @@ static int32 fb_ioctl(File *node, int32 request, void * argp)
 
 static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
 {
-    return mapMemory(file->thread->owner, size, USER_MMAP_START, (uint32)(gFrameBufferPhysical + offset), NULL, FALSE);
+    uint32 pageCount = PAGE_COUNT(size);
+    uint32* physicalPagesArray = (uint32*)kmalloc(pageCount * sizeof(uint32));
+
+    //TODO: check pageCount(size). It should not exceed our framebuffer!
+
+    for (uint32 i = 0; i < pageCount; ++i)
+    {
+        physicalPagesArray[i] = (uint32)(gFrameBufferPhysical) + i * PAGESIZE_4K;
+    }
+
+    void* result = mapMemory(file->thread->owner, USER_MMAP_START, physicalPagesArray, pageCount, FALSE);
+
+    kfree(physicalPagesArray);
+
+    return result;
 }
 
 static BOOL fb_munmap(File* file, void* address, uint32 size)
 {
-    return unmapMemory(file->thread->owner, size, (uint32)address);
+    return unmapMemory(file->thread->owner, (uint32)address, PAGE_COUNT(size));
 }

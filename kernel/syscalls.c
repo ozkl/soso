@@ -177,6 +177,7 @@ static void handleSyscall(Registers* regs)
     if (regs->eax >= SYSCALL_COUNT)
     {
         printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        Serial_PrintF("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         regs->eax = -1;
         return;
@@ -1158,28 +1159,35 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
     {
         if (fd < 0)
         {
-            int neededPages = ((length-1) / PAGESIZE_4M) + 1;
+            int neededPages = PAGE_COUNT(length);
             uint32 freePages = getFreePageCount();
             //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
             if ((uint32)neededPages + 1 > freePages)
             {
                 return (void*)-1;
             }
-            List* physicalList = List_Create();
+            uint32* physicalArray = (uint32*)kmalloc(neededPages * sizeof(uint32));
             for (int i = 0; i < neededPages; ++i)
             {
-                char* pageFrame = getPageFrame4M();
-                //printkf("pageFrame alloc from mmap:%x\n", pageFrame);
-                List_Append(physicalList, pageFrame);
+                uint32 pageFrame = acquirePageFrame4K();
+                physicalArray[i] = pageFrame;
             }
 
-            void* mem = mapMemory(process, length, vAddressHint, 0, physicalList, TRUE);
-            if (mem != (void*)-1 && mem != NULL)
+            void* mem = mapMemory(process, vAddressHint, physicalArray, neededPages, TRUE);
+            if (mem != NULL)
             {
                 memset((uint8*)mem, 0, length);
             }
+            else
+            {
+                for (int i = 0; i < neededPages; ++i)
+                {
+                    releasePageFrame4K(physicalArray[i]);
+                }
 
-            List_Destroy(physicalList);
+                mem = (void*)-1;
+            }
+            kfree(physicalArray);
 
             return mem;
         }
@@ -1231,7 +1239,7 @@ int syscall_munmap(void *addr, int length)
                 return -1;
             }
 
-            if (TRUE == unmapMemory(process, length, (uint32)addr))
+            if (TRUE == unmapMemory(process, (uint32)addr, PAGE_COUNT(length)))
             {
                 return 0;
             }

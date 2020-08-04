@@ -126,15 +126,16 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
         return -1;
     }
 
-    int pageCount = (length / PAGESIZE_4M) + 1;
+    int pageCount = PAGE_COUNT(length);
 
     Spinlock_Lock(&sharedMem->physicalAddressListLock);
 
     for (int i = 0; i < pageCount; ++i)
     {
-        char* pAddress = getPageFrame4M();
+        //TODO: where should this be released? maybe on destroy?
+        uint32 pAddress = acquirePageFrame4K();
 
-        List_Append(sharedMem->physicalAddressList, pAddress);
+        List_Append(sharedMem->physicalAddressList, (void*)pAddress);
     }
 
     file->node->length = length;
@@ -152,9 +153,20 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
 
     Spinlock_Lock(&sharedMem->physicalAddressListLock);
 
-    if (List_GetCount(sharedMem->physicalAddressList) > 0)
+    int count = List_GetCount(sharedMem->physicalAddressList);
+    if (count > 0)
     {
-        result = mapMemory(file->thread->owner, size, USER_MMAP_START, 0, sharedMem->physicalAddressList, FALSE);
+        uint32* physicalAddressArray = (uint32*)kmalloc(count * sizeof(uint32));
+        int i = 0;
+        List_Foreach(n, sharedMem->physicalAddressList)
+        {
+            physicalAddressArray[i] = (uint32)n->data;
+
+            ++i;
+        }
+        result = mapMemory(file->thread->owner, USER_MMAP_START, physicalAddressArray, count, FALSE);
+
+        kfree(physicalAddressArray);
     }
 
     Spinlock_Unlock(&sharedMem->physicalAddressListLock);

@@ -6,10 +6,10 @@
 #include "process.h"
 #include "list.h"
 #include "debugprint.h"
+#include "serial.h"
 
 uint32 *gKernelPageDirectory = (uint32 *)KERN_PAGE_DIRECTORY;
-uint8 gPhysicalPageFrameBitmap[RAM_AS_4M_PAGES / 8];
-uint8 gKernelPageHeapBitmap[RAM_AS_4K_PAGES / 8];
+uint8 gPhysicalPageFrameBitmap[RAM_AS_4K_PAGES / 8];
 
 static int gTotalPageCount = 0;
 
@@ -23,36 +23,28 @@ void initializeMemory(uint32 high_mem)
 
     registerInterruptHandler(14, handlePageFault);
 
-    gTotalPageCount = (high_mem * 1024) / PAGESIZE_4M;
+    gTotalPageCount = (high_mem * 1024) / PAGESIZE_4K;
 
+    //Mark all memory space available
     for (pg = 0; pg < gTotalPageCount / 8; ++pg)
     {
         gPhysicalPageFrameBitmap[pg] = 0;
     }
 
-    for (pg = gTotalPageCount / 8; pg < RAM_AS_4M_PAGES / 8; ++pg)
+    //Mark physically unexistent memory as used or unavailable
+    for (pg = gTotalPageCount / 8; pg < RAM_AS_4K_PAGES / 8; ++pg)
     {
         gPhysicalPageFrameBitmap[pg] = 0xFF;
     }
 
-    //Pages reserved for the kernel
-    for (pg = PAGE_INDEX_4M(0x0); pg < (int)(PAGE_INDEX_4M(RESERVED_AREA)); ++pg)
+    //Mark pages reserved for the kernel as used
+    for (pg = PAGE_INDEX_4K(0x0); pg < (int)(PAGE_INDEX_4K(RESERVED_AREA)); ++pg)
     {
         SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, pg);
     }
 
-    //Heap pages reserved
-    for (pg = 0; pg < RAM_AS_4K_PAGES / 8; ++pg)
-    {
-        gKernelPageHeapBitmap[pg] = 0xFF;
-    }
-
-    for (pg = PAGE_INDEX_4K(KERN_PD_AREA_BEGIN); pg < (int)(PAGE_INDEX_4K(KERN_PD_AREA_END)); ++pg)
-    {
-        SET_PAGEHEAP_UNUSED(pg * PAGESIZE_4K);
-    }
-
-    //Identity map
+    //Identity map for first 16MB
+    //First identity pages are 4MB sized for ease
     for (i = 0; i < 4; ++i)
     {
         gKernelPageDirectory[i] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB));//add PG_USER for accesing kernel code in user mode
@@ -62,6 +54,12 @@ void initializeMemory(uint32 high_mem)
     {
         gKernelPageDirectory[i] = 0;
     }
+
+    //Recursive page directory strategy
+    gKernelPageDirectory[1023] = (uint32)gKernelPageDirectory | PG_PRESENT | PG_WRITE;
+
+    //zero out PD area
+    memset((uint8*)KERN_PD_AREA_BEGIN, 0, KERN_PD_AREA_END - KERN_PD_AREA_BEGIN);
 
     //Enable paging
     asm("	mov %0, %%eax \n \
@@ -76,12 +74,23 @@ void initializeMemory(uint32 high_mem)
     initializeKernelHeap();
 }
 
-char* getPageFrame4M()
+uint32 acquirePageFrame4K()
 {
     int byte, bit;
     uint32 page = -1;
 
-    for (byte = 0; byte < RAM_AS_4M_PAGES / 8; byte++)
+    int pid = -1;
+    Thread* thread = getCurrentThread();
+    if (thread)
+    {
+        Process* process = thread->owner;
+        if (process)
+        {
+            pid = process->pid;
+        }
+    }
+
+    for (byte = 0; byte < RAM_AS_4K_PAGES / 8; byte++)
     {
         if (gPhysicalPageFrameBitmap[byte] != 0xFF)
         {
@@ -92,217 +101,251 @@ char* getPageFrame4M()
                     page = 8 * byte + bit;
                     SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, page);
 
-                    Debug_PrintF("DEBUG: Acquired 4M Physical %x\n", page * PAGESIZE_4M);
-                    return (char *) (page * PAGESIZE_4M);
+                    Debug_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
+                    Serial_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
+
+                    return (page * PAGESIZE_4K);
                 }
             }
         }
     }
 
     PANIC("Memory is full!");
-    return (char *) -1;
+    return (uint32)-1;
 }
 
-void releasePageFrame4M(uint32 p_addr)
+void releasePageFrame4K(uint32 p_addr)
 {
-    Debug_PrintF("DEBUG: Released 4M Physical %x\n", p_addr);
+    int pid = -1;
+    Thread* thread = getCurrentThread();
+    if (thread)
+    {
+        Process* process = thread->owner;
+        if (process)
+        {
+            pid = process->pid;
+        }
+    }
+
+    Debug_PrintF("DEBUG: Released 4K Physical %x (pid:%d)\n", p_addr, pid);
+    Serial_PrintF("DEBUG: Released 4K Physical %x (pid:%d)\n", p_addr, pid);
 
     SET_PAGEFRAME_UNUSED(gPhysicalPageFrameBitmap, p_addr);
 }
 
-uint32* getPdFromReservedArea4K()
+uint32* acquirePageDirectory()
 {
-    int byte, bit;
-    int page = -1;
-
-    //Screen_PrintF("DEBUG: getPdFromReservedArea4K() begin\n");
-
-    for (byte = 0; byte < RAM_AS_4K_PAGES / 8; byte++)
+    uint32 address = KERN_PD_AREA_BEGIN;
+    for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
     {
-        if (gKernelPageHeapBitmap[byte] != 0xFF)
+        uint32* pd = (uint32*)address;
+
+        if (*pd == NULL)
         {
-            for (bit = 0; bit < 8; bit++)
+            //Found an unused page directory
+
+            //Let's initialize it. First we should sync with first 1GB part with kernel page directory to achive the same view.
+
+            for (int i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
             {
-                if (!(gKernelPageHeapBitmap[byte] & (1 << bit)))
+                pd[i] = gKernelPageDirectory[i]& ~PG_OWNED;
+            }
+
+            for (int i = KERNELMEMORY_PAGE_COUNT; i < 1024; ++i)
+            {
+                pd[i] = 0;
+            }
+
+            pd[1023] = address | PG_PRESENT | PG_WRITE;
+
+            return pd;
+        }
+    }
+
+    return NULL;
+}
+
+void destroyPageDirectoryWithMemory(uint32 physicalPd)
+{
+    beginCriticalSection();
+
+    uint32* pd = (uint32*)0xFFFFF000;
+
+    uint32 cr3 = readCr3();
+
+    if ((pd[1023] & 0xFFFFF000) == physicalPd)
+    {
+        printkf("destroyPD: same PD:%x\n", physicalPd);
+        //PANIC("destroyPD");
+    }
+    else
+    {
+        printkf("destroyPD: different PD");
+
+        CHANGE_PD(physicalPd);
+    }
+
+
+
+    for (int pdIndex = KERNELMEMORY_PAGE_COUNT; pdIndex < 1024; ++pdIndex)
+    {
+        if ((pd[pdIndex] & PG_PRESENT) == PG_PRESENT)
+        {
+            uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pdIndex);
+
+            for (int ptIndex = 0; ptIndex < 1024; ++ptIndex)
+            {
+                if ((pt[ptIndex] & PG_PRESENT) == PG_PRESENT)
                 {
-                    page = 8 * byte + bit;
-                    SET_PAGEHEAP_USED(page);
-                    //Screen_PrintF("DEBUG: getPdFromReservedArea4K() found pageIndex:%d\n", page);
-                    return (uint32 *) (page * PAGESIZE_4K);
+                    if ((pt[ptIndex] & PG_OWNED) == PG_OWNED)
+                    {
+                        uint32 physicalFrame = pt[ptIndex] & ~0xFFF;
+
+                        releasePageFrame4K(physicalFrame);
+                    }
                 }
+                pt[ptIndex] = 0;
             }
-        }
-    }
 
-    PANIC("Reserved Page Directory Area is Full!!!");
-    return (uint32 *) -1;
-}
-
-void releasePdFromReservedArea4K(uint32 *v_addr)
-{
-    SET_PAGEHEAP_UNUSED(v_addr);
-}
-
-uint32 *createPd()
-{
-    int i;
-
-    uint32* pd = getPdFromReservedArea4K();
-
-
-    for (i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
-    {
-        pd[i] = gKernelPageDirectory[i];
-    }
-
-
-    for (i = KERNELMEMORY_PAGE_COUNT; i < 1024; ++i)
-    {
-        pd[i] = 0;
-    }
-
-    return pd;
-}
-
-void destroyPd(Process* process)
-{
-    uint32 *pd = process->pd;
-
-    int startIndex = PAGE_INDEX_4M(USER_OFFSET);
-    int lastIndex = PAGE_INDEX_4M(MEMORY_END);
-
-    //contains all user memory (both sbrk and mmap)
-
-
-    for (int i = startIndex; i < lastIndex; ++i)
-    {
-        uint32 p_addr = pd[i] & 0xFFC00000;
-
-        if (p_addr)
-        {
-            if (IS_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, i))
+            if ((pd[pdIndex] & PG_OWNED) == PG_OWNED)
             {
-                releasePageFrame4M(p_addr);
+                uint32 physicalFramePT = pd[pdIndex] & ~0xFFF;
+                releasePageFrame4K(physicalFramePT);
             }
         }
 
-        pd[i] = 0;
+        pd[pdIndex] = 0;
     }
 
-    releasePdFromReservedArea4K(pd);
-}
+    //TODO: When called from another process, system faults!
 
-uint32 *copyPd(uint32* pd)
-{
-    int i;
+    CHANGE_PD(gKernelPageDirectory);
 
-    uint32* newPd = getPdFromReservedArea4K();
+    endCriticalSection();
 
-
-    for (i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
-    {
-        newPd[i] = gKernelPageDirectory[i];
-    }
-
-    disablePaging();
-
-    for (i = KERNELMEMORY_PAGE_COUNT; i < 1024; ++i)
-    {
-        newPd[i] = 0;
-
-        if ((pd[i] & PG_PRESENT) == PG_PRESENT)
-        {
-            uint32 pagePyhsical = pd[i] & 0xFFC00000;
-            char* newPagePhysical = getPageFrame4M();
-
-            memcpy((uint8*)newPagePhysical, (uint8*)pagePyhsical, PAGESIZE_4M);
-
-            uint32 vAddr =  (i * 4) << 20;
-
-            //Screen_PrintF("Copied page virtual %x\n", vAddr);
-
-            //TODO: think about mmapped areas
-
-            addPageToPd(newPd, (char*)vAddr, newPagePhysical, PG_USER);
-        }
-    }
-
-    enablePaging();
-
-    return newPd;
+    enableInterrupts();
+    waitForSchedule();
 }
 
 //When calling this function:
 //If it is intended to alloc kernel memory, v_addr must be < KERN_HEAP_END.
 //If it is intended to alloc user memory, v_addr must be > KERN_HEAP_END.
-BOOL addPageToPd(uint32* pd, char *v_addr, char *p_addr, int flags)
+BOOL addPageToPd(uint32* physicalPd, char *v_addr, uint32 p_addr, int flags)
 {
-    uint32 *pde = NULL;
+    // Both addresses are page-aligned.
 
-    //Screen_PrintF("DEBUG: addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
-    //Debug_PrintF("addPageToPd(): v_addr:%x p_addr:%x flags:%x\n", v_addr, p_addr, flags);
+    //Serial_PrintF("addPageToPd v_addr:%x p_addr:%x\n", v_addr, p_addr);
 
+    int pdIndex = (((uint32) v_addr) >> 22);
+    int ptIndex = (((uint32) v_addr) >> 12) & 0x03FF;
 
-    int index = (((uint32) v_addr & 0xFFC00000) >> 22);
-    pde = pd + index;
-    if ((*pde & PG_PRESENT) == PG_PRESENT)
+    uint32* pd = (uint32*)0xFFFFF000;
+
+    uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pdIndex);
+
+    //Serial_PrintF("addPageToPd 1");
+    if ((pd[pdIndex] & PG_PRESENT) != PG_PRESENT)
     {
-        //Already assigned!
-        Debug_PrintF("ERROR: addPageToPd(): pde:%x is already assigned!!\n", pde);
+        //Serial_PrintF("addPageToPd 2");
+        uint32 tablePhysical = acquirePageFrame4K();
+
+        //Serial_PrintF("addPageToPd 3");
+        pd[pdIndex] = (tablePhysical) | (flags & 0xFFF) | (PG_PRESENT | PG_WRITE);
+
+        //Serial_PrintF("addPageToPd 4");
+
+        INVALIDATE(v_addr);
+
+        //Serial_PrintF("addPageToPd 5");
+
+        //Zero out table as it may contain thrash data from previously allocated page frame
+        for (int i = 0; i < 1024; ++i)
+        {
+            pt[i] = 0;
+        }
+    }
+
+
+    if ((pt[ptIndex] & PG_PRESENT) == PG_PRESENT)
+    {
+        //Serial_PrintF("addPageToPd 6");
         return FALSE;
     }
 
-    //Screen_PrintF("addPageToPd(): index:%d pde:%x\n", index, pde);
+    pt[ptIndex] = (p_addr) | (flags & 0xFFF) | (PG_PRESENT | PG_WRITE);
 
-    *pde = ((uint32) p_addr) | (PG_PRESENT | PG_4MB | PG_WRITE | flags);
-    //Screen_PrintF("pde:%x *pde:%x\n", pde, *pde);
+    //Serial_PrintF("addPageToPd 7");
 
-    SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, PAGE_INDEX_4M((uint32)p_addr));
+    INVALIDATE(v_addr);
 
-    asm("invlpg %0"::"m"(v_addr));
+    //Serial_PrintF("addPageToPd 8");
 
-    if (v_addr <= (char*)(KERN_HEAP_END - PAGESIZE_4M))
+    if (v_addr < (char*)(KERN_HEAP_END))
     {
-        if (pd == gKernelPageDirectory)
+        //If this is the kernel page directory, sync others for first 1GB
+        if ((pd[1023] & 0xFFFFF000) == (uint32)gKernelPageDirectory)
         {
             syncPageDirectoriesKernelMemory();
-        }
-        else
-        {
-            PANIC("Attemped to allocate kernel memory to a page directory which is not the kernel page directory!!!\n");
-        }
-    }
-    else
-    {
-        if (pd == gKernelPageDirectory)
-        {
-            //No panic here. Because we allow kernel to map anywhere!
         }
     }
 
     return TRUE;
 }
 
-BOOL removePageFromPd(uint32* pd, char *v_addr, BOOL releasePageFrame)
+BOOL removePageFromPd(uint32* physicalPd, char *v_addr)
 {
-    int index = (((uint32) v_addr & 0xFFC00000) >> 22);
-    uint32* pde = pd + index;
-    if ((*pde & PG_PRESENT) == PG_PRESENT)
-    {
-        uint32 p_addr = *pde & 0xFFC00000;
+    int pdIndex = (((uint32) v_addr) >> 22);
+    int ptIndex = (((uint32) v_addr) >> 12) & 0x03FF;
 
-        if (releasePageFrame)
+    uint32* pd = (uint32*)0xFFFFF000;
+
+
+    if ((pd[pdIndex] & PG_PRESENT) == PG_PRESENT)
+    {
+        uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pdIndex);
+
+        uint32 physicalFrame = pt[ptIndex] & ~0xFFF;
+
+        if ((pt[ptIndex] & PG_OWNED) == PG_OWNED)
         {
-            releasePageFrame4M(p_addr);
+            releasePageFrame4K(physicalFrame);
         }
 
-        *pde = 0;
+        pt[ptIndex] = 0;
 
-        asm("invlpg %0"::"m"(v_addr));
-
-        if (v_addr <= (char*)(KERN_HEAP_END - PAGESIZE_4M))
+        BOOL allUnmapped = TRUE;
+        for (int i = 0; i < 1024; ++i)
         {
-            if (pd == gKernelPageDirectory)
+            if (pt[i] != 0)
+            {
+                allUnmapped = FALSE;
+                break;
+            }
+        }
+
+        if (allUnmapped)
+        {
+            //All page table entries are unmapped.
+            //Lets destroy this page table and remove it from PD
+
+            uint32 physicalFramePT = pd[pdIndex] & ~0xFFF;
+
+            if ((pd[pdIndex] & PG_OWNED) == PG_OWNED)
+            {
+                pd[pdIndex] = 0;
+
+                releasePageFrame4K(physicalFramePT);
+            }
+        }
+
+
+
+        INVALIDATE(v_addr);
+
+        if (v_addr < (char*)(KERN_HEAP_END))
+        {
+            //If this is the kernel page directory, sync others for first 1GB
+            if ((pd[1023] & 0xFFFFF000) == (uint32)gKernelPageDirectory)
             {
                 syncPageDirectoriesKernelMemory();
             }
@@ -316,25 +359,18 @@ BOOL removePageFromPd(uint32* pd, char *v_addr, BOOL releasePageFrame)
 
 static void syncPageDirectoriesKernelMemory()
 {
-    //get page directory list
-    //it can be easier to traverse proccesses(and access its pd) here
-    for (int byte = 0; byte < RAM_AS_4M_PAGES / 8; byte++)
+    uint32 address = KERN_PD_AREA_BEGIN;
+    for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
     {
-        if (gKernelPageHeapBitmap[byte] != 0xFF)
+        uint32* pd = (uint32*)address;
+
+        if (*pd != NULL)
         {
-            for (int bit = 0; bit < 8; bit++)
+            //Found an in-use page directory
+
+            for (int i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
             {
-                if ((gKernelPageHeapBitmap[byte] & (1 << bit)))
-                {
-                    int page = 8 * byte + bit;
-
-                    uint32* pd = (uint32*)(page * PAGESIZE_4K);
-
-                    for (int i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
-                    {
-                        pd[i] = gKernelPageDirectory[i];
-                    }
-                }
+                pd[i] = gKernelPageDirectory[i] & ~PG_OWNED;
             }
         }
     }
@@ -373,19 +409,25 @@ static void printPageFaultInfo(uint32 faultingAddress, Registers *regs)
     int id = regs->errorCode & 0x10;
 
     Debug_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
+    Serial_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
+
     Debug_PrintF("The page was %s\n", present ? "present" : "not present");
+    Serial_PrintF("The page was %s\n", present ? "present" : "not present");
 
     if (reserved)
     {
         Debug_PrintF("Reserved bit was set\n");
+        Serial_PrintF("Reserved bit was set\n");
     }
 
     if (id)
     {
         Debug_PrintF("Caused by an instruction fetch\n");
+        Serial_PrintF("Caused by an instruction fetch\n");
     }
 
     Debug_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
+    Serial_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
 static void handlePageFault(Registers *regs)
@@ -444,49 +486,34 @@ void initializeProcessPages(Process* process)
 {
     int page = 0;
 
-    for (page = 0; page < RAM_AS_4M_PAGES / 8; ++page)
+    for (page = 0; page < RAM_AS_4K_PAGES / 8; ++page)
     {
         process->mmappedVirtualMemory[page] = 0xFF;
-
-        process->mmappedVirtualMemoryOwned[page] = 0x00;
     }
 
-    for (page = PAGE_INDEX_4M(USER_OFFSET); page < (int)(PAGE_INDEX_4M(MEMORY_END)); ++page)
+    for (page = PAGE_INDEX_4K(USER_OFFSET); page < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page)
     {
-        SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page * PAGESIZE_4M);
+        SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page * PAGESIZE_4K);
     }
+
+    //Page Tables position marked as used. It is after MEMORY_END.
 }
 
-//this functions uses either pAddress or pAddressList
-//both of them must not be null!
-void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uint32 pAddress, List* pAddressList, BOOL own)
+//if this fails (return NULL), the caller should clean up physical page frames
+void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressArray, uint32 pageCount, BOOL own)
 {
-    if (nBytes == 0)
-    {
-        return NULL;
-    }
-
     int pageIndex = 0;
 
-    int neededPages = ((nBytes-1) / PAGESIZE_4M) + 1;
-
-    if (pAddressList)
-    {
-        if (List_GetCount(pAddressList) < neededPages)
-        {
-            return NULL;
-        }
-    }
-    else if (0 == pAddress)
+    if (NULL == pAddressArray || pageCount == 0)
     {
         return NULL;
     }
 
-    int foundAdjacent = 0;
+    uint32 foundAdjacent = 0;
 
     uint32 vMem = 0;
 
-    for (pageIndex = PAGE_INDEX_4M(vAddressSearchStart); pageIndex < (int)(PAGE_INDEX_4M(MEMORY_END)); ++pageIndex)
+    for (pageIndex = PAGE_INDEX_4K(vAddressSearchStart); pageIndex < (int)(PAGE_INDEX_4K(MEMORY_END)); ++pageIndex)
     {
         if (IS_PAGEFRAME_USED(process->mmappedVirtualMemory, pageIndex))
         {
@@ -497,12 +524,12 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uin
         {
             if (0 == foundAdjacent)
             {
-                vMem = pageIndex * PAGESIZE_4M;
+                vMem = pageIndex * PAGESIZE_4K;
             }
             ++foundAdjacent;
         }
 
-        if (foundAdjacent == neededPages)
+        if (foundAdjacent == pageCount)
         {
             break;
         }
@@ -510,46 +537,28 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uin
 
     //Debug_PrintF("mapMemory: needed:%d foundAdjacent:%d vMem:%x\n", neededPages, foundAdjacent, vMem);
 
-    if (foundAdjacent == neededPages)
+    if (foundAdjacent == pageCount)
     {
-        uint32 p = 0;
-        ListNode* pListNode = NULL;
-        if (pAddressList)
+        int ownFlag = 0;
+        if (own)
         {
-            pListNode = List_GetFirstNode(pAddressList);
-            p = (uint32)(uint32*)pListNode->data;
+            ownFlag = PG_OWNED;
         }
-        else
-        {
-            p = pAddress;
-        }
-        p = p & 0xFFC00000;
+
         uint32 v = vMem;
-        for (int i = 0; i < neededPages; ++i)
+        for (uint32 i = 0; i < pageCount; ++i)
         {
-            addPageToPd(process->pd, (char*)v, (char*)p, PG_USER);
+            uint32 p = pAddressArray[i];
+            p = p & 0xFFFFF000;
+
+            addPageToPd(process->pd, (char*)v, p, PG_USER | ownFlag);
 
             Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
+            Serial_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
-            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4M(v));
+            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K(v));
 
-            if (own)
-            {
-                SET_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, PAGE_INDEX_4M(v));
-            }
-
-            v += PAGESIZE_4M;
-
-            if (pAddressList)
-            {
-                pListNode = pListNode->next;
-                p = (uint32)(uint32*)pListNode->data;
-                p = p & 0xFFC00000;
-            }
-            else
-            {
-                p += PAGESIZE_4M;
-            }
+            v += PAGESIZE_4K;
         }
 
         return (void*)vMem;
@@ -558,24 +567,24 @@ void* mapMemory(Process* process, uint32 nBytes, uint32 vAddressSearchStart, uin
     return NULL;
 }
 
-BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress)
+BOOL unmapMemory(Process* process, uint32 vAddress, uint32 pageCount)
 {
-    if (nBytes == 0)
+    if (pageCount == 0)
     {
         return FALSE;
     }
 
-    int pageIndex = 0;
+    uint32 pageIndex = 0;
 
-    int neededPages = ((nBytes-1) / PAGESIZE_4M) + 1;
+    uint32 neededPages = pageCount;
 
     uint32 old = vAddress;
-    vAddress &= 0xFFC00000;
+    vAddress &= 0xFFFFF000;
 
     printkf("pageFrame dealloc from munmap:%x aligned:%x\n", old, vAddress);
 
-    int startIndex = PAGE_INDEX_4M(vAddress);
-    int endIndex = startIndex + neededPages;
+    uint32 startIndex = PAGE_INDEX_4K(vAddress);
+    uint32 endIndex = startIndex + neededPages;
 
     BOOL result = FALSE;
 
@@ -583,17 +592,13 @@ BOOL unmapMemory(Process* process, uint32 nBytes, uint32 vAddress)
     {
         if (IS_PAGEFRAME_USED(process->mmappedVirtualMemory, pageIndex))
         {
-            char* vAddr = (char*)(pageIndex * PAGESIZE_4M);
+            char* vAddr = (char*)(pageIndex * PAGESIZE_4K);
 
-            BOOL owned = IS_PAGEFRAME_USED(process->mmappedVirtualMemoryOwned, pageIndex);
+            removePageFromPd(process->pd, vAddr);
 
-            removePageFromPd(process->pd, vAddr, owned);
-
-            Debug_PrintF("UNMAPPED: %s(%d) virtual:%x owned:%d\n", process->name, process->pid, vAddr, owned);
+            Debug_PrintF("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, vAddr);
 
             SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, vAddr);
-
-            SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemoryOwned, vAddr);
 
             result = TRUE;
         }
