@@ -5,7 +5,7 @@ Tested build environments are Linux, FreeBSD, and Windows 10 (Windows Subsystem 
 
 Soso is a 32-bit x86 operating system and its features are
 - Multitasking with processes and threads
-- Memory Paging with 4MB pages
+- Paging
 - Kernelspace (runs in ring0) and userspace (runs in ring3) are separated
 - Virtual File System
 - FAT32 filesystem using FatFs
@@ -15,9 +15,6 @@ Soso is a 32-bit x86 operating system and its features are
 - mmap support
 - Framebuffer graphics (userspace can access with mmap)
 - Shared memory
-
-Paging is written for 4MB page support, since it is easier to implement. In this way, a Page Directory Entry points directly to a 4MB Page Frame. In 4KB mechanism, a Page Directory Entry points to a Page Table Entry which then points to a 4KB Page Frame.
-Downside of using 4MB pages is, each process has to use at least 4MB memory.
 
 Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua and Doom on Soso!
 
