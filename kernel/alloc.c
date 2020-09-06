@@ -46,7 +46,7 @@ void *ksbrkPage(int n)
             return (char *) -1;
         }
 
-        addPageToPd(gKernelPageDirectory, gKernelHeap, p_addr, 0); //add PG_USER to allow user programs to read kernel heap
+        addPageToPd(gKernelHeap, p_addr, 0); //add PG_USER to allow user programs to read kernel heap
 
         gKernelHeap += PAGESIZE_4K;
     }
@@ -163,7 +163,7 @@ static void sbrkPage(Process* process, int pageCount)
                 return;
             }
 
-            addPageToPd(process->pd, process->brkNextUnallocatedPageBegin, p_addr, PG_USER | PG_OWNED);
+            addPageToPd(process->brkNextUnallocatedPageBegin, p_addr, PG_USER | PG_OWNED);
 
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K((uint32)process->brkNextUnallocatedPageBegin));
 
@@ -181,7 +181,7 @@ static void sbrkPage(Process* process, int pageCount)
                 process->brkNextUnallocatedPageBegin -= PAGESIZE_4K;
 
                 //This also releases the page frame
-                removePageFromPd(process->pd, process->brkNextUnallocatedPageBegin);
+                removePageFromPd(process->brkNextUnallocatedPageBegin);
 
                 SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, (uint32)process->brkNextUnallocatedPageBegin);
             }

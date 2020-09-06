@@ -849,9 +849,11 @@ int syscall_kill(int pid, int sig)
 
             //TODOif (sig==KILL)
             {
+                Process* threadOwnerProcess = thread->owner;
+
                 destroyProcess(thread->owner);
 
-                if (thread->owner == selfProcess)
+                if (threadOwnerProcess == selfProcess)
                 {
                     waitForSchedule();
                 }

@@ -159,11 +159,12 @@ int kmain(struct Multiboot *mboot_ptr)
 
     printAsciiArt();
 
-    printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
-    printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
+    printkf("Kernel built on %s %s\n", __DATE__, __TIME__);
+    //printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
+    //printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
     printkf("Memory initialized for %d MB\n", memoryKb / 1024);
-    printkf("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
-    printkf("Initial stack: %x\n", &stack);
+    //printkf("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
+    //printkf("Initial stack: %x\n", &stack);
     printkf("Video: %x\n", (uint32)mboot_ptr->framebuffer_addr);
     printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
 

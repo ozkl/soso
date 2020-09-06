@@ -24,8 +24,8 @@ void initializeMemory(uint32 high_mem);
 uint32 *acquirePageDirectory();
 void destroyPageDirectoryWithMemory(uint32 physicalPd);
 
-BOOL addPageToPd(uint32* physicalPd, char *v_addr, uint32 p_addr, int flags);
-BOOL removePageFromPd(uint32* pd, char *v_addr);
+BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags);
+BOOL removePageFromPd(char *v_addr);
 
 void enablePaging();
 void disablePaging();

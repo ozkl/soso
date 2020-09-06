@@ -116,19 +116,8 @@ uint32 acquirePageFrame4K()
 
 void releasePageFrame4K(uint32 p_addr)
 {
-    int pid = -1;
-    Thread* thread = getCurrentThread();
-    if (thread)
-    {
-        Process* process = thread->owner;
-        if (process)
-        {
-            pid = process->pid;
-        }
-    }
-
-    Debug_PrintF("DEBUG: Released 4K Physical %x (pid:%d)\n", p_addr, pid);
-    Serial_PrintF("DEBUG: Released 4K Physical %x (pid:%d)\n", p_addr, pid);
+    Debug_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
+    Serial_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
 
     SET_PAGEFRAME_UNUSED(gPhysicalPageFrameBitmap, p_addr);
 }
@@ -173,7 +162,9 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
 
     uint32 cr3 = readCr3();
 
-    if ((pd[1023] & 0xFFFFF000) == physicalPd)
+    BOOL selfDestroy = ((pd[1023] & 0xFFFFF000) == physicalPd);
+
+    if (selfDestroy)
     {
         printkf("destroyPD: same PD:%x\n", physicalPd);
         //PANIC("destroyPD");
@@ -217,20 +208,27 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
         pd[pdIndex] = 0;
     }
 
-    //TODO: When called from another process, system faults!
+    if (selfDestroy)
+    {
+        CHANGE_PD(gKernelPageDirectory);
 
-    CHANGE_PD(gKernelPageDirectory);
+        endCriticalSection();
 
-    endCriticalSection();
-
-    enableInterrupts();
-    waitForSchedule();
+        enableInterrupts();
+        waitForSchedule();
+    }
+    else
+    {
+        //return to caller's Page Directory
+        CHANGE_PD(cr3);
+    }
 }
 
 //When calling this function:
 //If it is intended to alloc kernel memory, v_addr must be < KERN_HEAP_END.
 //If it is intended to alloc user memory, v_addr must be > KERN_HEAP_END.
-BOOL addPageToPd(uint32* physicalPd, char *v_addr, uint32 p_addr, int flags)
+//Works for active Page Directory!
+BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags)
 {
     // Both addresses are page-aligned.
 
@@ -292,7 +290,8 @@ BOOL addPageToPd(uint32* physicalPd, char *v_addr, uint32 p_addr, int flags)
     return TRUE;
 }
 
-BOOL removePageFromPd(uint32* physicalPd, char *v_addr)
+//Works for active Page Directory!
+BOOL removePageFromPd(char *v_addr)
 {
     int pdIndex = (((uint32) v_addr) >> 22);
     int ptIndex = (((uint32) v_addr) >> 12) & 0x03FF;
@@ -551,7 +550,7 @@ void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressAr
             uint32 p = pAddressArray[i];
             p = p & 0xFFFFF000;
 
-            addPageToPd(process->pd, (char*)v, p, PG_USER | ownFlag);
+            addPageToPd((char*)v, p, PG_USER | ownFlag);
 
             Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
             Serial_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
@@ -594,7 +593,7 @@ BOOL unmapMemory(Process* process, uint32 vAddress, uint32 pageCount)
         {
             char* vAddr = (char*)(pageIndex * PAGESIZE_4K);
 
-            removePageFromPd(process->pd, vAddr);
+            removePageFromPd(vAddr);
 
             Debug_PrintF("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, vAddr);
 
