@@ -5,13 +5,10 @@
 #ifndef FF_INTEGER
 #define FF_INTEGER
 
-#undef _WIN32
 #ifdef _WIN32	/* FatFs development platform */
 
 #include <windows.h>
-#include <tchar.h>
 typedef unsigned __int64 QWORD;
-
 
 #else			/* Embedded platform */
 
