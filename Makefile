@@ -2,7 +2,7 @@ SOURCES_C=$(patsubst %.c,%.o,$(wildcard kernel/*.c))
 SOURCES_ASM=$(patsubst %.asm,%.o,$(wildcard kernel/*.asm))
 
 
-CC=gcc
+CC=clang
 LD=ld
 CFLAGS=-nostdlib -nostdinc -fno-builtin -m32 -c
 LDFLAGS=-Tlink.ld -m elf_i386

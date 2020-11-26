@@ -163,7 +163,7 @@ int kmain(struct Multiboot *mboot_ptr)
     //printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
     //printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
     printkf("Memory initialized for %d MB\n", memoryKb / 1024);
-    //printkf("Kernel start: %x - end:%x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
+    printkf("Kernel resides in %x - %x\n", gPhysicalKernelStartAddress, gPhysicalKernelEndAddress);
     //printkf("Initial stack: %x\n", &stack);
     printkf("Video: %x\n", (uint32)mboot_ptr->framebuffer_addr);
     printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
@@ -204,13 +204,19 @@ int kmain(struct Multiboot *mboot_ptr)
 
     uint32 initrdSize = 0;
     uint8* initrdLocation = locateInitrd(mboot_ptr, &initrdSize);
+    uint8* initrdEndLocation = initrdLocation + initrdSize;
     if (initrdLocation == NULL)
     {
         PANIC("Initrd not found!\n");
     }
     else
     {
-        printkf("Initrd found at %x (%d bytes)\n", initrdLocation, initrdSize);
+        printkf("Initrd found at %x - %x (%d bytes)\n", initrdLocation, initrdEndLocation, initrdSize);
+        if ((uint32)KERN_PD_AREA_BEGIN < (uint32)initrdEndLocation)
+        {
+            printkf("Initrd must reside below %x !!!\n", KERN_PD_AREA_BEGIN);
+            PANIC("Initrd image is too big!");
+        }
         memcpy((uint8*)*(uint32*)getFileSystemNode("/dev/ramdisk1")->privateNodeData, initrdLocation, initrdSize);
         BOOL mountSuccess = mountFileSystem("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 

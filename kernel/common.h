@@ -23,14 +23,12 @@ typedef unsigned int  size_t;
 #define	KERN_PAGE_DIRECTORY			0x00001000
 
 //16M is identity mapped as below.
-//First 8M we don't touch. Kernel code is there.
+//First 12M we don't touch. Kernel code and runtime initrd are there.
 //4M is reserved for 4K page directories.
-//4M is not used for now. kernel mini heap was here in old times.
 #define RESERVED_AREA           0x01000000 //16 mb
-#define KERN_PD_AREA_BEGIN      0x00800000 // 8 mb
-#define KERN_PD_AREA_END        0x00C00000 //12 mb
-#define KERN_NOTUSED_BEGIN      0x00C00000 //12 mb
-#define KERN_NOTUSED_END        0x01000000 //16 mb
+#define KERN_PD_AREA_BEGIN      0x00C00000 //12 mb
+#define KERN_PD_AREA_END        0x01000000 //16 mb
+
 
 #define GFX_MEMORY              0x01000000 //16 mb
 

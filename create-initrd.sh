@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 dd if=/dev/zero of=initrd.fat bs=8M count=1
 LOOP=`losetup -f`
