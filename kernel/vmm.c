@@ -209,8 +209,6 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
 
     if (selfDestroy)
     {
-        CHANGE_PD(gKernelPageDirectory);
-
         endCriticalSection();
 
         enableInterrupts();
