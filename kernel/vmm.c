@@ -101,8 +101,8 @@ uint32 acquirePageFrame4K()
                     page = 8 * byte + bit;
                     SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, page);
 
-                    Debug_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
-                    Serial_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
+                    //Debug_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
+                    //Serial_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
 
                     return (page * PAGESIZE_4K);
                 }
@@ -116,8 +116,8 @@ uint32 acquirePageFrame4K()
 
 void releasePageFrame4K(uint32 p_addr)
 {
-    Debug_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
-    Serial_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
+    //Debug_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
+    //Serial_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
 
     SET_PAGEFRAME_UNUSED(gPhysicalPageFrameBitmap, p_addr);
 }
@@ -166,12 +166,11 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
 
     if (selfDestroy)
     {
-        printkf("destroyPD: same PD:%x\n", physicalPd);
-        //PANIC("destroyPD");
+        //printkf("destroyPD: same PD:%x\n", physicalPd);
     }
     else
     {
-        printkf("destroyPD: different PD");
+        //printkf("destroyPD: different PD");
 
         CHANGE_PD(physicalPd);
     }
