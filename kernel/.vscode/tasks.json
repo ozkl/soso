@@ -28,6 +28,32 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "Setup initrd",
+            "type": "shell",
+            "command": "mcopy -o -i initrd.fat userspace/bin/* ::",
+            "options": {
+                "cwd": "${workspaceFolder}/.."
+              },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Create CD image",
+            "type": "shell",
+            "command": "./create-cd-image.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/.."
+              },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

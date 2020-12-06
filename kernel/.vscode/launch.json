@@ -26,6 +26,21 @@
                 "-m",
                 "256"
              ],
+        },
+        {
+            "name": "Run QEMU Serial",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}/..", 
+            "program": "/usr/bin/qemu-system-i386",
+            "args" : [
+                "-cdrom",
+                "soso.iso",
+                "-m",
+                "256",
+                "-serial",
+                "file:serial.txt"
+             ],
         }
     ]
 }
