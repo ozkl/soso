@@ -410,6 +410,8 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
 {
     Tty* tty = (Tty*)file->node->privateNodeData;
 
+    Process* process = getCurrentThread()->owner;
+
     switch (request)
     {
     case 0:
@@ -460,7 +462,7 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
     {
         struct termios* term = (struct termios*)argp;
 
-        //Debug_PrintF("TCSETSF\n");
+        Serial_PrintF("TCSETSF (%s:%d): c_lflag: old=%d new=%d\n", process->name, process->pid, tty->term.c_lflag, term->c_lflag);
 
         memcpy((uint8*)&(tty->term), (uint8*)term, sizeof(struct termios));
 
@@ -559,6 +561,7 @@ static int32 write(Tty* tty, uint32 size, uint8 *buffer)
     {
         return -1;
     }
+
 
     buffer[size] = '\0';
 

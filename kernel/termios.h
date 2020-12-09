@@ -184,11 +184,10 @@ struct termios
 #define        TCSAFLUSH        2
 
 //ioctl interface
-//TODO: refactor these values to be compatible with the standard ones 0x54..
-#define TCGETS		0x5001
-#define TCSETS		0x5002
-#define TCSETSW		0x5003
-#define TCSETSF		0x5004
+#define TCGETS		0x5401
+#define TCSETS		0x5402
+#define TCSETSW		0x5403
+#define TCSETSF		0x5404
 
 #define TIOCGWINSZ	0x5413
 
