@@ -176,8 +176,9 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
     }
 
 
-
-    for (int pdIndex = KERNELMEMORY_PAGE_COUNT; pdIndex < 1024; ++pdIndex)
+    //this 1023 is very important
+    //we must not touch pd[1023] since PD is mapped to itself. Otherwise we corrupt the whole system's memory.
+    for (int pdIndex = KERNELMEMORY_PAGE_COUNT; pdIndex < 1023; ++pdIndex)
     {
         if ((pd[pdIndex] & PG_PRESENT) == PG_PRESENT)
         {
