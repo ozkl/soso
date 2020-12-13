@@ -56,6 +56,9 @@ enum
     SYS_UNUSED2,
     SYS_statx,
     SYS_wait4,
+    SYS_clock_gettime64,
+    SYS_clock_settime64,
+    SYS_clock_getres64,
 
     SYSCALL_COUNT
 };

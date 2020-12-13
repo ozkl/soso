@@ -112,6 +112,9 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
 
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
+int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp);
+int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp);
+int32 syscall_clock_getres64(int32 clockid, struct timespec *res);
 
 void initialiseSyscalls()
 {
@@ -165,6 +168,9 @@ void initialiseSyscalls()
     gSyscallTable[SYS_UNUSED2] = NULL;
     gSyscallTable[SYS_statx] = syscall_statx;
     gSyscallTable[SYS_wait4] = syscall_wait4;
+    gSyscallTable[SYS_clock_gettime64] = syscall_clock_gettime64;
+    gSyscallTable[SYS_clock_settime64] = syscall_clock_settime64;
+    gSyscallTable[SYS_clock_getres64] = syscall_clock_getres64;
 
     // Register our syscall handler.
     registerInterruptHandler (0x80, &handleSyscall);
@@ -834,6 +840,21 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
     }
 
     return -1;
+}
+
+int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
+{
+    return clock_gettime64(clockid, tp);
+}
+
+int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
+{
+    return clock_settime64(clockid, tp);
+}
+
+int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
+{
+    return clock_getres64(clockid, res);
 }
 
 int syscall_kill(int pid, int sig)

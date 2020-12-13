@@ -395,10 +395,10 @@
 #define __NR_msgsnd		1400
 #define __NR_msgrcv		1401
 #define __NR_msgctl		1402
-#define __NR_clock_gettime64	1403
-#define __NR_clock_settime64	1404
+#define __NR_clock_gettime64	47 //1403
+#define __NR_clock_settime64	48 //1404
 #define __NR_clock_adjtime64	1405
-#define __NR_clock_getres_time64 1406
+#define __NR_clock_getres_time64 49 //1406
 #define __NR_clock_nanosleep_time64 1407
 #define __NR_timer_gettime64	1408
 #define __NR_timer_settime64	1409

@@ -331,6 +331,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     if (imageDataEndInMemory <= USER_OFFSET)
     {
+        printkf("Could not start the process. Image's memory location is wrong! %s\n", name);
         return NULL;
     }
 

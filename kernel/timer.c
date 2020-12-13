@@ -6,7 +6,9 @@
 
 #define TIMER_FREQ 1000
 
-uint32 gSystemTickCount = 0;
+uint64 gSystemTickCount = 0;
+
+uint64 gSystemDateMs = 0;
 
 BOOL gSchedulerEnabled = FALSE;
 
@@ -15,7 +17,9 @@ void handleTimerIRQ(TimerInt_Registers registers)
 {
     gSystemTickCount++;
 
-    if (/*gSystemTickCount % 10 == 0 &&*/ gSchedulerEnabled == TRUE)
+    gSystemDateMs++;
+
+    if (gSchedulerEnabled == TRUE)
     {
         schedule(&registers);
     }
@@ -23,17 +27,33 @@ void handleTimerIRQ(TimerInt_Registers registers)
 
 uint32 getSystemTickCount()
 {
+    return (uint32)gSystemTickCount;
+}
+
+uint64 getSystemTickCount64()
+{
     return gSystemTickCount;
 }
 
 uint32 getUptimeSeconds()
 {
-    return gSystemTickCount / TIMER_FREQ;
+    return ((uint32)gSystemTickCount) / TIMER_FREQ;
+}
+
+uint64 getUptimeSeconds64()
+{
+    //TODO: make this real 64 bit
+    return getUptimeSeconds();
 }
 
 uint32 getUptimeMilliseconds()
 {
-    return gSystemTickCount;
+    return (uint32)gSystemTickCount;
+}
+
+uint64 getUptimeMilliseconds64()
+{
+    return (uint32)gSystemTickCount;
 }
 
 void enableScheduler()
@@ -62,4 +82,42 @@ static void initTimer(uint32 frequency)
 void initializeTimer()
 {
     initTimer(TIMER_FREQ);
+}
+
+int32 clock_getres64(int32 clockid, struct timespec *res)
+{
+    res->tv_sec = 0;
+    res->tv_nsec = 1000000;
+
+    return 0;
+}
+
+int32 clock_gettime64(int32 clockid, struct timespec *tp)
+{
+    //TODO: clockid
+
+    //TODO: make proper use of 64 bit fields
+
+    uint32 uptimeMilli = gSystemDateMs;
+
+    tp->tv_sec = uptimeMilli / TIMER_FREQ;
+
+    uint32 extraMilli = uptimeMilli - tp->tv_sec * 1000;
+
+    tp->tv_nsec = extraMilli * 1000000;
+
+    return 0;
+}
+
+int32 clock_settime64(int32 clockid, const struct timespec *tp)
+{
+    //TODO: clockid
+
+    //TODO: make use of tv_nsec
+
+    uint32 uptimeMilli = gSystemDateMs;
+
+    gSystemDateMs = tp->tv_sec * TIMER_FREQ;
+
+    return 0;
 }
