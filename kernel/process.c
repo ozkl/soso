@@ -814,6 +814,121 @@ static void updateMetrics(Thread* thread)
     ++thread->totalContextSwitchCount;
 }
 
+static void updateThreadState(Thread* t)
+{
+    if (t->state == TS_YIELD)
+    {
+        if (t->yield > 0)
+        {
+            --t->yield;
+        }
+
+        if (t->yield == 0)
+        {
+            t->state = TS_RUN;
+        }
+    }
+
+    if (t->state == TS_SLEEP)
+    {
+        uint32 uptime = getUptimeMilliseconds();
+        uint32 target = (uint32)t->state_privateData;
+
+        if (uptime >= target)
+        {
+            t->state = TS_RUN;
+            t->state_privateData = NULL;
+        }
+    }
+}
+
+static Thread* lookThreads(Thread* current)
+{
+    Thread* t = current->next;
+    while (NULL != t)
+    {
+        updateThreadState(t);
+
+        if (t->state == TS_RUN)
+        {
+            //We definetly found a good one!
+            return t;
+        }
+        t = t->next;
+    }
+
+
+    //Reached the last thread. Let's try from first thread up to the current including.
+    //Of course this makes sense if current is not the first one already.
+
+    if (current == gFirstThread)
+    {
+        //We already searched for all threads
+
+        //Desperately return idle thread
+        return gFirstThread;
+    }
+    else
+    {
+        t = gFirstThread->next;
+        while (NULL != t)
+        {
+            updateThreadState(t);
+
+            if (t->state == TS_RUN)
+            {
+                //We definetly found a good one!
+                return t;
+            }
+
+            if (t == current)
+            {
+                //We reached the last point to search
+                break;
+            }
+            t = t->next;
+        }
+    }
+
+    //Desperately return idle thread
+    return gFirstThread;
+}
+
+void saveRegisters(TimerInt_Registers* registers, Thread* thread)
+{
+    thread->regs.eflags = registers->eflags;
+    thread->regs.cs = registers->cs;
+    thread->regs.eip = registers->eip;
+    thread->regs.eax = registers->eax;
+    thread->regs.ecx = registers->ecx;
+    thread->regs.edx = registers->edx;
+    thread->regs.ebx = registers->ebx;
+    thread->regs.ebp = registers->ebp;
+    thread->regs.esi = registers->esi;
+    thread->regs.edi = registers->edi;
+    thread->regs.ds = registers->ds;
+    thread->regs.es = registers->es;
+    thread->regs.fs = registers->fs;
+    thread->regs.gs = registers->gs;
+
+    if (thread->regs.cs != 0x08)
+    {
+        //Debug_PrintF("schedule() - 2.1\n");
+        thread->regs.esp = registers->esp_if_privilege_change;
+        thread->regs.ss = registers->ss_if_privilege_change;
+    }
+    else
+    {
+        //Debug_PrintF("schedule() - 2.2\n");
+        thread->regs.esp = registers->esp + 12;
+        thread->regs.ss = gTss.ss0;
+    }
+
+    //Save the TSS from the old process
+    thread->kstack.ss0 = gTss.ss0;
+    thread->kstack.esp0 = gTss.esp0;
+}
+
 void schedule(TimerInt_Registers* registers)
 {
     Thread* current = gCurrentThread;
@@ -826,94 +941,20 @@ void schedule(TimerInt_Registers* registers)
             return;
         }
 
-        current->regs.eflags = registers->eflags;
-        current->regs.cs = registers->cs;
-        current->regs.eip = registers->eip;
-        current->regs.eax = registers->eax;
-        current->regs.ecx = registers->ecx;
-        current->regs.edx = registers->edx;
-        current->regs.ebx = registers->ebx;
-        current->regs.ebp = registers->ebp;
-        current->regs.esi = registers->esi;
-        current->regs.edi = registers->edi;
-        current->regs.ds = registers->ds;
-        current->regs.es = registers->es;
-        current->regs.fs = registers->fs;
-        current->regs.gs = registers->gs;
+        saveRegisters(registers, current);
 
-        if (current->regs.cs != 0x08)
-        {
-            //Debug_PrintF("schedule() - 2.1\n");
-            current->regs.esp = registers->esp_if_privilege_change;
-            current->regs.ss = registers->ss_if_privilege_change;
-        }
-        else
-        {
-            //Debug_PrintF("schedule() - 2.2\n");
-            current->regs.esp = registers->esp + 12;
-            current->regs.ss = gTss.ss0;
-        }
-
-        //Save the TSS from the old process
-        current->kstack.ss0 = gTss.ss0;
-        current->kstack.esp0 = gTss.esp0;
-
-        current = current->next;
-        while (NULL != current)
-        {
-            if (current->state == TS_YIELD)
-            {
-                if (current->yield > 0)
-                {
-                    --current->yield;
-                }
-
-                if (current->yield == 0)
-                {
-                    current->state = TS_RUN;
-                }
-            }
-
-            if (current->state == TS_SLEEP)
-            {
-                uint32 uptime = getUptimeMilliseconds();
-                uint32 target = (uint32)current->state_privateData;
-
-                if (uptime >= target)
-                {
-                    current->state = TS_RUN;
-                    current->state_privateData = NULL;
-                }
-            }
-
-            if (current->state == TS_RUN)
-            {
-                break;
-            }
-            current = current->next;
-        }
-
-        if (current == NULL)
-        {
-            //reached last process returning to first
-            current = gFirstThread;
-        }
+        current = lookThreads(current);
     }
     else
     {
-        //current is NULL. This means thread is destroyed, so start from the begining
+        //current is NULL. This means the thread is destroyed.
 
-        current = gFirstThread;
+        current = lookThreads(gFirstThread);
     }
 
     gCurrentThread = current;//Now gCurrentThread is the thread we are about to schedule to
 
-    /*
-    if (gCurrentThread->threadId == 5)
-    {
-        Screen_PrintF("I am scheduling to %d and its EIP is %x\n", gCurrentThread->threadId, gCurrentThread->regs.eip);
-    }
-    */
+
 
     updateMetrics(current);
 
