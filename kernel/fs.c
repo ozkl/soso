@@ -233,6 +233,7 @@ File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
         file->node = node;
         file->process = process;
         file->thread = thread;
+        file->flags = flags;
 
         BOOL success = node->open(file, flags);
 
@@ -253,6 +254,7 @@ File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
         else
         {
             kfree(file);
+            file = NULL;
         }
 
         return file;

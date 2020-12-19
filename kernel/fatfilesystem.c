@@ -10,10 +10,6 @@
 #define SEEK_CUR	1	/* Seek from current position.  */
 #define SEEK_END	2
 
-#define O_RDONLY	     00
-#define O_WRONLY	     01
-#define O_RDWR		     02
-
 static BOOL mount(const char* sourcePath, const char* targetPath, uint32 flags, void *data);
 static BOOL checkMount(const char* sourcePath, const char* targetPath, uint32 flags, void *data);
 static FileSystemDirent* readdir(FileSystemNode *node, uint32 index);

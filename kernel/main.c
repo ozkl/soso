@@ -235,6 +235,8 @@ int kmain(struct Multiboot *mboot_ptr)
         }
     }
 
+    createPipe("pipe0", 8);
+
     enableScheduler();
 
     enableInterrupts();

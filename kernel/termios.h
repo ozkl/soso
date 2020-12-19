@@ -150,7 +150,7 @@ struct termios
 
 // c_lflag bits
 #define ISIG        0000001
-#define ICANON        0000002
+#define ICANON        0000002 //canonical mode (cooked mode) - opposite of raw mode
 #define XCASE        0000004
 #define ECHO        0000010
 #define ECHOE        0000020

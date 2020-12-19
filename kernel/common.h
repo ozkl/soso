@@ -19,6 +19,7 @@ typedef unsigned int  size_t;
 #define TRUE 1
 #define FALSE 0
 #define NULL 0
+#define CHECK_BIT(value, pos) ((value) & (1 << (pos)))
 
 #define	KERN_PAGE_DIRECTORY			0x00001000
 

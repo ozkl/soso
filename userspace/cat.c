@@ -17,8 +17,8 @@ int main(int argc, char** argv)
         }
 
 
-        int f = open(file, 0);
-        if (f)
+        int f = open(file, O_RDONLY);
+        if (f >= 0)
         {
             char buffer[1024];
 
@@ -26,13 +26,12 @@ int main(int argc, char** argv)
             do
             {
                 bytes = read(f, buffer, n);
-                //printf("bytes:%d\n", bytes);
-                /*
-                for (int i = 0; i < bytes; ++i)
+                
+                if (bytes < 0)
                 {
-                    putchar(buffer[i]);
+                    write(1, "read negative!\n", bytes);
+                    break;
                 }
-                */
                 write(1, buffer, bytes);
 
             } while (bytes > 0);

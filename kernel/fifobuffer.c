@@ -59,11 +59,6 @@ int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
 
     uint32 bytesAvailable = fifoBuffer->capacity - fifoBuffer->usedBytes;
 
-    if (size > bytesAvailable)
-    {
-        return -1;
-    }
-
     uint32 i = 0;
     while (fifoBuffer->usedBytes < fifoBuffer->capacity && i < size)
     {

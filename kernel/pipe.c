@@ -15,7 +15,9 @@ typedef struct Pipe
     char name[32];
     FifoBuffer* buffer;
     FileSystemNode* fsNode;
-    List* accessingThreads;
+    List* readers;
+    List* writers;
+    BOOL isBroken;
 } Pipe;
 
 static BOOL pipes_open(File *file, uint32 flags);
@@ -81,35 +83,11 @@ static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-static BOOL pipe_open(File *file, uint32 flags)
-{
-    beginCriticalSection();
-
-    Pipe* pipe = file->node->privateNodeData;
-
-    List_Append(pipe->accessingThreads, file->thread);
-
-    endCriticalSection();
-
-    return TRUE;
-}
-
-static void pipe_close(File *file)
-{
-    beginCriticalSection();
-
-    Pipe* pipe = file->node->privateNodeData;
-
-    List_RemoveFirstOccurrence(pipe->accessingThreads, file->thread);
-
-    endCriticalSection();
-}
-
-static void blockAccessingThreads(Pipe* pipe)
+static void blockAccessingThreads(Pipe* pipe, List* list)
 {
     disableInterrupts();
 
-    List_Foreach (n, pipe->accessingThreads)
+    List_Foreach (n, list)
     {
         Thread* reader = n->data;
 
@@ -121,11 +99,11 @@ static void blockAccessingThreads(Pipe* pipe)
     halt();
 }
 
-static void wakeupAccessingThreads(Pipe* pipe)
+static void wakeupAccessingThreads(Pipe* pipe, List* list)
 {
     beginCriticalSection();
 
-    List_Foreach (n, pipe->accessingThreads)
+    List_Foreach (n, list)
     {
         Thread* reader = n->data;
 
@@ -141,9 +119,76 @@ static void wakeupAccessingThreads(Pipe* pipe)
     endCriticalSection();
 }
 
+static BOOL pipe_open(File *file, uint32 flags)
+{
+    if (CHECK_ACCESS(file->flags, O_RDONLY) || CHECK_ACCESS(file->flags, O_WRONLY))
+    {
+        beginCriticalSection();
+
+        Pipe* pipe = file->node->privateNodeData;
+
+        pipe->isBroken = FALSE;
+
+        if (CHECK_ACCESS(file->flags, O_RDONLY))
+        {
+            List_Append(pipe->readers, file->thread);
+
+            wakeupAccessingThreads(pipe, pipe->writers);
+        }
+        else if (CHECK_ACCESS(file->flags, O_WRONLY))
+        {
+            List_Append(pipe->writers, file->thread);
+        }
+
+        endCriticalSection();
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static void pipe_close(File *file)
+{
+    beginCriticalSection();
+
+    Pipe* pipe = file->node->privateNodeData;
+
+    if (CHECK_ACCESS(file->flags, O_RDONLY))
+    {
+        List_RemoveFirstOccurrence(pipe->readers, file->thread);
+    }
+    else if (CHECK_ACCESS(file->flags, O_WRONLY))
+    {
+        List_RemoveFirstOccurrence(pipe->writers, file->thread);
+    }
+
+    if (List_IsEmpty(pipe->readers))
+    {
+        //No readers left
+        pipe->isBroken = TRUE;
+
+        wakeupAccessingThreads(pipe, pipe->writers);
+    }
+
+    endCriticalSection();
+}
+
+static BOOL pipe_readTestReady(File *file, uint32 size)
+{
+    Pipe* pipe = file->node->privateNodeData;
+
+    if (FifoBuffer_getSize(pipe->buffer) > 0)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
 {
-    if (0 == size || NULL == buffer)
+    if (0 == size || NULL == buffer || !CHECK_ACCESS(file->flags, O_RDONLY))
     {
         return -1;
     }
@@ -151,23 +196,47 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 used = 0;
-    while ((used = FifoBuffer_getSize(pipe->buffer)) < size)
+    while (pipe_readTestReady(file, size) == FALSE)
     {
-        blockAccessingThreads(pipe);
+        if (pipe->isBroken)
+        {
+            disableInterrupts();
+            return -1;
+        }
+
+        blockAccessingThreads(pipe, pipe->readers);
     }
 
     disableInterrupts();
 
+
+
     int32 readBytes = FifoBuffer_dequeue(pipe->buffer, buffer, size);
 
-    wakeupAccessingThreads(pipe);
+    wakeupAccessingThreads(pipe, pipe->writers);
 
     return readBytes;
 }
 
+static BOOL pipe_writeTestReady(File *file, uint32 size)
+{
+    Pipe* pipe = file->node->privateNodeData;
+
+    beginCriticalSection();
+    int readerCount = List_GetCount(pipe->readers);
+    endCriticalSection();
+
+    if (FifoBuffer_getFree(pipe->buffer) > 0 && readerCount > 0)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
 {
-    if (0 == size || NULL == buffer)
+    if (0 == size || NULL == buffer || !CHECK_ACCESS(file->flags, O_WRONLY))
     {
         return -1;
     }
@@ -175,16 +244,22 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 free = 0;
-    while ((free = FifoBuffer_getFree(pipe->buffer)) < size)
+    while (pipe_writeTestReady(file, size) == FALSE)
     {
-        blockAccessingThreads(pipe);
+        if (pipe->isBroken)
+        {
+            disableInterrupts();
+            return -1;
+        }
+
+        blockAccessingThreads(pipe, pipe->writers);
     }
 
     disableInterrupts();
 
     int32 bytesWritten = FifoBuffer_enqueue(pipe->buffer, buffer, size);
 
-    wakeupAccessingThreads(pipe);
+    wakeupAccessingThreads(pipe, pipe->readers);
 
     return bytesWritten;
 }
@@ -203,10 +278,13 @@ BOOL createPipe(const char* name, uint32 bufferSize)
     Pipe* pipe = (Pipe*)kmalloc(sizeof(Pipe));
     memset((uint8*)pipe, 0, sizeof(Pipe));
 
+    pipe->isBroken = FALSE;
+
     strcpy(pipe->name, name);
     pipe->buffer = FifoBuffer_create(bufferSize);
 
-    pipe->accessingThreads = List_Create();
+    pipe->readers = List_Create();
+    pipe->writers = List_Create();
 
     pipe->fsNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8*)pipe->fsNode, 0, sizeof(FileSystemNode));
@@ -215,6 +293,8 @@ BOOL createPipe(const char* name, uint32 bufferSize)
     pipe->fsNode->close = pipe_close;
     pipe->fsNode->read = pipe_read;
     pipe->fsNode->write = pipe_write;
+    pipe->fsNode->readTestReady = pipe_readTestReady;
+    pipe->fsNode->writeTestReady = pipe_writeTestReady;
 
     List_Append(gPipeList, pipe);
 
@@ -230,7 +310,8 @@ BOOL destroyPipe(const char* name)
         {
             List_RemoveFirstOccurrence(gPipeList, p);
             FifoBuffer_destroy(p->buffer);
-            List_Destroy(p->accessingThreads);
+            List_Destroy(p->readers);
+            List_Destroy(p->writers);
             kfree(p->fsNode);
             kfree(p);
 
