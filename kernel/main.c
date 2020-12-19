@@ -63,12 +63,12 @@ void printUsageInfo()
     Thread* p = getMainKernelThread();
 
     int line = 3;
-    sprintf(buffer, "[idle]   cs:%d   ", p->totalContextSwitchCount);
+    sprintf(buffer, "[idle]   cs:%d   ", p->contextSwitchCount);
     Screen_Print(line++, 60, buffer);
     p = p->next;
     while (p != NULL)
     {
-        sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->totalContextSwitchCount);
+        sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->contextSwitchCount);
 
         Screen_Print(line++, 60, buffer);
 

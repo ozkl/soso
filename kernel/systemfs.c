@@ -249,11 +249,14 @@ static int32 systemfs_read_thread_file(File *file, uint32 size, uint8 *buffer)
             {
                 int charIndex = 0;
                 charIndex += sprintf((char*)buffer + charIndex, "tid:%d\n", thread->threadId);
+                charIndex += sprintf((char*)buffer + charIndex, "birthTime:%d\n", thread->birthTime);
                 charIndex += sprintf((char*)buffer + charIndex, "userMode:%d\n", thread->userMode);
                 uint8 state[10];
                 threadStateToString(thread->state, state, 10);
                 charIndex += sprintf((char*)buffer + charIndex, "state:%s\n", state);
-                charIndex += sprintf((char*)buffer + charIndex, "contextSwitches:%d\n", thread->totalContextSwitchCount);
+                charIndex += sprintf((char*)buffer + charIndex, "contextSwitches:%d\n", thread->contextSwitchCount);
+                charIndex += sprintf((char*)buffer + charIndex, "cpuTime:%d\n", thread->consumedCPUTimeMs);
+                charIndex += sprintf((char*)buffer + charIndex, "cpuUsage:%d\n", thread->usageCPU);
                 if (thread->owner)
                 {
                     charIndex += sprintf((char*)buffer + charIndex, "process:%d\n", thread->owner->pid);

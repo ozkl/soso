@@ -17,8 +17,7 @@ typedef enum ThreadState
     TS_WAITIO,
     TS_WAITCHILD,
     TS_SLEEP,
-    TS_SUSPEND,
-    TS_YIELD
+    TS_SUSPEND
 } ThreadState;
 
 struct Process
@@ -85,11 +84,13 @@ struct Thread
 
     Process* owner;
 
-    uint32 yield;
-
     uint32 contextSwitchCount;
-    uint32 totalContextSwitchCount;
-    uint32 totalContextSwitchCountPrevious;
+    uint32 birthTime;
+    uint32 contextStartTime;
+    uint32 contextEndTime;
+    uint32 consumedCPUTimeMs;
+    uint32 consumedCPUTimeMsAtPrevMark;
+    uint32 usageCPU; //FromPrevMark
 
     void* state_privateData;
 
@@ -120,7 +121,6 @@ void destroyThread(Thread* thread);
 void destroyProcess(Process* process);
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
-void yield(uint32 count);
 int32 getEmptyFd(Process* process);
 int32 addFileToProcess(Process* process, File* file);
 int32 removeFileFromProcess(Process* process, File* file);

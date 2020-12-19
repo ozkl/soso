@@ -26,7 +26,7 @@ uint32 gProcessIdGenerator = 0;
 uint32 gThreadIdGenerator = 0;
 
 uint32 gSystemContextSwitchCount = 0;
-uint32 gLastUptimeSeconds = 0;
+uint32 gUsageMarkPoint = 0;
 
 extern Tss gTss;
 
@@ -68,6 +68,7 @@ void initializeTasking()
 
     thread->userMode = 0;
     thread->state = TS_RUN;
+    thread->birthTime = getUptimeMilliseconds();
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
     thread->regs.cr3 = (uint32) process->pd;
@@ -105,6 +106,8 @@ void createKernelThread(Function0 func)
     thread->userMode = 0;
 
     thread->state = TS_RUN;
+
+    thread->birthTime = getUptimeMilliseconds();
 
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
@@ -363,6 +366,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     thread->state = TS_RUN;
 
+    thread->birthTime = getUptimeMilliseconds();
+
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
 
@@ -615,9 +620,6 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
     case TS_WAITIO:
         strcpy((char*)buffer, "waitio");
         break;
-    case TS_YIELD:
-        strcpy((char*)buffer, "yield");
-        break;
     default:
         break;
     }
@@ -634,18 +636,6 @@ void waitForSchedule()
     }
     disableInterrupts();
     PANIC("waitForSchedule(): Should not be reached here!!!\n");
-}
-
-void yield(uint32 count)
-{
-    gCurrentThread->yield = count;
-    gCurrentThread->state = TS_YIELD;
-    enableInterrupts();
-    while (gCurrentThread->yield > 0)
-    {
-        halt();
-    }
-    disableInterrupts();
 }
 
 int32 getEmptyFd(Process* process)
@@ -790,45 +780,32 @@ BOOL isProcessValid(Process* process)
 
 static void switchToTask(Thread* current, int mode);
 
-static void updateMetrics(Thread* thread)
+static void updateUsageMetrics()
 {
     uint32 seconds = getUptimeSeconds();
 
-    if (seconds > gLastUptimeSeconds)
+    if (seconds > gUsageMarkPoint)
     {
-        gLastUptimeSeconds = seconds;
+        gUsageMarkPoint = seconds;
+
+        const uint32 millisecondsPassed = 1000;
 
         Thread* t = gFirstThread;
-
-        while (t != NULL)
+        while (NULL != t)
         {
-            t->contextSwitchCount = t->totalContextSwitchCount - t->totalContextSwitchCountPrevious;
-            t->totalContextSwitchCountPrevious = t->totalContextSwitchCount;
+            uint32 consumedFromMark = t->consumedCPUTimeMs - t->consumedCPUTimeMsAtPrevMark;
 
+            t->usageCPU = (100 * consumedFromMark) / millisecondsPassed;
+
+            t->consumedCPUTimeMsAtPrevMark = t->consumedCPUTimeMs;
+            
             t = t->next;
         }
-    }
-
-    ++gSystemContextSwitchCount;
-
-    ++thread->totalContextSwitchCount;
+    }    
 }
 
 static void updateThreadState(Thread* t)
 {
-    if (t->state == TS_YIELD)
-    {
-        if (t->yield > 0)
-        {
-            --t->yield;
-        }
-
-        if (t->yield == 0)
-        {
-            t->state = TS_RUN;
-        }
-    }
-
     if (t->state == TS_SLEEP)
     {
         uint32 uptime = getUptimeMilliseconds();
@@ -894,8 +871,11 @@ static Thread* lookThreads(Thread* current)
     return gFirstThread;
 }
 
-void saveRegisters(TimerInt_Registers* registers, Thread* thread)
+static void endContext(TimerInt_Registers* registers, Thread* thread)
 {
+    thread->contextEndTime = getUptimeMilliseconds();
+    thread->consumedCPUTimeMs += thread->contextEndTime - thread->contextStartTime;
+
     thread->regs.eflags = registers->eflags;
     thread->regs.cs = registers->cs;
     thread->regs.eip = registers->eip;
@@ -929,43 +909,54 @@ void saveRegisters(TimerInt_Registers* registers, Thread* thread)
     thread->kstack.esp0 = gTss.esp0;
 }
 
+static void startContext(Thread* thread)
+{
+    gCurrentThread = thread;//Now gCurrentThread is the thread we are about to schedule to
+
+    thread->contextStartTime = getUptimeMilliseconds();
+
+    ++gSystemContextSwitchCount;
+
+    ++thread->contextSwitchCount;
+
+    if (thread->regs.cs != 0x08)
+    {
+        switchToTask(thread, USERMODE);
+    }
+    else
+    {
+        switchToTask(thread, KERNELMODE);
+    }
+}
+
 void schedule(TimerInt_Registers* registers)
 {
     Thread* current = gCurrentThread;
+
+    Thread* readyThread = NULL;
 
     if (NULL != current)
     {
         if (current->next == NULL && current == gFirstThread)
         {
-            //We are the only process, no need to schedule
+            //We are the only thread, no need to schedule
             return;
         }
 
-        saveRegisters(registers, current);
+        endContext(registers, current);
 
-        current = lookThreads(current);
+        readyThread = lookThreads(current);
     }
     else
     {
         //current is NULL. This means the thread is destroyed.
 
-        current = lookThreads(gFirstThread);
+        readyThread = lookThreads(gFirstThread);
     }
 
-    gCurrentThread = current;//Now gCurrentThread is the thread we are about to schedule to
+    updateUsageMetrics();
 
-
-
-    updateMetrics(current);
-
-    if (current->regs.cs != 0x08)
-    {
-        switchToTask(current, USERMODE);
-    }
-    else
-    {
-        switchToTask(current, KERNELMODE);
-    }
+    startContext(readyThread);
 }
 
 
