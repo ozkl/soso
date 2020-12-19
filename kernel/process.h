@@ -87,13 +87,14 @@ struct Thread
 
     Process* owner;
 
-    uint32 contextSwitchCount;
     uint32 birthTime;
+    uint32 contextSwitchCount;
     uint32 contextStartTime;
     uint32 contextEndTime;
     uint32 consumedCPUTimeMs;
     uint32 consumedCPUTimeMsAtPrevMark;
     uint32 usageCPU; //FromPrevMark
+    uint32 calledSyscallCount;
 
 
     FifoBuffer* messageQueue;

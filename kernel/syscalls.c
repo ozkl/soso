@@ -178,7 +178,10 @@ void initialiseSyscalls()
 
 static void handleSyscall(Registers* regs)
 {
-    Process* process = getCurrentThread()->owner;
+    Thread* thread = getCurrentThread();
+    Process* process = thread->owner;
+
+    ++thread->calledSyscallCount;
 
     if (regs->eax >= SYSCALL_COUNT)
     {
