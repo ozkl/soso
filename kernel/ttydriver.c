@@ -379,8 +379,7 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
         {
             if (file->thread->state_privateData == tty)
             {
-                file->thread->state = TS_RUN;
-                file->thread->state_privateData = NULL;
+                resumeThread(file->thread);
             }
         }
     }
@@ -526,8 +525,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
                     }
                 }
 
-                file->thread->state = TS_WAITIO;
-                file->thread->state_privateData = tty;
+                changeThreadState(file->thread, TS_WAITIO, tty);
                 halt();
             }
         }
@@ -545,8 +543,7 @@ static int32 tty_read(File *file, uint32 size, uint8 *buffer)
                     return readSize;
                 }
 
-                file->thread->state = TS_WAITIO;
-                file->thread->state_privateData = tty;
+                changeThreadState(file->thread, TS_WAITIO, tty);
                 halt();
             }
         }

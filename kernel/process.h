@@ -6,6 +6,8 @@
 
 #define MAX_OPENED_FILES 20
 
+#define PROCESS_NAME_MAX 32
+
 #include "common.h"
 #include "fs.h"
 #include "fifobuffer.h"
@@ -22,7 +24,7 @@ typedef enum ThreadState
 
 struct Process
 {
-    char name[32];
+    char name[PROCESS_NAME_MAX];
 
     uint32 pid;
 
@@ -81,6 +83,7 @@ struct Thread
     uint32 userMode;
 
     ThreadState state;
+    void* state_privateData;
 
     Process* owner;
 
@@ -92,7 +95,6 @@ struct Thread
     uint32 consumedCPUTimeMsAtPrevMark;
     uint32 usageCPU; //FromPrevMark
 
-    void* state_privateData;
 
     FifoBuffer* messageQueue;
     Spinlock messageQueueLock;
@@ -119,6 +121,8 @@ Process* createUserProcessFromFunction(const char* name, Function0 func, char *c
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 void destroyThread(Thread* thread);
 void destroyProcess(Process* process);
+void changeThreadState(Thread* thread, ThreadState state, void* privateData);
+void resumeThread(Thread* thread);
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
 int32 getEmptyFd(Process* process);

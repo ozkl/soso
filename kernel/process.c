@@ -67,7 +67,7 @@ void initializeTasking()
     thread->threadId = generateThreadId();
 
     thread->userMode = 0;
-    thread->state = TS_RUN;
+    resumeThread(thread);
     thread->birthTime = getUptimeMilliseconds();
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
@@ -105,7 +105,7 @@ void createKernelThread(Function0 func)
 
     thread->userMode = 0;
 
-    thread->state = TS_RUN;
+    resumeThread(thread);
 
     thread->birthTime = getUptimeMilliseconds();
 
@@ -350,7 +350,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     Process* process = (Process*)kmalloc(sizeof(Process));
     memset((uint8*)process, 0, sizeof(Process));
-    strcpy(process->name, name);
+    strncpy(process->name, name, PROCESS_NAME_MAX);
+    process->name[PROCESS_NAME_MAX - 1] = 0;
     process->pid = processId;
     process->pd = acquirePageDirectory();
     process->workingDirectory = getFileSystemRootNode();
@@ -364,7 +365,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     thread->userMode = 1;
 
-    thread->state = TS_RUN;
+    resumeThread(thread);
 
     thread->birthTime = getUptimeMilliseconds();
 
@@ -572,7 +573,7 @@ void destroyProcess(Process* process)
             {
                 if (thread->state == TS_WAITCHILD)
                 {
-                    thread->state = TS_RUN;
+                    resumeThread(thread);
                 }
             }
 
@@ -587,6 +588,18 @@ void destroyProcess(Process* process)
     kfree(process);
 
     destroyPageDirectoryWithMemory(physicalPD);
+}
+
+void changeThreadState(Thread* thread, ThreadState state, void* privateData)
+{
+    thread->state = state;
+    thread->state_privateData = privateData;
+}
+
+void resumeThread(Thread* thread)
+{
+    thread->state = TS_RUN;
+    thread->state_privateData = NULL;
 }
 
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
@@ -813,8 +826,7 @@ static void updateThreadState(Thread* t)
 
         if (uptime >= target)
         {
-            t->state = TS_RUN;
-            t->state_privateData = NULL;
+            resumeThread(t);
         }
     }
 }

@@ -97,8 +97,8 @@ static int32 mouse_read(File *file, uint32 size, uint8 *buffer)
 
     while (FifoBuffer_getSize(fifo) < MOUSE_PACKET_SIZE)
     {
-        file->thread->state = TS_WAITIO;
-        file->thread->state_privateData = mouse_read;
+        changeThreadState(file->thread, TS_WAITIO, mouse_read);
+
         enableInterrupts();
         halt();
     }
@@ -190,8 +190,7 @@ static void handleMouseInterrupt(Registers *regs)
             {
                 if (file->thread->state_privateData == mouse_read)
                 {
-                    file->thread->state = TS_RUN;
-                    file->thread->state_privateData = NULL;
+                    resumeThread(file->thread);
                 }
             }
         }

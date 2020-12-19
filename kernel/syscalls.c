@@ -789,7 +789,7 @@ int syscall_wait(int *wstatus)
             {
                 //We have a child process
 
-                currentThread->state = TS_WAITCHILD;
+                changeThreadState(currentThread, TS_WAITCHILD, NULL);
 
                 enableInterrupts();
                 while (currentThread->state == TS_WAITCHILD);
@@ -822,7 +822,7 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
             {
                 if (pid < 0 || pid == (int)thread->owner->pid)
                 {
-                    currentThread->state = TS_WAITCHILD;
+                    changeThreadState(currentThread, TS_WAITCHILD, NULL);
 
                     enableInterrupts();
                     while (currentThread->state == TS_WAITCHILD);

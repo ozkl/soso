@@ -113,9 +113,7 @@ static void blockAccessingThreads(Pipe* pipe)
     {
         Thread* reader = n->data;
 
-        reader->state = TS_WAITIO;
-
-        reader->state_privateData = pipe;
+        changeThreadState(reader, TS_WAITIO, pipe);
     }
 
     enableInterrupts();
@@ -135,7 +133,7 @@ static void wakeupAccessingThreads(Pipe* pipe)
         {
             if (reader->state_privateData == pipe)
             {
-                reader->state = TS_RUN;
+                resumeThread(reader);
             }
         }
     }

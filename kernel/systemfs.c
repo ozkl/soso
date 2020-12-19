@@ -259,7 +259,7 @@ static int32 systemfs_read_thread_file(File *file, uint32 size, uint8 *buffer)
                 charIndex += sprintf((char*)buffer + charIndex, "cpuUsage:%d\n", thread->usageCPU);
                 if (thread->owner)
                 {
-                    charIndex += sprintf((char*)buffer + charIndex, "process:%d\n", thread->owner->pid);
+                    charIndex += sprintf((char*)buffer + charIndex, "process:%d (%s)\n", thread->owner->pid, thread->owner->name);
                 }
                 else
                 {

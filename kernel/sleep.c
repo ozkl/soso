@@ -1,5 +1,6 @@
 #include "sleep.h"
 #include "timer.h"
+#include "process.h"
 
 void sleepMilliseconds(Thread* thread, uint32 ms)
 {
@@ -8,8 +9,7 @@ void sleepMilliseconds(Thread* thread, uint32 ms)
     //target uptime to wakeup
     uint32 target = uptime + ms;
 
-    thread->state = TS_SLEEP;
-    thread->state_privateData = (void*)target;
+    changeThreadState(thread, TS_SLEEP, (void*)target);
 
     enableInterrupts();
 
