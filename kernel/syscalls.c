@@ -19,6 +19,7 @@
 #include "serial.h"
 #include "vmm.h"
 #include "list.h"
+#include "ttydev.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -1451,7 +1452,7 @@ int syscall_posix_openpt(int flags)
     Process* process = getCurrentThread()->owner;
     if (process)
     {
-        FileSystemNode* node = createPseudoTerminal();
+        FileSystemNode* node = createTTYDev();
         if (node)
         {
             File* file = open_fs(node, flags);
@@ -1481,14 +1482,16 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
 
             if (file)
             {
-                /*
-                int result = getSlavePath(file->node, buf, buflen);
+                TtyDev* ttyDev = file->node->privateNodeData;
 
-                if (result > 0)
+                FileSystemNode* slaveNode = ttyDev->slaveNode;
+
+                int result = getFileSystemNodePath(slaveNode, buf, buflen);
+
+                if (result >= 0)
                 {
-                    return 0; //return 0 on success
+                    return 0;
                 }
-                */
             }
             else
             {
