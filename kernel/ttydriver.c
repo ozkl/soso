@@ -461,7 +461,7 @@ static int32 tty_ioctl(File *file, int32 request, void * argp)
     {
         struct termios* term = (struct termios*)argp;
 
-        Serial_PrintF("TCSETSF (%s:%d): c_lflag: old=%d new=%d\n", process->name, process->pid, tty->term.c_lflag, term->c_lflag);
+        Debug_PrintF("TCSETSF (%s:%d): c_lflag: old=%d new=%d\n", process->name, process->pid, tty->term.c_lflag, term->c_lflag);
 
         memcpy((uint8*)&(tty->term), (uint8*)term, sizeof(struct termios));
 

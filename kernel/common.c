@@ -2,6 +2,7 @@
 #include "screen.h"
 #include "ttydriver.h"
 #include "serial.h"
+#include "debugprint.h"
 
 static BOOL gInterruptsWereEnabled = FALSE;
 
@@ -386,7 +387,7 @@ void panic(const char *message, const char *file, uint32 line)
 
     printkf("PANIC:%s:%d:%s\n", file, line, message);
 
-    Serial_PrintF("PANIC:%s:%d:%s\n", file, line, message);
+    Debug_PrintF("PANIC:%s:%d:%s\n", file, line, message);
 
     halt();
 }

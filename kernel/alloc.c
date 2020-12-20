@@ -18,8 +18,6 @@ void initializeKernelHeap()
 {
     gKernelHeap = (char *) KERN_HEAP_BEGIN;
 
-    Serial_PrintF("initializeKernelHeap()\n");
-
     ksbrkPage(1);
 }
 

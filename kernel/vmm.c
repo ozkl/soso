@@ -406,25 +406,20 @@ static void printPageFaultInfo(uint32 faultingAddress, Registers *regs)
     int id = regs->errorCode & 0x10;
 
     Debug_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
-    Serial_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
 
     Debug_PrintF("The page was %s\n", present ? "present" : "not present");
-    Serial_PrintF("The page was %s\n", present ? "present" : "not present");
 
     if (reserved)
     {
         Debug_PrintF("Reserved bit was set\n");
-        Serial_PrintF("Reserved bit was set\n");
     }
 
     if (id)
     {
         Debug_PrintF("Caused by an instruction fetch\n");
-        Serial_PrintF("Caused by an instruction fetch\n");
     }
 
     Debug_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
-    Serial_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
 static void handlePageFault(Registers *regs)
@@ -551,7 +546,6 @@ void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressAr
             addPageToPd((char*)v, p, PG_USER | ownFlag);
 
             Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
-            Serial_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K(v));
 

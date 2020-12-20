@@ -188,8 +188,6 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeSerial();
 
-    Serial_PrintF("Serial out start!\n");
-
     initializeRandom();
     initializeNull();
 

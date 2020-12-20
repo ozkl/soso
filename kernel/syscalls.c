@@ -186,7 +186,7 @@ static void handleSyscall(Registers* regs)
     if (regs->eax >= SYSCALL_COUNT)
     {
         printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
-        Serial_PrintF("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        Debug_PrintF("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         regs->eax = -1;
         return;
@@ -197,6 +197,7 @@ static void handleSyscall(Registers* regs)
     if (NULL == location)
     {
         printkf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        Debug_PrintF("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         regs->eax = -1;
         return;
