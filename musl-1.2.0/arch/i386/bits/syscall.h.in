@@ -428,3 +428,6 @@
 #define __NR_pidfd_open		1434
 #define __NR_clone3		1435
 
+//soso
+#define __NR_posix_openpt		35
+#define __NR_ptsname_r		36
