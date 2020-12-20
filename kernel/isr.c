@@ -48,4 +48,9 @@ void handleIRQ(Registers regs)
         IsrFunction handler = gInterruptHandlers[regs.interruptNumber];
         handler(&regs);
     }
+    else
+    {
+        //printkf("unhandled IRQ: %d\n", regs.interruptNumber);
+    }
+    
 }

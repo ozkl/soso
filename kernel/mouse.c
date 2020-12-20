@@ -8,8 +8,6 @@
 #include "fifobuffer.h"
 #include "spinlock.h"
 
-static void handleMouseInterrupt(Registers *regs);
-
 static uint8 gMouseByteCounter = 0;
 
 static void prepareForRead();

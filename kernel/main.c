@@ -137,8 +137,6 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeDescriptorTables();
 
-    initializeSerial();
-
     uint32 memoryKb = mboot_ptr->mem_upper;//96*1024;
     initializeMemory(memoryKb);
 
@@ -187,6 +185,8 @@ int kmain(struct Multiboot *mboot_ptr)
     }
 
     Debug_initialize("/dev/tty9");
+
+    initializeSerial();
 
     Serial_PrintF("Serial out start!\n");
 
