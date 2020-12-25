@@ -68,7 +68,7 @@ int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
         fifoBuffer->writeIndex %= fifoBuffer->capacity;
     }
 
-    return size;
+    return (int32)i;
 }
 
 int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)

@@ -111,4 +111,16 @@ BOOL isInterruptsEnabled();
 void beginCriticalSection();
 void endCriticalSection();
 
+
+#define isalpha(a) ((((unsigned)(a)|32)-'a') < 26)
+#define isdigit(a) (((unsigned)(a)-'0') < 10)
+#define islower(a) (((unsigned)(a)-'a') < 26)
+#define isupper(a) (((unsigned)(a)-'A') < 26)
+#define isprint(a) (((unsigned)(a)-0x20) < 0x5f)
+#define isgraph(a) (((unsigned)(a)-0x21) < 0x5e)
+#define isspace(a) (a == ' ' || (unsigned)a-'\t' < 5)
+#define iscntrl(a) ((unsigned)a < 0x20 || a == 0x7f)
+#define tolower(a) ((a)|0x20)
+#define toupper(a) ((a)&0x5f)
+
 #endif // COMMON_H

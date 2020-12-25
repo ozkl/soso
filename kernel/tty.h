@@ -25,6 +25,7 @@ typedef struct Tty
     FifoBuffer* keyBuffer;
     struct termios term;
     TtyFlushScreenFunction flushScreen;
+    BOOL ignoreKeyboard;
 } Tty;
 
 

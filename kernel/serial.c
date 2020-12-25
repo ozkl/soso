@@ -36,7 +36,7 @@ void initializeSerial()
 
     registerInterruptHandler(IRQ4, handleSerialInterrupt);
 
-    gBufferCom1 = FifoBuffer_create(128);
+    gBufferCom1 = FifoBuffer_create(4096);
     gAccessingThreads = List_Create();
 
     Device device;

@@ -182,6 +182,11 @@ void initializeTTYs(BOOL graphicMode)
 
         tty->color = 0x0A;
 
+        if (i == 5)
+        {
+            tty->ignoreKeyboard = TRUE;
+        }
+
         List_Append(gTtyList, tty);
 
         Device device;
@@ -332,26 +337,38 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 
     processScancode(scancode);
 
-    uint8 character = getCharacterForScancode(gKeyModifier, scancode);
-
-    uint8 keyRelease = (0x80 & scancode); //ignore release event
-
-    if (character > 0 && keyRelease == 0)
+    if (tty->ignoreKeyboard == FALSE)
     {
-        //enqueue for non-canonical readers
-        sendInputToKeyBuffer(tty, scancode, character);
-        //FifoBuffer_enqueue(tty->keyBuffer, &scancode, 1);
+        uint8 character = getCharacterForScancode(gKeyModifier, scancode);
 
-        if (tty->lineBufferIndex >= TTY_LINEBUFFER_SIZE - 1)
-        {
-            tty->lineBufferIndex = 0;
-        }
+        uint8 keyRelease = (0x80 & scancode); //ignore release event
 
-        if (character == '\b')
+        if (character > 0 && keyRelease == 0)
         {
-            if (tty->lineBufferIndex > 0)
+            //enqueue for non-canonical readers
+            sendInputToKeyBuffer(tty, scancode, character);
+            //FifoBuffer_enqueue(tty->keyBuffer, &scancode, 1);
+
+            if (tty->lineBufferIndex >= TTY_LINEBUFFER_SIZE - 1)
             {
-                tty->lineBuffer[--tty->lineBufferIndex] = '\0';
+                tty->lineBufferIndex = 0;
+            }
+
+            if (character == '\b')
+            {
+                if (tty->lineBufferIndex > 0)
+                {
+                    tty->lineBuffer[--tty->lineBufferIndex] = '\0';
+
+                    if ((tty->term.c_lflag & ECHO) == ECHO)
+                    {
+                        write(tty, 1, &character);
+                    }
+                }
+            }
+            else
+            {
+                tty->lineBuffer[tty->lineBufferIndex++] = character;
 
                 if ((tty->term.c_lflag & ECHO) == ECHO)
                 {
@@ -359,27 +376,18 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
                 }
             }
         }
-        else
+
+        //Wake readers
+        List_Foreach(n, gReaderList)
         {
-            tty->lineBuffer[tty->lineBufferIndex++] = character;
+            File* file = n->data;
 
-            if ((tty->term.c_lflag & ECHO) == ECHO)
+            if (file->thread->state == TS_WAITIO)
             {
-                write(tty, 1, &character);
-            }
-        }
-    }
-
-    //Wake readers
-    List_Foreach(n, gReaderList)
-    {
-        File* file = n->data;
-
-        if (file->thread->state == TS_WAITIO)
-        {
-            if (file->thread->state_privateData == tty)
-            {
-                resumeThread(file->thread);
+                if (file->thread->state_privateData == tty)
+                {
+                    resumeThread(file->thread);
+                }
             }
         }
     }
