@@ -24,6 +24,16 @@ void Spinlock_Lock(Spinlock* spinlock)
     }
 }
 
+BOOL Spinlock_TryLock(Spinlock* spinlock)
+{
+    if (exchangeAtomic((int32*)spinlock, 1))
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 void Spinlock_Unlock(Spinlock* spinlock)
 {
     *spinlock = 0;

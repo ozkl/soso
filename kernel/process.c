@@ -633,6 +633,9 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
     case TS_WAITIO:
         strcpy((char*)buffer, "waitio");
         break;
+    case TS_SELECT:
+        strcpy((char*)buffer, "select");
+        break;
     default:
         break;
     }
@@ -825,6 +828,15 @@ static void updateThreadState(Thread* t)
         uint32 target = (uint32)t->state_privateData;
 
         if (uptime >= target)
+        {
+            resumeThread(t);
+        }
+    }
+    else if (t->state == TS_SELECT)
+    {
+        updateSelect(t);
+
+        if (t->select.selectState == SS_FINISHED)
         {
             resumeThread(t);
         }

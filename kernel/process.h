@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "fs.h"
+#include "syscall_select.h"
 #include "fifobuffer.h"
 #include "spinlock.h"
 
@@ -19,8 +20,17 @@ typedef enum ThreadState
     TS_WAITIO,
     TS_WAITCHILD,
     TS_SLEEP,
+    TS_SELECT,
     TS_SUSPEND
 } ThreadState;
+
+typedef enum SelectState
+{
+    SS_NOTSTARTED,
+    SS_STARTED,
+    SS_FINISHED,
+    SS_ERROR
+} SelectState;
 
 struct Process
 {
@@ -79,6 +89,17 @@ struct Thread
         uint32 stackStart;
     } kstack __attribute__ ((packed));
 
+    struct
+    {
+        int nfds;
+        fd_set readSet;
+        fd_set writeSet;
+        fd_set readSetResult;
+        fd_set writeSetResult;
+        time_t targetTime;
+        SelectState selectState;
+        int result;
+    } select;
 
     uint32 userMode;
 

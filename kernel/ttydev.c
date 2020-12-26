@@ -103,15 +103,18 @@ static BOOL master_readTestReady(File *file)
 {
     TtyDev* tty = (TtyDev*)file->node->privateNodeData;
 
-    Spinlock_Lock(&tty->bufferMasterReadLock);
-    uint32 neededSize = tty->term.c_cc[VMIN];
-    uint32 bufferLen = FifoBuffer_getSize(tty->bufferMasterRead);
-    Spinlock_Unlock(&tty->bufferMasterReadLock);
-
-    if (bufferLen >= neededSize)
+    if (Spinlock_TryLock(&tty->bufferMasterReadLock))
     {
-        return TRUE;
+        uint32 neededSize = tty->term.c_cc[VMIN];
+        uint32 bufferLen = FifoBuffer_getSize(tty->bufferMasterRead);
+        Spinlock_Unlock(&tty->bufferMasterReadLock);
+
+        if (bufferLen >= neededSize)
+        {
+            return TRUE;
+        }
     }
+
     return FALSE;
 }
 
@@ -257,16 +260,17 @@ static BOOL slave_readTestReady(File *file)
 {
     TtyDev* tty = (TtyDev*)file->node->privateNodeData;
 
-    Spinlock_Lock(&tty->bufferMasterWriteLock);
-
-    uint32 neededSize = tty->term.c_cc[VMIN];
-    uint32 bufferLen = FifoBuffer_getSize(tty->bufferMasterWrite);
-
-    Spinlock_Unlock(&tty->bufferMasterWriteLock);
-
-    if (bufferLen >= neededSize)
+    if (Spinlock_TryLock(&tty->bufferMasterWriteLock))
     {
-        return TRUE;
+        uint32 neededSize = tty->term.c_cc[VMIN];
+        uint32 bufferLen = FifoBuffer_getSize(tty->bufferMasterWrite);
+
+        Spinlock_Unlock(&tty->bufferMasterWriteLock);
+
+        if (bufferLen >= neededSize)
+        {
+            return TRUE;
+        }
     }
 
     return FALSE;
@@ -332,32 +336,29 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
 
     enableInterrupts();
 
-    //while (TRUE)
+    Spinlock_Lock(&tty->bufferMasterReadLock);
+
+    uint32 free = FifoBuffer_getFree(tty->bufferMasterRead);
+
+    int written = 0;
+
+    if (free > 0)
     {
-        Spinlock_Lock(&tty->bufferMasterReadLock);
+        written = FifoBuffer_enqueue(tty->bufferMasterRead, buffer, MIN(size, free));
+    }
 
-        uint32 free = FifoBuffer_getFree(tty->bufferMasterRead);
+    Spinlock_Unlock(&tty->bufferMasterReadLock);
 
-        int written = 0;
-
-        if (free > 0)
+    if (written > 0)
+    {
+        if (tty->masterReader)
         {
-            written = FifoBuffer_enqueue(tty->bufferMasterRead, buffer, MIN(size, free));
-        }
-
-        Spinlock_Unlock(&tty->bufferMasterReadLock);
-
-        if (written > 0)
-        {
-            if (tty->masterReader)
+            if (tty->masterReader->state == TS_WAITIO && tty->masterReader->state_privateData == tty)
             {
-                if (tty->masterReader->state == TS_WAITIO && tty->masterReader->state_privateData == tty)
-                {
-                    resumeThread(tty->masterReader);
-                }
+                resumeThread(tty->masterReader);
             }
-            return written;
         }
+        return written;
     }
 
     return -1;
