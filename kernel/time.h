@@ -13,7 +13,7 @@ struct timespec
 
 struct timeval
 {
-    time_t tv_sec;         /* seconds */
+    uint32 tv_sec;         /* seconds */
     uint32 tv_usec;        /* microseconds */
 };
 

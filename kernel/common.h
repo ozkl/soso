@@ -14,6 +14,7 @@ typedef          short int16;
 typedef unsigned char  uint8;
 typedef          char  int8;
 typedef unsigned int  size_t;
+typedef int64 suseconds_t;
 
 #define BOOL uint8
 #define TRUE 1
