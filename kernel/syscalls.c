@@ -20,6 +20,7 @@
 #include "vmm.h"
 #include "list.h"
 #include "ttydev.h"
+#include "syscall_select.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -166,7 +167,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_set_tid_address] = syscall_set_tid_address;
     gSyscallTable[SYS_exit_group] = syscall_exit_group;
     gSyscallTable[SYS_llseek] = syscall_llseek;
-    gSyscallTable[SYS_UNUSED2] = NULL;
+    gSyscallTable[SYS_select] = syscall_select;
     gSyscallTable[SYS_statx] = syscall_statx;
     gSyscallTable[SYS_wait4] = syscall_wait4;
     gSyscallTable[SYS_clock_gettime64] = syscall_clock_gettime64;

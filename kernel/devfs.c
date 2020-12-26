@@ -130,6 +130,8 @@ FileSystemNode* registerDevice(Device* device)
     deviceNode->writeBlock = device->writeBlock;
     deviceNode->read = device->read;
     deviceNode->write = device->write;
+    deviceNode->readTestReady = device->readTestReady;
+    deviceNode->writeTestReady = device->writeTestReady;
     deviceNode->ioctl = device->ioctl;
     deviceNode->ftruncate = device->ftruncate;
     deviceNode->mmap = device->mmap;

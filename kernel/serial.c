@@ -16,9 +16,9 @@ static void handleSerialInterrupt(Registers *regs);
 
 static BOOL serial_open(File *file, uint32 flags);
 static void serial_close(File *file);
-static BOOL serial_readTestReady(File *file, uint32 size);
+static BOOL serial_readTestReady(File *file);
 static int32 serial_read(File *file, uint32 size, uint8 *buffer);
-static BOOL serial_writeTestReady(File *file, uint32 size);
+static BOOL serial_writeTestReady(File *file);
 static int32 serial_write(File *file, uint32 size, uint8 *buffer);
 
 //TODO: support more than one serial devices
@@ -47,6 +47,8 @@ void initializeSerial()
     device.close = serial_close;
     device.read = serial_read;
     device.write = serial_write;
+    device.readTestReady = serial_readTestReady;
+    device.writeTestReady = serial_writeTestReady;
 
     registerDevice(&device);
 }
@@ -174,7 +176,7 @@ static void serial_close(File *file)
     List_RemoveFirstOccurrence(gAccessingThreads, file->thread);
 }
 
-static BOOL serial_readTestReady(File *file, uint32 size)
+static BOOL serial_readTestReady(File *file)
 {
     if (FifoBuffer_getSize(gBufferCom1) > 0)
     {
@@ -191,7 +193,7 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    while (serial_readTestReady(file, size) == FALSE)
+    while (serial_readTestReady(file) == FALSE)
     {
         changeThreadState(file->thread, TS_WAITIO, serial_read);
         enableInterrupts();
@@ -207,7 +209,7 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
     return readBytes;
 }
 
-static BOOL serial_writeTestReady(File *file, uint32 size)
+static BOOL serial_writeTestReady(File *file)
 {
     return TRUE;
 }

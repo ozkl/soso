@@ -2,12 +2,7 @@
 #define TIMER_H
 
 #include "common.h"
-
-struct timespec
-{
-    uint64 tv_sec;        /* seconds */
-    uint32 tv_nsec;       /* nanoseconds */
-};
+#include "time.h"
 
 void initializeTimer();
 uint32 getSystemTickCount();

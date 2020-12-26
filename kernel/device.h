@@ -12,6 +12,8 @@ typedef struct Device
     ReadWriteBlockFunction writeBlock;
     ReadWriteFunction read;
     ReadWriteFunction write;
+    ReadWriteTestFunction readTestReady;
+    ReadWriteTestFunction writeTestReady;
     OpenFunction open;
     CloseFunction close;
     IoctlFunction ioctl;

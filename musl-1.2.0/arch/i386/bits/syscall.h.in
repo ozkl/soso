@@ -141,7 +141,7 @@
 #define __NR_setfsgid		1139
 #define __NR__llseek		43 //1140
 #define __NR_getdents		20 //41
-#define __NR__newselect		1142
+#define __NR__newselect		44 //1142
 #define __NR_flock		1143
 #define __NR_msync		1144
 #define __NR_readv		38 //1145

@@ -36,7 +36,7 @@ typedef struct File File;
 struct stat;
 
 typedef int32 (*ReadWriteFunction)(File* file, uint32 size, uint8* buffer);
-typedef BOOL (*ReadWriteTestFunction)(File* file, uint32 size);
+typedef BOOL (*ReadWriteTestFunction)(File* file);
 typedef int32 (*ReadWriteBlockFunction)(FileSystemNode* node, uint32 blockNumber, uint32 count, uint8* buffer);
 typedef BOOL (*OpenFunction)(File* file, uint32 flags);
 typedef void (*CloseFunction)(File* file);

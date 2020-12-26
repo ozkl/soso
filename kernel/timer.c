@@ -53,7 +53,7 @@ uint32 getUptimeMilliseconds()
 
 uint64 getUptimeMilliseconds64()
 {
-    return (uint32)gSystemTickCount;
+    return gSystemTickCount;
 }
 
 void enableScheduler()
