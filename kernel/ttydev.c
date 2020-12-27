@@ -23,6 +23,16 @@ static BOOL slave_writeTestReady(File *file);
 
 static uint32 gNameGenerator = 0;
 
+static BOOL isEraseCharacter(TtyDev* tty, uint8 character)
+{
+    if (character == tty->term.c_cc[VERASE])
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 FileSystemNode* createTTYDev()
 {
     TtyDev* ttyDev = kmalloc(sizeof(TtyDev));
@@ -31,6 +41,7 @@ FileSystemNode* createTTYDev()
     ttyDev->term.c_cc[VMIN] = 1;
     ttyDev->term.c_cc[VTIME] = 0;
     ttyDev->term.c_cc[VINTR] = 3;
+    ttyDev->term.c_cc[VERASE] = 127;
 
     ttyDev->term.c_iflag |= ICRNL;
 
@@ -197,6 +208,13 @@ static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8* character)
 		*character = '\n';
 	}
 
+    //The below logic is not in termios but I added for some devices uses \b for backspace
+    //(QEMU serial window)
+    if (*character == '\b')
+    {
+        *character = tty->term.c_cc[VERASE];
+    }
+
     return result;
 }
 
@@ -232,14 +250,20 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
             continue;
         }
 
+        uint8 escaped[2];
+        escaped[0] = 0;
+        escaped[1] = 0;
+
         if ((tty->term.c_lflag & ECHO))
         {
-            if (iscntrl(character))
+            if (iscntrl(character)
+            && !isEraseCharacter(tty, character)
+            && character != '\n'
+            && character != '\r')
             {
-                uint8 c2 = '^';
-                FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
-                c2 = ('@' + character) % 128;
-                FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                escaped[0] = '^';
+                escaped[1] = ('@' + character) % 128;
+                FifoBuffer_enqueue(tty->bufferEcho, escaped, 2);
             }
             else
             {
@@ -262,11 +286,18 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                 tty->lineBufferIndex = 0;
             }
 
-            if (character == '\b')
+            if (isEraseCharacter(tty, character))
             {
                 if (tty->lineBufferIndex > 0)
                 {
                     tty->lineBuffer[--tty->lineBufferIndex] = '\0';
+
+                    uint8 c2 = '\b';
+                    FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                    c2 = ' ';
+                    FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                    c2 = '\b';
+                    FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
                 }
             }
             else if (character == '\n')
@@ -278,11 +309,31 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                     tty->lineBufferIndex = 0;
                     written = FifoBuffer_enqueue(tty->bufferMasterWrite, tty->lineBuffer, bytesToCopy);
                     written += FifoBuffer_enqueue(tty->bufferMasterWrite, (uint8*)"\n", 1);
+
+                    if ((tty->term.c_lflag & ECHO))
+                    {
+                        char c2 = '\r';
+                        FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                    }
                 }
             }
             else
             {
-                tty->lineBuffer[tty->lineBufferIndex++] = character;
+                if (escaped[0] == '^')
+                {
+                    if (tty->lineBufferIndex < TTYDEV_LINEBUFFER_SIZE - 2)
+                    {
+                        tty->lineBuffer[tty->lineBufferIndex++] = escaped[0];
+                        tty->lineBuffer[tty->lineBufferIndex++] = escaped[1];
+                    }
+                }
+                else
+                {
+                    if (tty->lineBufferIndex < TTYDEV_LINEBUFFER_SIZE - 1)
+                    {
+                        tty->lineBuffer[tty->lineBufferIndex++] = character;
+                    }
+                }
             }
         }
         else //non-canonical
