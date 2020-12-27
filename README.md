@@ -1,7 +1,7 @@
 # soso
 Soso is a simple unix-like operating system written in Nasm assembly and mostly in C. It supports multiboot, so it is started by Grub.
 It can be built using Nasm and Clang.
-Tested build environments are Linux, FreeBSD, and Windows 10 (Windows Subsystem for Linux). For installing Grub to disk image, Windows host is not supported.
+Tested build environments are Linux, FreeBSD.
 
 Soso is a 32-bit x86 operating system and its features are
 - Multitasking with processes and threads
@@ -15,6 +15,8 @@ Soso is a 32-bit x86 operating system and its features are
 - mmap support
 - Framebuffer graphics (userspace can access with mmap)
 - Shared memory
+- Serial port
+- PS/2 mouse
 
 Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua and Doom on Soso!
 
@@ -42,19 +44,5 @@ To build kernel just run:
 
 this will build only kernel (kernel.bin). 
 
-To build userspace binaries (while in userspace directory):
-
-    make
-
-this will build userspace binaries in userspace/bin directory.
-
-Now an initrd (initial ramdisk) image is needed to put userspace binaries. To create it, run as root (linux specific):
-
-    ./create-initrd.sh
-
-This will create initrd.fat file. This is a mountable FAT32 initrd image. Once kernel initialization is complete, initrd contents are copied into /dev/ramdisk1 and it is mounted to /initrd. After that kernel runs the /initrd/shell ELF file.
-
-    ./create-cd-image.sh
-    
-This will create soso.iso cd image.
+Building userspace binaries will be documented later.
 
