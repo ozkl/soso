@@ -21,5 +21,6 @@ uint32 FifoBuffer_getCapacity(FifoBuffer* fifoBuffer);
 uint32 FifoBuffer_getFree(FifoBuffer* fifoBuffer);
 int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
 int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
+int32 FifoBuffer_enqueueFromOther(FifoBuffer* fifoBuffer, FifoBuffer* other);
 
 #endif // FIFOBUFFER_H

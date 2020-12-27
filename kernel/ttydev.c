@@ -30,11 +30,18 @@ FileSystemNode* createTTYDev()
 
     ttyDev->term.c_cc[VMIN] = 1;
     ttyDev->term.c_cc[VTIME] = 0;
+    ttyDev->term.c_cc[VINTR] = 3;
+
+    ttyDev->term.c_iflag |= ICRNL;
+
+    ttyDev->term.c_oflag |= ONLCR;
+
     ttyDev->term.c_lflag |= ECHO;
     ttyDev->term.c_lflag |= ICANON;
 
     ttyDev->bufferMasterWrite = FifoBuffer_create(4096);
     ttyDev->bufferMasterRead = FifoBuffer_create(4096);
+    ttyDev->bufferEcho = FifoBuffer_create(4096);
     ttyDev->slaveReaders = List_Create();
 
     
@@ -164,6 +171,35 @@ static BOOL master_writeTestReady(File *file)
     return TRUE;
 }
 
+static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8* character)
+{
+    BOOL result = TRUE;
+
+    if (tty->term.c_iflag & ISTRIP)
+    {
+        //Strip off eighth bit.
+		*character &= 0x7F;
+	}
+
+    if (*character == '\r' && (tty->term.c_iflag & IGNCR))
+    {
+        //Ignore carriage return on input.
+		result = FALSE;
+	}
+    else if (*character == '\n' && (tty->term.c_iflag & INLCR))
+    {
+        //Translate NL to CR on input.
+		*character = '\r';
+	}
+    else if (*character == '\r' && (tty->term.c_iflag & ICRNL))
+    {
+        //Translate carriage return to newline on input (unless IGNCR is set).
+		*character = '\n';
+	}
+
+    return result;
+}
+
 static int32 master_write(File *file, uint32 size, uint8 *buffer)
 {
     if (size == 0)
@@ -172,6 +208,8 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
     }
 
     TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+
+    FifoBuffer_clear(tty->bufferEcho);
 
     enableInterrupts();
 
@@ -183,12 +221,42 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
 
     uint32 written = 0;
 
-    if ((tty->term.c_lflag & ICANON) == ICANON)
+    for (uint32 k = 0; k < toWrite; ++k)
     {
-        for (uint32 k = 0; k < toWrite; ++k)
-        {
-            uint8 character = buffer[k];
+        uint8 character = buffer[k];
 
+        BOOL useCharacter = overrideCharacterMasterWrite(tty, &character);
+
+        if (useCharacter == FALSE)
+        {
+            continue;
+        }
+
+        if ((tty->term.c_lflag & ECHO))
+        {
+            if (iscntrl(character))
+            {
+                uint8 c2 = '^';
+                FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                c2 = ('@' + character) % 128;
+                FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+            }
+            else
+            {
+                FifoBuffer_enqueue(tty->bufferEcho, &character, 1);
+            }
+        }
+
+        if (tty->term.c_lflag & ISIG)
+        {
+            if (character == tty->term.c_cc[VINTR])
+            {
+                //TODO: signal
+            }
+        }
+
+        if (tty->term.c_lflag & ICANON)
+        {
             if (tty->lineBufferIndex >= TTYDEV_LINEBUFFER_SIZE - 1)
             {
                 tty->lineBufferIndex = 0;
@@ -201,7 +269,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                     tty->lineBuffer[--tty->lineBufferIndex] = '\0';
                 }
             }
-            else if (character == '\r')
+            else if (character == '\n')
             {
                 int bytesToCopy = tty->lineBufferIndex;
 
@@ -210,11 +278,6 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                     tty->lineBufferIndex = 0;
                     written = FifoBuffer_enqueue(tty->bufferMasterWrite, tty->lineBuffer, bytesToCopy);
                     written += FifoBuffer_enqueue(tty->bufferMasterWrite, (uint8*)"\n", 1);
-
-                    if (written > 0)
-                    {
-                        wakeSlaveReaders(tty);
-                    }
                 }
             }
             else
@@ -222,26 +285,34 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                 tty->lineBuffer[tty->lineBufferIndex++] = character;
             }
         }
-    }
-    else
-    {
-        written = FifoBuffer_enqueue(tty->bufferMasterWrite, buffer, toWrite);
-
-        if (written > 0)
+        else //non-canonical
         {
-            wakeSlaveReaders(tty);
+            written += FifoBuffer_enqueue(tty->bufferMasterWrite, &character, 1);
         }
     }
     
     Spinlock_Unlock(&tty->bufferMasterWriteLock);
 
-    if ((tty->term.c_lflag & ECHO) == ECHO)
+    if (written > 0)
+    {
+        wakeSlaveReaders(tty);
+    }
+
+    if (FifoBuffer_getSize(tty->bufferEcho) > 0)
     {
         Spinlock_Lock(&tty->bufferMasterReadLock);
 
-        FifoBuffer_enqueue(tty->bufferMasterRead, buffer, toWrite);
+        int32 w = FifoBuffer_enqueueFromOther(tty->bufferMasterRead, tty->bufferEcho);
 
         Spinlock_Unlock(&tty->bufferMasterReadLock);
+
+        if (w > 0 && tty->masterReader)
+        {
+            if (tty->masterReader->state == TS_WAITIO && tty->masterReader->state_privateData == tty)
+            {
+                resumeThread(tty->masterReader);
+            }
+        }
     }
 
 

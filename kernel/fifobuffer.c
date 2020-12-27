@@ -95,3 +95,32 @@ int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size)
 
     return i;
 }
+
+int32 FifoBuffer_enqueueFromOther(FifoBuffer* fifoBuffer, FifoBuffer* other)
+{
+    uint32 otherSize = FifoBuffer_getSize(other);
+
+    if (otherSize == 0)
+    {
+        return 0;
+    }
+
+    uint32 bytesAvailable = fifoBuffer->capacity - fifoBuffer->usedBytes;
+
+    uint32 i = 0;
+    while (fifoBuffer->usedBytes < fifoBuffer->capacity && other->usedBytes > 0)
+    {
+        fifoBuffer->data[fifoBuffer->writeIndex] = other->data[other->readIndex];
+        fifoBuffer->usedBytes++;
+        fifoBuffer->writeIndex++;
+        fifoBuffer->writeIndex %= fifoBuffer->capacity;
+
+        other->usedBytes--;
+        other->readIndex++;
+        other->readIndex %= other->capacity;
+
+        i++;
+    }
+
+    return (int32)i;
+}

@@ -21,6 +21,7 @@ typedef struct TtyDev
     Spinlock bufferMasterWriteLock;
     FifoBuffer* bufferMasterRead;
     Spinlock bufferMasterReadLock;
+    FifoBuffer* bufferEcho; //used in only echoing by master_write, no need lock
     List* slaveReaders;
     Spinlock slaveReadersLock;
     Thread* masterReader;
