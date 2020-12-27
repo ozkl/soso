@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "termios.h"
 
-#define TTYDEV_LINEBUFFER_SIZE 128
+#define TTYDEV_LINEBUFFER_SIZE 4096
 
 typedef struct FileSystemNode FileSystemNode;
 typedef struct FifoBuffer FifoBuffer;
