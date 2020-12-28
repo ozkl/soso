@@ -1,5 +1,4 @@
 #include "common.h"
-#include "screen.h"
 #include "ttydriver.h"
 #include "serial.h"
 #include "debugprint.h"

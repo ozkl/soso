@@ -1,5 +1,5 @@
-#ifndef SCREEN_H
-#define SCREEN_H
+#ifndef VGATEXT_H
+#define VGATEXT_H
 
 #include "common.h"
 #include "tty.h"
@@ -13,4 +13,4 @@ void VGAText_setCursorVisible(BOOL visible);
 void VGAText_moveCursor(uint16 line, uint16 column);
 void VGAText_getCursor(uint16* line, uint16* column);
 
-#endif //SCREEN_H
+#endif //VGATEXT_H

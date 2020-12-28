@@ -1,4 +1,4 @@
-#include "screen.h"
+#include "vgatext.h"
 #include "common.h"
 #include "serial.h"
 

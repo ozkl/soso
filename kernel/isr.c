@@ -1,6 +1,5 @@
 #include "common.h"
 #include "isr.h"
-#include "screen.h"
 
 IsrFunction gInterruptHandlers[256];
 

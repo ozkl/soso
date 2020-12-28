@@ -3,7 +3,6 @@
 #include "fs.h"
 #include "alloc.h"
 #include "device.h"
-#include "screen.h"
 #include "list.h"
 #include "spinlock.h"
 

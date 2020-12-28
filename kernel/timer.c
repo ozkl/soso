@@ -1,6 +1,5 @@
 #include "timer.h"
 #include "isr.h"
-#include "screen.h"
 #include "process.h"
 #include "common.h"
 

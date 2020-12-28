@@ -1,6 +1,5 @@
 #include "vmm.h"
 #include "common.h"
-#include "screen.h"
 #include "alloc.h"
 #include "isr.h"
 #include "process.h"

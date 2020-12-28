@@ -1,7 +1,6 @@
 #include "elf.h"
 #include "common.h"
 #include "process.h"
-#include "screen.h"
 
 BOOL isElf(const char *elfData)
 {

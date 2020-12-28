@@ -4,7 +4,6 @@
 #include "alloc.h"
 #include "fatfs_ff.h"
 #include "fatfs_diskio.h"
-#include "screen.h"
 
 #define SEEK_SET	0	/* Seek from beginning of file.  */
 #define SEEK_CUR	1	/* Seek from current position.  */

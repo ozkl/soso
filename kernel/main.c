@@ -1,4 +1,3 @@
-#include "screen.h"
 #include "descriptortables.h"
 #include "timer.h"
 #include "multiboot.h"

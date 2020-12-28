@@ -3,7 +3,6 @@
 #include "syscalls.h"
 #include "fs.h"
 #include "process.h"
-#include "screen.h"
 #include "alloc.h"
 #include "pipe.h"
 #include "debugprint.h"

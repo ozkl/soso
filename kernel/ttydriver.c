@@ -1,6 +1,6 @@
 #include "ttydriver.h"
 #include "device.h"
-#include "screen.h"
+#include "vgatext.h"
 #include "serial.h"
 #include "devfs.h"
 #include "alloc.h"
@@ -210,7 +210,7 @@ Tty* getActiveTTY()
 
 static void sendInputToKeyBuffer(Tty* tty, uint8 scancode, uint8 character)
 {
-    char seq[8];
+    uint8 seq[8];
     memset(seq, 0, 8);
 
     switch (character) {

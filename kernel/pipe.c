@@ -174,7 +174,7 @@ static void pipe_close(File *file)
     endCriticalSection();
 }
 
-static BOOL pipe_readTestReady(File *file, uint32 size)
+static BOOL pipe_readTestReady(File *file)
 {
     Pipe* pipe = file->node->privateNodeData;
 
@@ -196,7 +196,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 used = 0;
-    while (pipe_readTestReady(file, size) == FALSE)
+    while (pipe_readTestReady(file) == FALSE)
     {
         if (pipe->isBroken)
         {
@@ -218,7 +218,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
     return readBytes;
 }
 
-static BOOL pipe_writeTestReady(File *file, uint32 size)
+static BOOL pipe_writeTestReady(File *file)
 {
     Pipe* pipe = file->node->privateNodeData;
 
@@ -244,7 +244,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 free = 0;
-    while (pipe_writeTestReady(file, size) == FALSE)
+    while (pipe_writeTestReady(file) == FALSE)
     {
         if (pipe->isBroken)
         {

@@ -1,5 +1,4 @@
 #include "common.h"
-#include "screen.h"
 #include "alloc.h"
 #include "vmm.h"
 #include "process.h"

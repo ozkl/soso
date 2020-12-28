@@ -1,6 +1,5 @@
 #include "fs.h"
 #include "alloc.h"
-#include "screen.h"
 #include "rootfs.h"
 
 FileSystemNode *gFileSystemRoot = NULL; // The root of the filesystem.
