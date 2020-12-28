@@ -12,6 +12,4 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode);
 
 BOOL isValidTTY(Tty* tty);
 
-FileSystemNode* createPseudoTerminal();
-
 #endif // TTYDRIVER_H

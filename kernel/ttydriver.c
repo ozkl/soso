@@ -177,10 +177,8 @@ void initializeTTYs(BOOL graphicMode)
         }
         else
         {
-            tty = createTty(25, 80, Screen_FlushFromTty);
+            tty = createTty(25, 80, VGAText_flushFromTty);
         }
-
-        tty->color = 0x0A;
 
         if (i == 5)
         {
@@ -208,31 +206,6 @@ void initializeTTYs(BOOL graphicMode)
 Tty* getActiveTTY()
 {
     return gActiveTty;
-}
-
-FileSystemNode* createPseudoTerminal()
-{
-    Tty* tty = createTty(768 / 16, 1024 / 9, Gfx_FlushFromTty);
-
-    tty->color = 0x0A;
-
-    Device device;
-    memset((uint8*)&device, 0, sizeof(Device));
-    sprintf(device.name, "pts%d", gPseudoTerminalNameGenerator++);
-    device.deviceType = FT_CharacterDevice;
-    device.open = tty_open;
-    device.close = tty_close;
-    device.ioctl = tty_ioctl;
-    device.read = tty_read;
-    device.write = tty_write;
-    device.privateData = tty;
-    FileSystemNode* node = registerDevice(&device);
-    if (NULL == node)
-    {
-        destroyTty(tty);
-    }
-
-    return node;
 }
 
 static void sendInputToKeyBuffer(Tty* tty, uint8 scancode, uint8 character)

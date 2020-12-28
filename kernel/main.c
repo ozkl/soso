@@ -47,35 +47,6 @@ static void* locateInitrd(struct Multiboot *mbi, uint32* size)
     return NULL;
 }
 
-void printUsageInfo()
-{
-    char buffer[164];
-
-    sprintf(buffer, "Used kheap:%d", getKernelHeapUsed());
-    Screen_Print(0, 60, buffer);
-
-    sprintf(buffer, "Pages:%d/%d       ", getUsedPageCount(), getTotalPageCount());
-    Screen_Print(1, 60, buffer);
-
-    sprintf(buffer, "Uptime:%d sec   ", getUptimeSeconds());
-    Screen_Print(2, 60, buffer);
-
-    Thread* p = getMainKernelThread();
-
-    int line = 3;
-    sprintf(buffer, "[idle]   cs:%d   ", p->contextSwitchCount);
-    Screen_Print(line++, 60, buffer);
-    p = p->next;
-    while (p != NULL)
-    {
-        sprintf(buffer, "thread:%d cs:%d   ", p->threadId, p->contextSwitchCount);
-
-        Screen_Print(line++, 60, buffer);
-
-        p = p->next;
-    }
-}
-
 int executeFile(const char *path, char *const argv[], char *const envp[], FileSystemNode* tty)
 {
     int result = -1;

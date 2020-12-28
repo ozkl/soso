@@ -13,12 +13,7 @@ static uint32* gPixels = NULL;
 extern char _binary_font_psf_start;
 extern char _binary_font_psf_end;
 
-uint16 *gUnicode = NULL;
-
-static int gLineCount = 10;
-static int gColumnCount = 10;
-static uint16 gCurrentLine = 0;
-static uint16 gCurrentColumn = 0;
+static uint16 *gUnicode = NULL;
 
 #define LINE_HEIGHT 16
 
@@ -34,9 +29,6 @@ void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPer
     gHeight = height;
     gBytesPerPixel = bytesPerPixel;
     gPitch = pitch;
-
-    gLineCount = gHeight / LINE_HEIGHT;
-    gColumnCount = gWidth / 8;
 
     uint32 sizeBytes = gWidth * gHeight * gBytesPerPixel;
     uint32 neededPageCount = sizeBytes / PAGESIZE_4K;

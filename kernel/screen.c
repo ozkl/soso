@@ -11,14 +11,14 @@ static uint16 gCurrentLine = 0;
 static uint16 gCurrentColumn = 0;
 static uint8 gColor = 0x0A;
 
-void Screen_FlushFromTty(Tty* tty)
+void VGAText_flushFromTty(Tty* tty)
 {
     memcpy(videoStart, tty->buffer, SCREEN_LINE_COUNT * SCREEN_COLUMN_COUNT * 2);
 
-    Screen_MoveCursor(tty->currentLine, tty->currentColumn);
+    VGAText_moveCursor(tty->currentLine, tty->currentColumn);
 }
 
-void Screen_Print(int row, int column, const char* text)
+void VGAText_print(int row, int column, const char* text)
 {
     unsigned char * video = videoStart;
     
@@ -30,12 +30,12 @@ void Screen_Print(int row, int column, const char* text)
     }
 }
 
-void Screen_SetActiveColor(uint8 color)
+void VGAText_setActiveColor(uint8 color)
 {
     gColor = color;
 }
 
-void Screen_ApplyColor(uint8 color)
+void VGAText_applyColor(uint8 color)
 {
     gColor = color;
 
@@ -49,7 +49,7 @@ void Screen_ApplyColor(uint8 color)
     }
 }
 
-void Screen_Clear()
+void VGAText_clear()
 {
 	unsigned char * video = videoStart;
 	int i = 0;
@@ -64,7 +64,7 @@ void Screen_Clear()
     gCurrentColumn = 0;
 }
 
-void Screen_MoveCursor(uint16 line, uint16 column)
+void VGAText_moveCursor(uint16 line, uint16 column)
 {
    // The screen is 80 characters wide...
    uint16 cursorLocation = line * SCREEN_COLUMN_COUNT + column;
@@ -77,7 +77,7 @@ void Screen_MoveCursor(uint16 line, uint16 column)
    gCurrentLine = line;
 }
 
-void Screen_SetCursorVisible(BOOL visible)
+void VGAText_setCursorVisible(BOOL visible)
 {
     uint8 cursor = inb(0x3d5);
 
@@ -92,7 +92,7 @@ void Screen_SetCursorVisible(BOOL visible)
     outb(0x3D5, cursor);
 }
 
-void Screen_GetCursor(uint16* line, uint16* column)
+void VGAText_getCursor(uint16* line, uint16* column)
 {
     *line = gCurrentLine;
     *column = gCurrentColumn;
