@@ -1,3 +1,5 @@
+//This file will be removed with TTY subsystem update!
+
 #ifndef TTY_H
 #define TTY_H
 

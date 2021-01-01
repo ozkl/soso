@@ -1,12 +1,11 @@
-//This file will be removed with TTY subsystem update!
-
-#include "tty.h"
 #include "alloc.h"
+#include "keymap.h"
+#include "terminal.h"
 
-Tty* createTty(uint16 lineCount, uint16 columnCount, TtyFlushScreenFunction flushFunction)
+Terminal* Terminal_create(uint16 lineCount, uint16 columnCount)
 {
-    Tty* tty = kmalloc(sizeof(Tty));
-    memset((uint8*)tty, 0, sizeof(Tty));
+    Terminal* tty = kmalloc(sizeof(Terminal));
+    memset((uint8*)tty, 0, sizeof(Terminal));
 
     tty->lineCount = lineCount;
     tty->columnCount = columnCount;
@@ -15,28 +14,18 @@ Tty* createTty(uint16 lineCount, uint16 columnCount, TtyFlushScreenFunction flus
     tty->currentLine = 0;
     tty->color = 0x0A;
 
-    memset(tty->lineBuffer, 0, TTY_LINEBUFFER_SIZE);
-    tty->lineBufferIndex = 0;
-    tty->keyBuffer = FifoBuffer_create(64);
-    tty->flushScreen = flushFunction;
-
-    tty->term.c_cc[VMIN] = 1;
-    tty->term.c_lflag |= ECHO;
-    tty->term.c_lflag |= ICANON;
-
-    Tty_Clear(tty);
+    Terminal_clear(tty);
 
     return tty;
 }
 
-void destroyTty(Tty* tty)
+void Terminal_destroy(Terminal* tty)
 {
-    FifoBuffer_destroy(tty->keyBuffer);
     kfree(tty->buffer);
     kfree(tty);
 }
 
-void Tty_Print(Tty* tty, int row, int column, const char* text)
+void Terminal_print(Terminal* tty, int row, int column, const char* text)
 {
     unsigned char * video = tty->buffer;
 
@@ -49,7 +38,7 @@ void Tty_Print(Tty* tty, int row, int column, const char* text)
 }
 
 //One line
-void Tty_ScrollUp(Tty* tty)
+void Terminal_scrollUp(Terminal* tty)
 {
     unsigned char * videoLine = tty->buffer;
     unsigned char * videoLineNext = tty->buffer;
@@ -77,7 +66,7 @@ void Tty_ScrollUp(Tty* tty)
     }
 }
 
-void Tty_Clear(Tty* tty)
+void Terminal_clear(Terminal* tty)
 {
     unsigned char * video = tty->buffer;
     int i = 0;
@@ -92,7 +81,7 @@ void Tty_Clear(Tty* tty)
     tty->currentColumn = 0;
 }
 
-void Tty_PutChar(Tty* tty, char c)
+void Terminal_putChar(Terminal* tty, char c)
 {
     unsigned char * video = tty->buffer;
 
@@ -160,7 +149,7 @@ void Tty_PutChar(Tty* tty, char c)
     Tty_MoveCursor(tty, tty->currentLine, tty->currentColumn);
 }
 
-void Tty_PutText(Tty* tty, const char* text)
+void Terminal_putText(Terminal* tty, const char* text)
 {
     const char* c = text;
     while (*c)
@@ -170,8 +159,108 @@ void Tty_PutText(Tty* tty, const char* text)
     }
 }
 
-void Tty_MoveCursor(Tty* tty, uint16 line, uint16 column)
+void Terminal_moveCursor(Terminal* tty, uint16 line, uint16 column)
 {
     tty->currentLine = line;
     tty->currentColumn = column;
+}
+
+void Terminal_sendKey(Terminal* tty, uint8 character)
+{
+    uint8 seq[8];
+    memset(seq, 0, 8);
+    uint32 size = 0;
+
+    switch (character) {
+    case KEY_PAGEUP:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 53;
+        seq[3] = 126;
+        size = 4;
+    }
+        break;
+    case KEY_PAGEDOWN:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 54;
+        seq[3] = 126;
+        size = 4;
+    }
+        break;
+    case KEY_HOME:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 72;
+        size = 3;
+    }
+        break;
+    case KEY_END:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 70;
+        size = 3;
+    }
+        break;
+    case KEY_INSERT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 50;
+        seq[3] = 126;
+        size = 4;
+    }
+        break;
+    case KEY_DELETE:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 51;
+        seq[3] = 126;
+        size = 4;
+    }
+        break;
+    case KEY_UP:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 65;
+        size = 3;
+    }
+        break;
+    case KEY_DOWN:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 66;
+        size = 3;
+    }
+        break;
+    case KEY_RIGHT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 67;
+        size = 3;
+    }
+        break;
+    case KEY_LEFT:
+    {
+        seq[0] = 27;
+        seq[1] = 91;
+        seq[2] = 68;
+        size = 3;
+    }
+        break;
+    default:
+        seq[0] = character;
+        size = 1;
+        break;
+    }
+
+    //TODO: write to master seq and size
 }

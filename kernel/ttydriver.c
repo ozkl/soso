@@ -1,3 +1,5 @@
+//This file will be removed with TTY subsystem update!
+
 #include "ttydriver.h"
 #include "device.h"
 #include "vgatext.h"
@@ -11,6 +13,7 @@
 #include "debugprint.h"
 #include "commonuser.h"
 #include "termios.h"
+#include "keymap.h"
 
 static List* gTtyList = NULL;
 
@@ -22,135 +25,6 @@ static uint8 gKeyModifier = 0;
 
 static uint32 gPseudoTerminalNameGenerator = 0;
 
-typedef enum KeyModifier
-{
-    KM_LeftShift = 1,
-    KM_RightShift = 2,
-    KM_Ctrl = 4,
-    KM_Alt = 8
-} KeyModifier;
-
-enum
-{
-    KEY_LEFTSHIFT = 0x2A,
-    KEY_RIGHTSHIFT = 0x36,
-    KEY_CTRL = 0x1D,
-    KEY_ALT = 0x38,
-    KEY_CAPSLOCK = 0x3A,
-    KEY_F1 = 0x3B,
-    KEY_F2 = 0x3C,
-    KEY_F3 = 0x3D
-};
-
-// PC keyboard interface constants
-
-#define KBSTATP         0x64    // kbd controller status port(I)
-#define KBS_DIB         0x01    // kbd data in buffer
-#define KBDATAP         0x60    // kbd data port(I)
-
-#define NO              0
-
-#define SHIFT           (1<<0)
-#define CTL             (1<<1)
-#define ALT             (1<<2)
-
-#define CAPSLOCK        (1<<3)
-#define NUMLOCK         (1<<4)
-#define SCROLLLOCK      (1<<5)
-
-#define E0ESC           (1<<6)
-
-// Special keycodes
-#define KEY_HOME        0xE0
-#define KEY_END         0xE1
-#define KEY_UP          0xE2
-#define KEY_DOWN        0xE3
-#define KEY_LEFT        0xE4
-#define KEY_RIGHT       0xE5
-#define KEY_PAGEUP      0xE6
-#define KEY_PAGEDOWN    0xE7
-#define KEY_INSERT      0xE8
-#define KEY_DELETE      0xE9
-
-// C('A') == Control-A
-#define C(x) (x - '@')
-
-
-
-
-static uint8 gKeyMap[256] =
-{
-  NO,   0x1B, '1',  '2',  '3',  '4',  '5',  '6',  // 0x00
-  '7',  '8',  '9',  '0',  '-',  '=',  '\b', '\t',
-  'q',  'w',  'e',  'r',  't',  'y',  'u',  'i',  // 0x10
-  'o',  'p',  '[',  ']',  '\n', NO,   'a',  's',
-  'd',  'f',  'g',  'h',  'j',  'k',  'l',  ';',  // 0x20
-  '\'', '`',  NO,   '\\', 'z',  'x',  'c',  'v',
-  'b',  'n',  'm',  ',',  '.',  '/',  NO,   '*',  // 0x30
-  NO,   ' ',  NO,   NO,   NO,   NO,   NO,   NO,
-  NO,   NO,   NO,   NO,   NO,   NO,   NO,   '7',  // 0x40
-  '8',  '9',  '-',  '4',  '5',  '6',  '+',  '1',
-  '2',  '3',  '0',  '.',  NO,   NO,   NO,   NO,   // 0x50
-  [0x49] = KEY_PAGEUP,
-  [0x51] = KEY_PAGEDOWN,
-  [0x47] = KEY_HOME,
-  [0x4F] = KEY_END,
-  [0x52] = KEY_INSERT,
-  [0x53] = KEY_DELETE,
-  [0x48] = KEY_UP,
-  [0x50] = KEY_DOWN,
-  [0x4B] = KEY_LEFT,
-  [0x4D] = KEY_RIGHT,
-  [0x9C] = '\n',      // KP_Enter
-  [0xB5] = '/',       // KP_Div
-  [0xC8] = KEY_UP,
-  [0xD0] = KEY_DOWN,
-  [0xC9] = KEY_PAGEUP,
-  [0xD1] = KEY_PAGEDOWN,
-  [0xCB] = KEY_LEFT,
-  [0xCD] = KEY_RIGHT,
-  [0x97] = KEY_HOME,
-  [0xCF] = KEY_END,
-  [0xD2] = KEY_INSERT,
-  [0xD3] = KEY_DELETE
-};
-
-static uint8 gKeyShiftMap[256] =
-{
-  NO,   033,  '!',  '@',  '#',  '$',  '%',  '^',  // 0x00
-  '&',  '*',  '(',  ')',  '_',  '+',  '\b', '\t',
-  'Q',  'W',  'E',  'R',  'T',  'Y',  'U',  'I',  // 0x10
-  'O',  'P',  '{',  '}',  '\n', NO,   'A',  'S',
-  'D',  'F',  'G',  'H',  'J',  'K',  'L',  ':',  // 0x20
-  '"',  '~',  NO,   '|',  'Z',  'X',  'C',  'V',
-  'B',  'N',  'M',  '<',  '>',  '?',  NO,   '*',  // 0x30
-  NO,   ' ',  NO,   NO,   NO,   NO,   NO,   NO,
-  NO,   NO,   NO,   NO,   NO,   NO,   NO,   '7',  // 0x40
-  '8',  '9',  '-',  '4',  '5',  '6',  '+',  '1',
-  '2',  '3',  '0',  '.',  NO,   NO,   NO,   NO,   // 0x50
-  [0x49] = KEY_PAGEUP,
-  [0x51] = KEY_PAGEDOWN,
-  [0x47] = KEY_HOME,
-  [0x4F] = KEY_END,
-  [0x52] = KEY_INSERT,
-  [0x53] = KEY_DELETE,
-  [0x48] = KEY_UP,
-  [0x50] = KEY_DOWN,
-  [0x4B] = KEY_LEFT,
-  [0x4D] = KEY_RIGHT,
-  [0x9C] = '\n',      // KP_Enter
-  [0xB5] = '/',       // KP_Div
-  [0xC8] = KEY_UP,
-  [0xD0] = KEY_DOWN,
-  [0xC9] = KEY_PAGEUP,
-  [0xD1] = KEY_PAGEDOWN,
-  [0xCB] = KEY_LEFT,
-  [0xCD] = KEY_RIGHT,
-  [0x97] = KEY_HOME,
-  [0xCF] = KEY_END,
-  [0xD2] = KEY_INSERT,
-  [0xD3] = KEY_DELETE
-};
 
 static BOOL tty_open(File *file, uint32 flags);
 static void tty_close(File *file);
