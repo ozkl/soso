@@ -611,30 +611,28 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
 
     buffer[0] = '\0';
 
-    if (bufferSize < 10)
-    {
-        return;
-    }
-
     switch (state)
     {
     case TS_RUN:
-        strcpy((char*)buffer, "run");
+        strncpyNull((char*)buffer, "run", bufferSize);
         break;
     case TS_SLEEP:
-        strcpy((char*)buffer, "sleep");
+        strncpyNull((char*)buffer, "sleep", bufferSize);
         break;
     case TS_SUSPEND:
-        strcpy((char*)buffer, "suspend");
+        strncpyNull((char*)buffer, "suspend", bufferSize);
         break;
     case TS_WAITCHILD:
-        strcpy((char*)buffer, "waitchild");
+        strncpyNull((char*)buffer, "waitchild", bufferSize);
         break;
     case TS_WAITIO:
-        strcpy((char*)buffer, "waitio");
+        strncpyNull((char*)buffer, "waitio", bufferSize);
         break;
     case TS_SELECT:
-        strcpy((char*)buffer, "select");
+        strncpyNull((char*)buffer, "select", bufferSize);
+        break;
+    case TS_UNINTERRUPTIBLE:
+        strncpyNull((char*)buffer, "uninterruptible", bufferSize);
         break;
     default:
         break;
@@ -964,6 +962,11 @@ void schedule(TimerInt_Registers* registers)
         if (current->next == NULL && current == gFirstThread)
         {
             //We are the only thread, no need to schedule
+            return;
+        }
+
+        if (current->state == TS_UNINTERRUPTIBLE)
+        {
             return;
         }
 

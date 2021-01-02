@@ -21,7 +21,8 @@ typedef enum ThreadState
     TS_WAITCHILD,
     TS_SLEEP,
     TS_SELECT,
-    TS_SUSPEND
+    TS_SUSPEND,
+    TS_UNINTERRUPTIBLE
 } ThreadState;
 
 typedef enum SelectState

@@ -91,6 +91,7 @@ int strncmp(const char *str1, const char *str2, int length);
 char *strcpy(char *dest, const char *src);
 char *strcpyNonNull(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, uint32 num);
+char* strncpyNull(char *dest, const char *src, uint32 num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
 int strFirstIndexOf(const char *src, char c);

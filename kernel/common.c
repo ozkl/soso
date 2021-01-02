@@ -176,6 +176,34 @@ char *strncpy(char *dest, const char *src, uint32 num)
     return dest;
 }
 
+char* strncpyNull(char *dest, const char *src, uint32 num)
+{
+    BOOL sourceEnded = FALSE;
+    for (uint32 i = 0; i < num; ++i)
+    {
+        if (sourceEnded == FALSE && src[i] == '\0')
+        {
+            sourceEnded = TRUE;
+        }
+
+        if (sourceEnded)
+        {
+            dest[i] = '\0';
+        }
+        else
+        {
+            dest[i] = src[i];
+        }
+
+        if (i == num - 1)
+        {
+            dest[i] = '\0';
+        }
+    }
+
+    return dest;
+}
+
 char* strcat(char *dest, const char *src)
 {
     size_t i,j;
