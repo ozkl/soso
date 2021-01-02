@@ -112,6 +112,9 @@ BOOL isInterruptsEnabled();
 void beginCriticalSection();
 void endCriticalSection();
 
+BOOL checkUserAccess(void* pointer);
+BOOL checkUserAccessStringArray(char *const array[]);
+
 
 #define isalpha(a) ((((unsigned)(a)|32)-'a') < 26)
 #define isdigit(a) (((unsigned)(a)-'0') < 10)

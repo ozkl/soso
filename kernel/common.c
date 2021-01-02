@@ -453,3 +453,30 @@ void endCriticalSection()
         enableInterrupts();
     }
 }
+
+BOOL checkUserAccess(void* pointer)
+{
+    //TODO: check MEMORY_END as well
+    if ((uint32)pointer >= USER_OFFSET || pointer == NULL)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+BOOL checkUserAccessStringArray(char *const array[])
+{
+    int i = 0;
+    const char* a = array[0];
+    while (NULL != a)
+    {
+        if (!checkUserAccess((char*)a))
+        {
+            return FALSE;
+        }
+        a = array[++i];
+    }
+
+    return TRUE;
+}

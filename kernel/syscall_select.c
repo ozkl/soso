@@ -1,5 +1,7 @@
 #include "process.h"
 #include "timer.h"
+#include "common.h"
+#include "errno.h"
 #include "syscall_select.h"
 
 void updateSelect(Thread* thread)
@@ -75,6 +77,26 @@ static int finishSelect(Thread* thread, fd_set* rfds, fd_set* wfds)
 
 int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timeval* tv)
 {
+    if (!checkUserAccess(rfds))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(wfds))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(efds))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(tv))
+    {
+        return -EFAULT;
+    }
+
     Thread* thread = getCurrentThread();
     Process* process = thread->owner;
 

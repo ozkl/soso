@@ -20,6 +20,7 @@
 #include "list.h"
 #include "ttydev.h"
 #include "syscall_select.h"
+#include "errno.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -228,6 +229,11 @@ static void handleSyscall(Registers* regs)
 
 int syscall_printk(const char *str, int num)
 {
+    if (!checkUserAccess((char*)str))
+    {
+        return -EFAULT;
+    }
+
     printkf(str, num);
 
     return 0;
@@ -235,6 +241,11 @@ int syscall_printk(const char *str, int num)
 
 int syscall_open(const char *pathname, int flags)
 {
+    if (!checkUserAccess((char*)pathname))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -288,6 +299,11 @@ int syscall_close(int fd)
 
 int syscall_read(int fd, void *buf, int nbytes)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     //Screen_PrintF("syscall_read: begin - nbytes:%d\n", nbytes);
 
     Process* process = getCurrentThread()->owner;
@@ -330,6 +346,11 @@ int syscall_read(int fd, void *buf, int nbytes)
 
 int syscall_write(int fd, void *buf, int nbytes)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -372,6 +393,11 @@ int syscall_write(int fd, void *buf, int nbytes)
 
 int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
 {
+    if (!checkUserAccess((void*)iovs))
+    {
+        return -EFAULT;
+    }
+
     int result = 0;
     for (int i = 0; i < iovcnt; ++i)
     {
@@ -395,6 +421,11 @@ int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
 
 int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
 {
+    if (!checkUserAccess((void*)iovs))
+    {
+        return -EFAULT;
+    }
+
     int result = 0;
     for (int i = 0; i < iovcnt; ++i)
     {
@@ -418,11 +449,21 @@ int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
 
 int syscall_set_thread_area(void *p)
 {
+    if (!checkUserAccess(p))
+    {
+        return -EFAULT;
+    }
+
     return 0;
 }
 
 int syscall_set_tid_address(void* p)
 {
+    if (!checkUserAccess(p))
+    {
+        return -EFAULT;
+    }
+
     return getCurrentThread()->threadId;
 }
 
@@ -469,6 +510,11 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
             unsigned int offset_low, int64 *result,
             unsigned int whence)
 {
+    if (!checkUserAccess(result))
+    {
+        return -EFAULT;
+    }
+
     //this syscall is used for large files in 32 bit systems for the offset (offset_high<<32) | offset_low
 
     Process* process = getCurrentThread()->owner;
@@ -493,6 +539,16 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
 
 int syscall_stat(const char *path, struct stat *buf)
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -513,6 +569,11 @@ int syscall_stat(const char *path, struct stat *buf)
 
 int syscall_fstat(int fd, struct stat *buf)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -544,6 +605,10 @@ int syscall_fstat(int fd, struct stat *buf)
 
 int syscall_ioctl(int fd, int32 request, void *arg)
 {
+    //Important!!
+    //We don't checkUserAccess() for arg here. Because it is not always a pointer.
+    //So it is driver's responsibility to checkUserAccess(arg) for using it as a pointer.
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -636,6 +701,21 @@ int syscall_getpid()
 //NON-posix
 int syscall_execute(const char *path, char *const argv[], char *const envp[])
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(argv))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(envp))
+    {
+        return -EFAULT;
+    }
+
     int result = -1;
 
     Process* process = getCurrentThread()->owner;
@@ -686,6 +766,26 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(argv))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(envp))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess((char*)ttyPath))
+    {
+        return -EFAULT;
+    }
+
     int result = -1;
 
     Process* process = getCurrentThread()->owner;
@@ -737,6 +837,21 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
 
 int syscall_execve(const char *path, char *const argv[], char *const envp[])
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(argv))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccessStringArray(envp))
+    {
+        return -EFAULT;
+    }
+
     Process* callingProcess = getCurrentThread()->owner;
 
     FileSystemNode* node = getFileSystemNode(path);
@@ -780,6 +895,11 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
 int syscall_wait(int *wstatus)
 {
+    if (!checkUserAccess(wstatus))
+    {
+        return -EFAULT;
+    }
+
     //TODO: return pid of exited child. implement with sendsignal
 
     Thread* currentThread = getCurrentThread();
@@ -815,6 +935,16 @@ int syscall_wait(int *wstatus)
 
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
 {
+    if (!checkUserAccess(wstatus))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(rusage))
+    {
+        return -EFAULT;
+    }
+
     Thread* currentThread = getCurrentThread();
 
     Process* process = currentThread->owner;
@@ -849,16 +979,31 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
 
 int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
 {
+    if (!checkUserAccess(tp))
+    {
+        return -EFAULT;
+    }
+
     return clock_gettime64(clockid, tp);
 }
 
 int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
 {
+    if (!checkUserAccess((void*)tp))
+    {
+        return -EFAULT;
+    }
+
     return clock_settime64(clockid, tp);
 }
 
 int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
 {
+    if (!checkUserAccess(res))
+    {
+        return -EFAULT;
+    }
+
     return clock_getres64(clockid, res);
 }
 
@@ -899,6 +1044,26 @@ int syscall_kill(int pid, int sig)
 
 int syscall_mount(const char *source, const char *target, const char *fsType, unsigned long flags, void *data)//non-posix
 {
+    if (!checkUserAccess((char*)source))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess((char*)target))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess((char*)fsType))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(data))
+    {
+        return -EFAULT;
+    }
+
     BOOL result = mountFileSystem(source, target, fsType, flags, data);
 
     if (TRUE == result)
@@ -911,6 +1076,11 @@ int syscall_mount(const char *source, const char *target, const char *fsType, un
 
 int syscall_unmount(const char *target)//non-posix
 {
+    if (!checkUserAccess((char*)target))
+    {
+        return -EFAULT;
+    }
+
     FileSystemNode* targetNode = getFileSystemNode(target);
 
     if (targetNode)
@@ -932,6 +1102,11 @@ int syscall_unmount(const char *target)//non-posix
 
 int syscall_mkdir(const char *path, uint32 mode)
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
     char parentPath[128];
     const char* name = NULL;
     int length = strlen(path);
@@ -975,6 +1150,11 @@ int syscall_mkdir(const char *path, uint32 mode)
 
 int syscall_rmdir(const char *path)
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
     //TODO:
     //return 0;//on success
 
@@ -983,6 +1163,11 @@ int syscall_rmdir(const char *path)
 
 int syscall_getdents(int fd, char *buf, int nbytes)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -1031,6 +1216,11 @@ int syscall_getdents(int fd, char *buf, int nbytes)
 
 int syscall_readDir(int fd, void *dirent, int index)
 {
+    if (!checkUserAccess(dirent))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -1069,6 +1259,11 @@ int syscall_readDir(int fd, void *dirent, int index)
 
 int syscall_getWorkingDirectory(char *buf, int size)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -1087,6 +1282,11 @@ int syscall_getWorkingDirectory(char *buf, int size)
 
 int syscall_setWorkingDirectory(const char *path)
 {
+    if (!checkUserAccess((char*)path))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -1109,6 +1309,11 @@ int syscall_setWorkingDirectory(const char *path)
 
 int syscall_managePipe(const char *pipeName, int operation, int data)
 {
+    if (!checkUserAccess((char*)pipeName))
+    {
+        return -EFAULT;
+    }
+
     int result = -1;
 
     switch (operation)
@@ -1143,6 +1348,11 @@ int syscall_sleepMilliseconds(int ms)
 
 int syscall_manageMessage(int command, void* message)
 {
+    if (!checkUserAccess(message))
+    {
+        return -EFAULT;
+    }
+
     Thread* thread = getCurrentThread();
 
     int result = -1;
@@ -1255,6 +1465,11 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
 
 int syscall_munmap(void *addr, int length)
 {
+    if (!checkUserAccess(addr))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
 
     if (process)
@@ -1320,6 +1535,16 @@ int syscall_munmap(void *addr, int length)
 
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf)
 {
+    if (!checkUserAccess((char*)pathname))
+    {
+        return -EFAULT;
+    }
+
+    if (!checkUserAccess(statxbuf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {
@@ -1387,6 +1612,11 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
 
 int syscall_shm_open(const char *name, int oflag, int mode)
 {
+    if (!checkUserAccess((char*)name))
+    {
+        return -EFAULT;
+    }
+
     FileSystemNode* node = NULL;
 
     if ((oflag & O_CREAT) == O_CREAT)
@@ -1413,6 +1643,11 @@ int syscall_shm_open(const char *name, int oflag, int mode)
 
 int syscall_shm_unlink(const char *name)
 {
+    if (!checkUserAccess((char*)name))
+    {
+        return -EFAULT;
+    }
+
     return -1;
 }
 
@@ -1473,6 +1708,11 @@ int syscall_posix_openpt(int flags)
 
 int syscall_ptsname_r(int fd, char *buf, int buflen)
 {
+    if (!checkUserAccess(buf))
+    {
+        return -EFAULT;
+    }
+
     Process* process = getCurrentThread()->owner;
     if (process)
     {

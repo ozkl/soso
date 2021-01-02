@@ -387,6 +387,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
         process->tty = tty;
     }
 
+    //clone to kernel space since we are changing page directory soon
     char** newArgv = cloneStringArray(argv);
     char** newEnvp = cloneStringArray(envp);
 
