@@ -281,12 +281,12 @@ int syscall_close(int fd)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -328,12 +328,12 @@ int syscall_read(int fd, void *buf, int nbytes)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -375,12 +375,12 @@ int syscall_write(int fd, void *buf, int nbytes)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -409,7 +409,7 @@ int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
 
             if (bytes < 0)
             {
-                return  -1;
+                return  bytes;
             }
 
             result += bytes;
@@ -437,7 +437,7 @@ int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
 
             if (bytes < 0)
             {
-                return  -1;
+                return  bytes;
             }
 
             result += bytes;
@@ -490,12 +490,12 @@ int syscall_lseek(int fd, int offset, int whence)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -529,7 +529,7 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
 
     if (res < 0)
     {
-        return -1;
+        return res;
     }
 
     *result = res;
@@ -587,12 +587,12 @@ int syscall_fstat(int fd, struct stat *buf)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -624,12 +624,12 @@ int syscall_ioctl(int fd, int32 request, void *arg)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -1198,12 +1198,12 @@ int syscall_getdents(int fd, char *buf, int nbytes)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -1241,12 +1241,12 @@ int syscall_readDir(int fd, void *dirent, int index)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -1446,12 +1446,12 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
                 }
                 else
                 {
-                    //TODO: error invalid fd
+                    return (void*)-EBADF;
                 }
             }
             else
             {
-                //TODO: error invalid fd
+                return (void*)-EBADF;
             }
         }
     }
@@ -1503,12 +1503,12 @@ int syscall_munmap(void *addr, int length)
                 }
                 else
                 {
-                    //TODO: error invalid fd
+                    return -EBADF;
                 }
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
     }
@@ -1666,12 +1666,12 @@ int syscall_ftruncate(int fd, int size)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else
@@ -1735,12 +1735,12 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
             }
             else
             {
-                //TODO: error invalid fd
+                return -EBADF;
             }
         }
         else
         {
-            //TODO: error invalid fd
+            return -EBADF;
         }
     }
     else

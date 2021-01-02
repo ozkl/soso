@@ -38,7 +38,11 @@ int main()
     fd_set rfds;
     struct timeval tv;
 
-    executeOnTTY("/initrd/shell", NULL, environ, slavePath);
+    char* argv[2];
+    argv[0] = "/initrd/shell";
+    argv[1] = NULL;
+
+    executeOnTTY(argv[0], argv, environ, slavePath);
 
     int maxFd = MAX(fdSerial, fdMaster);
 
