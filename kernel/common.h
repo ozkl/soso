@@ -22,6 +22,11 @@ typedef int64 suseconds_t;
 #define NULL 0
 #define CHECK_BIT(value, pos) ((value) & (1 << (pos)))
 
+#define BITMAP_DEFINE(bitmap, size)	uint8 bitmap[size/8]
+#define BITMAP_SET(bitmap, index)	bitmap[((uint32)index)/8] |=  (1 << (((uint32) index)%8))
+#define BITMAP_UNSET(bitmap, index)	bitmap[((uint32)index)/8] &= ~(1 << (((uint32) index)%8))
+#define BITMAP_CHECK(bitmap, index)	(bitmap[((uint32) index)/8] & (1 << (((uint32) index)%8)))
+
 #define	KERN_PAGE_DIRECTORY			0x00001000
 
 //16M is identity mapped as below.

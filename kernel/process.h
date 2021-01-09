@@ -13,6 +13,7 @@
 #include "syscall_select.h"
 #include "fifobuffer.h"
 #include "spinlock.h"
+#include "signal.h"
 
 typedef enum ThreadState
 {
@@ -22,7 +23,15 @@ typedef enum ThreadState
     TS_SLEEP,
     TS_SELECT,
     TS_SUSPEND,
-    TS_UNINTERRUPTIBLE
+    TS_CRITICAL,        //When a driver is in spinlock.
+
+    TS_UNINTERRUPTIBLE, //Not recommended to be used. Other threads cannot be scheduled to. Timer continues to work.
+
+    TS_DEAD,            //This means a bug in the kernel code (could be a driver) caused a fault to the thread which is in CRITICAL or UNINTERRUPTIBLE state
+                        //the fault handler did not kill the thread but changed its state to DEAD.
+                        //So that the bug can be traced. 
+
+    
 } ThreadState;
 
 typedef enum SelectState
@@ -104,6 +113,8 @@ struct Thread
 
     uint32 userMode;
 
+    BITMAP_DEFINE(signals, SIGNAL_COUNT);
+
     ThreadState state;
     void* state_privateData;
 
@@ -144,8 +155,10 @@ Process* createUserProcessFromFunction(const char* name, Function0 func, char *c
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 void destroyThread(Thread* thread);
 void destroyProcess(Process* process);
+void changeProcessState(Process* process, ThreadState state);
 void changeThreadState(Thread* thread, ThreadState state, void* privateData);
 void resumeThread(Thread* thread);
+void signalThread(Thread* thread, uint32 signal);
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
 int32 getEmptyFd(Process* process);
@@ -159,5 +172,7 @@ void schedule(TimerInt_Registers* registers);
 BOOL isThreadValid(Thread* thread);
 BOOL isProcessValid(Process* process);
 uint32 getSystemContextSwitchCount();
+
+extern Thread* gCurrentThread;
 
 #endif // PROCESS_H

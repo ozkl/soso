@@ -9,6 +9,7 @@
 #include "timer.h"
 #include "message.h"
 #include "list.h"
+#include "tty.h"
 
 #define MESSAGE_QUEUE_SIZE 64
 
@@ -387,6 +388,13 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
         process->tty = tty;
     }
 
+    if (process->tty)
+    {
+        Tty* t = (Tty*)process->tty->privateNodeData;
+
+        t->lastProcess = process;
+    }
+
     //clone to kernel space since we are changing page directory soon
     char** newArgv = cloneStringArray(argv);
     char** newEnvp = cloneStringArray(envp);
@@ -590,6 +598,21 @@ void destroyProcess(Process* process)
     destroyPageDirectoryWithMemory(physicalPD);
 }
 
+void changeProcessState(Process* process, ThreadState state)
+{
+    Thread* thread = gFirstThread;
+
+    while (thread)
+    {
+        if (process == thread->owner)
+        {
+            changeThreadState(thread, state, NULL);
+        }
+
+        thread = thread->next;
+    }
+}
+
 void changeThreadState(Thread* thread, ThreadState state, void* privateData)
 {
     thread->state = state;
@@ -600,6 +623,14 @@ void resumeThread(Thread* thread)
 {
     thread->state = TS_RUN;
     thread->state_privateData = NULL;
+}
+
+void signalThread(Thread* thread, uint32 signal)
+{
+    if (signal < SIGNAL_COUNT)
+    {
+        BITMAP_SET(thread->signals, signal);
+    }
 }
 
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
@@ -630,6 +661,12 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
         break;
     case TS_SELECT:
         strncpyNull((char*)buffer, "select", bufferSize);
+        break;
+    case TS_CRITICAL:
+        strncpyNull((char*)buffer, "critical", bufferSize);
+        break;
+    case TS_DEAD:
+        strncpyNull((char*)buffer, "dead", bufferSize);
         break;
     case TS_UNINTERRUPTIBLE:
         strncpyNull((char*)buffer, "uninterruptible", bufferSize);
@@ -979,6 +1016,18 @@ void schedule(TimerInt_Registers* registers)
         //current is NULL. This means the thread is destroyed.
 
         readyThread = lookThreads(gFirstThread);
+    }
+
+    if (readyThread != gFirstThread)
+    {
+        if (BITMAP_CHECK(readyThread->signals, SIGKILL) || BITMAP_CHECK(readyThread->signals, SIGSEGV))
+        {
+            printkf("Killing pid:%d in scheduler!\n", readyThread->owner->pid);
+            
+            destroyProcess(readyThread->owner);
+
+            readyThread = lookThreads(gFirstThread);
+        }
     }
 
     updateUsageMetrics();

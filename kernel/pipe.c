@@ -125,6 +125,8 @@ static BOOL pipe_open(File *file, uint32 flags)
     {
         beginCriticalSection();
 
+        gCurrentThread->state = TS_CRITICAL;
+
         Pipe* pipe = file->node->privateNodeData;
 
         pipe->isBroken = FALSE;
@@ -140,6 +142,8 @@ static BOOL pipe_open(File *file, uint32 flags)
             List_Append(pipe->writers, file->thread);
         }
 
+        gCurrentThread->state = TS_RUN;
+        
         endCriticalSection();
 
         return TRUE;

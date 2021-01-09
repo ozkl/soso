@@ -2,6 +2,7 @@
 #include "descriptortables.h"
 #include "isr.h"
 #include "process.h"
+#include "debugprint.h"
 
 extern void flushGdt(uint32);
 extern void flushIdt(uint32);
@@ -174,7 +175,7 @@ static void handleDoubleFault(Registers *regs)
 
 static void handleGeneralProtectionFault(Registers *regs)
 {
-    printkf("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
+    Debug_PrintF("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
 
     Thread* faultingThread = getCurrentThread();
     if (NULL != faultingThread)
@@ -187,17 +188,35 @@ static void handleGeneralProtectionFault(Registers *regs)
         }
         else
         {
-            printkf("Faulting thread is %d\n", faultingThread->threadId);
+            Debug_PrintF("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
 
             if (faultingThread->userMode)
             {
-                printkf("Destroying process %d\n", faultingThread->owner->pid);
+                if (faultingThread->state == TS_CRITICAL ||
+                    faultingThread->state == TS_UNINTERRUPTIBLE)
+                {
+                    Debug_PrintF("CRITICAL!! process %d\n", faultingThread->owner->pid);
 
-                destroyProcess(faultingThread->owner);
+                    changeProcessState(faultingThread->owner, TS_SUSPEND);
+
+                    changeThreadState(faultingThread, TS_DEAD, regs->errorCode);
+                }
+                else
+                {
+                    //Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+
+                    //destroyProcess(faultingThread->owner);
+
+                    //TODO: state in RUN?
+
+                    Debug_PrintF("General protection fault %d\n", faultingThread->owner->pid);
+
+                    signalThread(faultingThread, SIGKILL);
+                }
             }
             else
             {
-                printkf("Destroying kernel thread %d\n", faultingThread->threadId);
+                Debug_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }

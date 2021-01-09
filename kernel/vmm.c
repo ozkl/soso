@@ -161,19 +161,7 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
 
     uint32 cr3 = readCr3();
 
-    BOOL selfDestroy = ((pd[1023] & 0xFFFFF000) == physicalPd);
-
-    if (selfDestroy)
-    {
-        //printkf("destroyPD: same PD:%x\n", physicalPd);
-    }
-    else
-    {
-        //printkf("destroyPD: different PD");
-
-        CHANGE_PD(physicalPd);
-    }
-
+    CHANGE_PD(physicalPd);
 
     //this 1023 is very important
     //we must not touch pd[1023] since PD is mapped to itself. Otherwise we corrupt the whole system's memory.
@@ -207,18 +195,9 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
         pd[pdIndex] = 0;
     }
 
-    if (selfDestroy)
-    {
-        endCriticalSection();
-
-        enableInterrupts();
-        waitForSchedule();
-    }
-    else
-    {
-        //return to caller's Page Directory
-        CHANGE_PD(cr3);
-    }
+    endCriticalSection();
+    //return to caller's Page Directory
+    CHANGE_PD(cr3);
 }
 
 //When calling this function:
@@ -447,13 +426,31 @@ static void handlePageFault(Registers *regs)
         {
             printPageFaultInfo(faultingAddress, regs);
 
-            Debug_PrintF("Faulting thread is %d\n", faultingThread->threadId);
+            Debug_PrintF("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
 
             if (faultingThread->userMode)
             {
-                Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+                if (faultingThread->state == TS_CRITICAL ||
+                    faultingThread->state == TS_UNINTERRUPTIBLE)
+                {
+                    Debug_PrintF("CRITICAL!! process %d\n", faultingThread->owner->pid);
 
-                destroyProcess(faultingThread->owner);
+                    changeProcessState(faultingThread->owner, TS_SUSPEND);
+
+                    changeThreadState(faultingThread, TS_DEAD, faultingAddress);
+                }
+                else
+                {
+                    //Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+
+                    //destroyProcess(faultingThread->owner);
+
+                    //TODO: state in RUN?
+
+                    Debug_PrintF("Segmentation fault pid:%d\n", faultingThread->owner->pid);
+
+                    signalThread(faultingThread, SIGSEGV);
+                }
             }
             else
             {
@@ -544,7 +541,7 @@ void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressAr
 
             addPageToPd((char*)v, p, PG_USER | ownFlag);
 
-            Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
+            //Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K(v));
 

@@ -642,19 +642,11 @@ int syscall_ioctl(int fd, int32 request, void *arg)
 
 int syscall_exit()
 {
-    Process* process = getCurrentThread()->owner;
-    if (process)
-    {
-        //Screen_PrintF("syscall_exit() for %d !!!\n", process->pid);
+    Thread* thread = getCurrentThread();
 
-        destroyProcess(process);
-
-        waitForSchedule();
-    }
-    else
-    {
-        PANIC("Process is NULL!\n");
-    }
+    signalThread(thread, SIGKILL);
+    
+    waitForSchedule();
 
     return -1;
 }
@@ -1018,21 +1010,19 @@ int syscall_kill(int pid, int sig)
         {
             //We have found the process
 
-            //TODOif (sig==KILL)
+            Process* threadOwnerProcess = thread->owner;
+
+            signalThread(thread, SIGKILL);
+
+            if (threadOwnerProcess == selfProcess)
             {
-                Process* threadOwnerProcess = thread->owner;
-
-                destroyProcess(thread->owner);
-
-                if (threadOwnerProcess == selfProcess)
-                {
-                    waitForSchedule();
-                }
-                else
-                {
-                    return 0;
-                }
+                waitForSchedule();
             }
+            else
+            {
+                return 0;
+            }
+
             break;
         }
 

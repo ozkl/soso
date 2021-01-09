@@ -184,10 +184,10 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
 
     processScancode(scancode);
 
+    uint8 character = getCharacterForScancode(gKeyModifier, scancode);
+
     if (tty->ignoreKeyboard == FALSE)
     {
-        uint8 character = getCharacterForScancode(gKeyModifier, scancode);
-
         uint8 keyRelease = (0x80 & scancode); //ignore release event
 
         if (character > 0 && keyRelease == 0)
@@ -236,6 +236,22 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
                     resumeThread(file->thread);
                 }
             }
+        }
+    }
+
+    if ((gKeyModifier & KM_Ctrl) && character == 'c')
+    {
+        Thread* p = getMainKernelThread();
+
+        while (p != NULL)
+        {
+            if (p->owner == tty->lastProcess)
+            {
+                printkf("signalling:%d\n", p->owner->pid);
+                signalThread(p, SIGKILL);
+                break;
+            }
+            p = p->next;
         }
     }
 

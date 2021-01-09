@@ -6,6 +6,7 @@
 #include "common.h"
 #include "fifobuffer.h"
 #include "termios.h"
+#include "process.h"
 
 #define TTY_LINEBUFFER_SIZE 1024
 
@@ -28,6 +29,7 @@ typedef struct Tty
     struct termios term;
     TtyFlushScreenFunction flushScreen;
     BOOL ignoreKeyboard;
+    Process* lastProcess;
 } Tty;
 
 
