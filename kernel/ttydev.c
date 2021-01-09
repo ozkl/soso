@@ -5,6 +5,8 @@
 #include "fifobuffer.h"
 #include "list.h"
 #include "timer.h"
+#include "process.h"
+#include "errno.h"
 #include "ttydev.h"
 
 static BOOL master_open(File *file, uint32 flags);
@@ -20,6 +22,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer);
 static int32 slave_write(File *file, uint32 size, uint8 *buffer);
 static BOOL slave_readTestReady(File *file);
 static BOOL slave_writeTestReady(File *file);
+static int32 slave_ioctl(File *file, int32 request, void * argp);
 
 static uint32 gNameGenerator = 0;
 
@@ -38,9 +41,19 @@ FileSystemNode* createTTYDev()
     TtyDev* ttyDev = kmalloc(sizeof(TtyDev));
     memset((uint8*)ttyDev, 0, sizeof(TtyDev));
 
+    ttyDev->controllingProcess = -1;
+    ttyDev->foregroundProcess = -1;
+
+    ttyDev->winsize.ws_col = 80;
+    ttyDev->winsize.ws_row = 25;
+    ttyDev->winsize.ws_xpixel = 0;
+    ttyDev->winsize.ws_ypixel = 0;
+
     ttyDev->term.c_cc[VMIN] = 1;
     ttyDev->term.c_cc[VTIME] = 0;
     ttyDev->term.c_cc[VINTR] = 3;
+    ttyDev->term.c_cc[VSUSP] = 26;
+    ttyDev->term.c_cc[VQUIT] = 28;
     ttyDev->term.c_cc[VERASE] = 127;
 
     ttyDev->term.c_iflag |= ICRNL;
@@ -49,6 +62,7 @@ FileSystemNode* createTTYDev()
 
     ttyDev->term.c_lflag |= ECHO;
     ttyDev->term.c_lflag |= ICANON;
+    ttyDev->term.c_lflag |= ISIG;
 
     ttyDev->bufferMasterWrite = FifoBuffer_create(4096);
     ttyDev->bufferMasterRead = FifoBuffer_create(4096);
@@ -84,6 +98,7 @@ FileSystemNode* createTTYDev()
     slave.write = slave_write;
     slave.readTestReady = slave_readTestReady;
     slave.writeTestReady = slave_writeTestReady;
+    slave.ioctl = slave_ioctl;
     slave.privateData = ttyDev;
 
     FileSystemNode* masterNode = registerDevice(&master);
@@ -271,11 +286,19 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
             }
         }
 
-        if (tty->term.c_lflag & ISIG)
+        if ((tty->term.c_lflag & ISIG) && tty->foregroundProcess >= 0)
         {
             if (character == tty->term.c_cc[VINTR])
             {
-                //TODO: signal
+                signalProcess(tty->foregroundProcess, SIGINT);
+            }
+            else if (character == tty->term.c_cc[VSUSP])
+            {
+                signalProcess(tty->foregroundProcess, SIGTSTP);
+            }
+            else if (character == tty->term.c_cc[VQUIT])
+            {
+                signalProcess(tty->foregroundProcess, SIGQUIT);
             }
         }
 
@@ -378,6 +401,67 @@ static BOOL slave_open(File *file, uint32 flags)
 static void slave_close(File *file)
 {
     
+}
+
+static int32 slave_ioctl(File *file, int32 request, void * argp)
+{
+    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+
+
+    if (file->node != gCurrentThread->owner->tty)
+    {
+        printkf("-ENOTTY\n");
+        return -ENOTTY;
+    }
+
+    switch (request)
+    {
+    case TIOCGPGRP:
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        *(int32*)argp = tty->foregroundProcess;
+        return 0;
+        break;
+    case TIOCSPGRP:
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        tty->foregroundProcess = *(int32*)argp;
+        return 0;
+        break;
+    case TIOCGWINSZ:
+    {
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        winsize_t* ws = (winsize_t*)argp;
+
+        *ws = tty->winsize;
+
+        return 0;//success
+    }
+    case TIOCSWINSZ:
+    {
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        winsize_t* ws = (winsize_t*)argp;
+
+        tty->winsize = *ws;
+
+        return 0;//success
+    }
+    default:
+        printkf("slave_ioctl:Unknown request:%d\n", request);
+        break;
+    }
+
+    return 0;
 }
 
 static BOOL slave_readTestReady(File *file)

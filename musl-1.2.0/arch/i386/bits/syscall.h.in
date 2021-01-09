@@ -173,7 +173,7 @@
 #define __NR_getresgid		1171
 #define __NR_prctl              1172
 #define __NR_rt_sigreturn	1173
-#define __NR_rt_sigaction	1174
+#define __NR_rt_sigaction	29 //1174
 #define __NR_rt_sigprocmask	1175
 #define __NR_rt_sigpending	1176
 #define __NR_rt_sigtimedwait	1177

@@ -62,14 +62,9 @@ struct Process
 
     uint8 mmappedVirtualMemory[RAM_AS_4K_PAGES / 8];
 
-    uint32 signal;
-    void* sigfn[32];
-
     FileSystemNode* tty;
 
     FileSystemNode* workingDirectory;
-
-    //Thread* mainThread;
 
     Process* parent;
 
@@ -113,7 +108,8 @@ struct Thread
 
     uint32 userMode;
 
-    BITMAP_DEFINE(signals, SIGNAL_COUNT);
+    FifoBuffer* signals;//no need to lock as this always accessed in interrupts disabled
+    uint32 pendingSignalCount;
 
     ThreadState state;
     void* state_privateData;
@@ -158,7 +154,8 @@ void destroyProcess(Process* process);
 void changeProcessState(Process* process, ThreadState state);
 void changeThreadState(Thread* thread, ThreadState state, void* privateData);
 void resumeThread(Thread* thread);
-void signalThread(Thread* thread, uint32 signal);
+BOOL signalThread(Thread* thread, uint8 signal);
+void signalProcess(uint32 pid, uint8 signal);
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
 int32 getEmptyFd(Process* process);

@@ -35,7 +35,7 @@ enum
     SYS_sleepMilliseconds,
     SYS_executeOnTTY,
     SYS_manageMessage,
-    SYS_UNUSED,
+    SYS_rt_sigaction,
 
     SYS_mmap,
     SYS_munmap,

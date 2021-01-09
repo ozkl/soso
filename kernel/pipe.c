@@ -3,6 +3,7 @@
 #include "fs.h"
 #include "alloc.h"
 #include "fifobuffer.h"
+#include "errno.h"
 
 static List* gPipeList = NULL;
 
@@ -143,7 +144,7 @@ static BOOL pipe_open(File *file, uint32 flags)
         }
 
         gCurrentThread->state = TS_RUN;
-        
+
         endCriticalSection();
 
         return TRUE;
@@ -205,10 +206,20 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
         if (pipe->isBroken)
         {
             disableInterrupts();
-            return -1;
+            return -EPIPE;
+        }
+
+        if (gCurrentThread->pendingSignalCount > 0)
+        {
+            return -EINTR;
         }
 
         blockAccessingThreads(pipe, pipe->readers);
+    }
+
+    if (gCurrentThread->pendingSignalCount > 0)
+    {
+        return -EINTR;
     }
 
     disableInterrupts();
@@ -253,10 +264,20 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
         if (pipe->isBroken)
         {
             disableInterrupts();
-            return -1;
+            return -EPIPE;
+        }
+
+        if (gCurrentThread->pendingSignalCount > 0)
+        {
+            return -EINTR;
         }
 
         blockAccessingThreads(pipe, pipe->writers);
+    }
+
+    if (gCurrentThread->pendingSignalCount > 0)
+    {
+        return -EINTR;
     }
 
     disableInterrupts();

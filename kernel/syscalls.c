@@ -52,6 +52,12 @@ struct statx {
     uint64 spare[14];
 };
 
+struct k_sigaction {
+	void (*handler)(int);
+	unsigned long flags;
+	void (*restorer)(void);
+	unsigned mask[2];
+};
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -95,6 +101,7 @@ int syscall_getUptimeMilliseconds();
 int syscall_sleepMilliseconds(int ms);
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 int syscall_manageMessage(int command, void* message);
+int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32 sigsetsize);
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
@@ -152,7 +159,7 @@ void initialiseSyscalls()
     gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
     gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
     gSyscallTable[SYS_manageMessage] = syscall_manageMessage;
-    gSyscallTable[SYS_UNUSED] = NULL;
+    gSyscallTable[SYS_rt_sigaction] = syscall_rt_sigaction;
     gSyscallTable[SYS_mmap] = syscall_mmap;
     gSyscallTable[SYS_munmap] = syscall_munmap;
     gSyscallTable[SYS_shm_open] = syscall_shm_open;
@@ -469,8 +476,7 @@ int syscall_set_tid_address(void* p)
 
 int syscall_exit_group(int status)
 {
-    //TODO
-    return 0;
+    return syscall_exit();
 }
 
 int syscall_lseek(int fd, int offset, int whence)
@@ -644,7 +650,7 @@ int syscall_exit()
 {
     Thread* thread = getCurrentThread();
 
-    signalThread(thread, SIGKILL);
+    signalThread(thread, SIGTERM);
     
     waitForSchedule();
 
@@ -1367,6 +1373,12 @@ int syscall_manageMessage(int command, void* message)
     return result;
 }
 
+int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32 sigsetsize)
+{
+    //TODO
+    return -1;
+}
+
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset)
 {
     uint32 vAddressHint = (uint32)addr;
@@ -1680,6 +1692,10 @@ int syscall_posix_openpt(int flags)
         FileSystemNode* node = createTTYDev();
         if (node)
         {
+            TtyDev* ttyDev = (TtyDev*)node->privateNodeData;
+            ttyDev->controllingProcess = process->pid;
+            ttyDev->foregroundProcess = process->pid;
+
             File* file = open_fs(node, flags);
 
             if (file)

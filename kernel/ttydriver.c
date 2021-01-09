@@ -239,22 +239,6 @@ void sendKeyInputToTTY(Tty* tty, uint8 scancode)
         }
     }
 
-    if ((gKeyModifier & KM_Ctrl) && character == 'c')
-    {
-        Thread* p = getMainKernelThread();
-
-        while (p != NULL)
-        {
-            if (p->owner == tty->lastProcess)
-            {
-                printkf("signalling:%d\n", p->owner->pid);
-                signalThread(p, SIGKILL);
-                break;
-            }
-            p = p->next;
-        }
-    }
-
     endCriticalSection();
 }
 

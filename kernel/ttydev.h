@@ -12,11 +12,22 @@ typedef struct FifoBuffer FifoBuffer;
 typedef struct List List;
 typedef struct Thread Thread;
 
+typedef struct winsize_t
+{
+    uint16 ws_row;	/* rows, in characters */
+    uint16 ws_col;	/* columns, in characters */
+    uint16 ws_xpixel;	/* horizontal size, pixels */
+    uint16 ws_ypixel;	/* vertical size, pixels */
+} winsize_t;
+
 typedef struct TtyDev
 {
     FileSystemNode* masterNode;
     FileSystemNode* slaveNode;
     void* privateData;
+    int32 controllingProcess;
+    int32 foregroundProcess;
+    winsize_t winsize;
     FifoBuffer* bufferMasterWrite;
     Spinlock bufferMasterWriteLock;
     FifoBuffer* bufferMasterRead;

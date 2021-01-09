@@ -211,7 +211,7 @@ static void handleGeneralProtectionFault(Registers *regs)
 
                     Debug_PrintF("General protection fault %d\n", faultingThread->owner->pid);
 
-                    signalThread(faultingThread, SIGKILL);
+                    signalThread(faultingThread, SIGILL);
                 }
             }
             else

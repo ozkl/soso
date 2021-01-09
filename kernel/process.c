@@ -9,9 +9,11 @@
 #include "timer.h"
 #include "message.h"
 #include "list.h"
-#include "tty.h"
+#include "ttydev.h"
 
 #define MESSAGE_QUEUE_SIZE 64
+
+#define SIGNAL_QUEUE_SIZE 64
 
 #define AUX_VECTOR_SIZE_BYTES (AUX_CNT * sizeof (Elf32_auxv_t))
 
@@ -69,8 +71,12 @@ void initializeTasking()
     thread->userMode = 0;
     resumeThread(thread);
     thread->birthTime = getUptimeMilliseconds();
+
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
+
+    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
+
     thread->regs.cr3 = (uint32) process->pd;
 
     uint32 selector = 0x10;
@@ -111,6 +117,8 @@ void createKernelThread(Function0 func)
 
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
+
+    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
 
     thread->regs.cr3 = (uint32) thread->owner->pd;
 
@@ -372,6 +380,8 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->messageQueueLock));
 
+    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
+
     thread->regs.cr3 = (uint32) process->pd;
 
     if (parent)
@@ -390,9 +400,20 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     if (process->tty)
     {
-        Tty* t = (Tty*)process->tty->privateNodeData;
+        //TODO: unlock below when the old TTY system removed
+        /*
+        TtyDev* ttyDev = (TtyDev*)process->tty->privateNodeData;
 
-        t->lastProcess = process;
+        if (ttyDev->controllingProcess == -1)
+        {
+            ttyDev->controllingProcess = process->pid;
+        }
+
+        if (ttyDev->foregroundProcess == -1)
+        {
+            ttyDev->foregroundProcess = process->pid;
+        }
+        */
     }
 
     //clone to kernel space since we are changing page directory soon
@@ -499,8 +520,6 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 //This function should be called in interrupts disabled state
 void destroyThread(Thread* thread)
 {
-    Spinlock_Lock(&(thread->messageQueueLock));
-
     //TODO: signal the process somehow
     Thread* previousThread = getPreviousThread(thread);
     if (NULL != previousThread)
@@ -509,7 +528,10 @@ void destroyThread(Thread* thread)
 
         kfree((void*)thread->kstack.stackStart);
 
+        Spinlock_Lock(&(thread->messageQueueLock));
         FifoBuffer_destroy(thread->messageQueue);
+
+        FifoBuffer_destroy(thread->signals);
 
         Debug_PrintF("destroying thread %d\n", thread->threadId);
 
@@ -544,6 +566,8 @@ void destroyProcess(Process* process)
 
                 Spinlock_Lock(&(thread->messageQueueLock));
                 FifoBuffer_destroy(thread->messageQueue);
+
+                FifoBuffer_destroy(thread->signals);
 
                 Debug_PrintF("destroying thread id:%d (owner process %d)\n", thread->threadId, process->pid);
 
@@ -625,11 +649,56 @@ void resumeThread(Thread* thread)
     thread->state_privateData = NULL;
 }
 
-void signalThread(Thread* thread, uint32 signal)
+//must be called in interrupts disabled
+BOOL signalThread(Thread* thread, uint8 signal)
 {
+    //TODO: check for ignore mask
+
+    BOOL result = FALSE;
+
     if (signal < SIGNAL_COUNT)
     {
-        BITMAP_SET(thread->signals, signal);
+        if (signal == SIGCONT)
+        {
+            if (thread->state == TS_SUSPEND)
+            {
+                thread->state = TS_RUN;
+            }
+        }
+
+        if (FifoBuffer_getFree(thread->signals) > 0)
+        {
+            FifoBuffer_enqueue(thread->signals, &signal, 1);
+            thread->pendingSignalCount = FifoBuffer_getSize(thread->signals);
+
+            if (thread->state == TS_WAITIO)
+            {
+                thread->state = TS_RUN;
+                //it should wake and it should return -EINTR
+            }
+
+            result = TRUE;
+        }
+    }
+
+    return result;
+}
+
+void signalProcess(uint32 pid, uint8 signal)
+{
+    Thread* t = getMainKernelThread();
+
+    while (t != NULL)
+    {
+        if (t->owner->pid == pid)
+        {
+            if (signalThread(t, signal))
+            {
+                //only one thread should receive a signal per process!
+                return;
+            }
+        }
+        t = t->next;
     }
 }
 
@@ -1020,13 +1089,40 @@ void schedule(TimerInt_Registers* registers)
 
     if (readyThread != gFirstThread)
     {
-        if (BITMAP_CHECK(readyThread->signals, SIGKILL) || BITMAP_CHECK(readyThread->signals, SIGSEGV))
+        if (FifoBuffer_getSize(readyThread->signals) > 0)
         {
-            printkf("Killing pid:%d in scheduler!\n", readyThread->owner->pid);
-            
-            destroyProcess(readyThread->owner);
+            uint8 signal = 0;
+            FifoBuffer_dequeue(readyThread->signals, &signal, 1);
+            readyThread->pendingSignalCount = FifoBuffer_getSize(readyThread->signals);
 
-            readyThread = lookThreads(gFirstThread);
+            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32)signal, readyThread->owner->pid);
+
+            //TODO: call signal handlers
+
+            switch (signal)
+            {
+            case SIGTERM:
+            case SIGKILL:
+            case SIGSEGV:
+            case SIGINT:
+            case SIGILL:
+                printkf("Killing pid:%d in scheduler!\n", readyThread->owner->pid);
+            
+                destroyProcess(readyThread->owner);
+
+                readyThread = lookThreads(gFirstThread);
+                break;
+            case SIGSTOP:
+            case SIGTSTP:
+                readyThread->state = TS_SUSPEND;
+
+                readyThread = lookThreads(gFirstThread);
+                break;
+            
+            default:
+                break;
+            }
+            
         }
     }
 

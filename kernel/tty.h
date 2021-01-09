@@ -29,7 +29,6 @@ typedef struct Tty
     struct termios term;
     TtyFlushScreenFunction flushScreen;
     BOOL ignoreKeyboard;
-    Process* lastProcess;
 } Tty;
 
 
