@@ -328,6 +328,7 @@ int sprintf_va(char* buffer, const char *format, __builtin_va_list vl)
             c = *format++;
             switch (c)
               {
+              case 'p':
               case 'x':
                  buf[0] = '0';
                  buf[1] = 'x';

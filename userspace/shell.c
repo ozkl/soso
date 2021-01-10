@@ -228,12 +228,55 @@ static void destroyArray(char** array)
     free(array);
 }
 
+static void handleKill(const char* bufferIn)
+{
+    int number1 = 0;
+    int number2 = 0;
+    int scanned = sscanf(bufferIn, "kill %d %d", &number1, &number2);
+
+    int pid = number1;
+    int signal = SIGTERM;
+
+    if (scanned == 1)
+    {
+        pid = number1;
+    }
+    else if (scanned == 2)
+    {
+        signal = number1;
+        pid = number2;
+    }
+    else
+    {
+        printf("usage: kill [signal] pid\n");
+        fflush(stdout);
+        return;
+    }
+    
+
+    printf("Signal %d to pid %d\n", signal, pid);
+    fflush(stdout);
+
+    if (kill(pid, signal) < 0)
+    {
+        printf("kill(%d, %d) failed!\n", pid, signal);
+    }
+    else
+    {
+        printf("kill(%d, %d) success!\n", pid, signal);
+    }
+
+    fflush(stdout);
+}
+
 int main(int argc, char **argv)
 {
     char bufferIn[300];
     char cwd[128];
 
-    printf("User shell v0.3 (pid:%d)!\n", getpid());
+    int shellPid = getpid();
+
+    printf("User shell v0.3 (pid:%d)!\n", shellPid);
 
     while (1)
     {
@@ -246,7 +289,14 @@ int main(int argc, char **argv)
         printf("$");
         fflush(stdout);
 
-        fgets(bufferIn, 300, stdin);
+        //sleepMilliseconds(500);
+
+        char* r = fgets(bufferIn, 300, stdin);
+
+        if (r == NULL)
+        {
+            continue;
+        }
 
         //printf("[%s]\n", bufferIn);
 
@@ -301,8 +351,11 @@ int main(int argc, char **argv)
 
                 if (background == 0)
                 {
+                    tcsetpgrp(0, result);
                     int waitStatus = 0;
                     wait(&waitStatus);
+
+                    tcsetpgrp(0, shellPid);
 
                     printf("Exited pid:%d\n", result);
                     fflush(stdout);
@@ -320,37 +373,29 @@ int main(int argc, char **argv)
             int result = executep(exe, argArray, environ);
             if (result >= 0)
             {
+                
                 printf("Started pid:%d\n", result);
                 fflush(stdout);
 
-                int waitStatus = 0;
-                wait(&waitStatus);
+                if (background == 0)
+                {
+                    tcsetpgrp(0, result);
+                    int waitStatus = 0;
+                    wait(&waitStatus);
 
-                printf("Exited pid:%d\n", result);
-                fflush(stdout);
+                    tcsetpgrp(0, shellPid);
+
+                    printf("Exited pid:%d\n", result);
+                    fflush(stdout);
+                }
             }
             else
             {
                 if (strncmp(bufferIn, "kill", 4) == 0)
                 {
-                    int number = 0;
-                    sscanf(bufferIn, "kill %d", &number);
-
-                    printf("Killing:%d\n", number);
-                    fflush(stdout);
-
-                    if (kill(number, 0) < 0)
-                    {
-                        printf("Pid %d not found!\n", number);
-                        fflush(stdout);
-                    }
-                    else
-                    {
-                        printf("Killed:%d\n", number);
-                        fflush(stdout);
-                    }
+                    handleKill(bufferIn);
                 }
-                if (strncmp(bufferIn, "fork", 4) == 0)
+                else if (strncmp(bufferIn, "fork", 4) == 0)
                 {
                     int number = fork();
 
@@ -417,6 +462,11 @@ int main(int argc, char **argv)
                     tcgetattr(STDIN_FILENO, &raw);
                     raw.c_lflag |= ECHO;
                     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+                }
+                else
+                {
+                    printf("Could not execute:%s\n", bufferIn);
+                    fflush(stdout);
                 }
             }
         }

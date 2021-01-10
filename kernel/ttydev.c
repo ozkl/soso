@@ -336,7 +336,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                     if ((tty->term.c_lflag & ECHO))
                     {
                         char c2 = '\r';
-                        FifoBuffer_enqueue(tty->bufferEcho, &c2, 1);
+                        FifoBuffer_enqueue(tty->bufferEcho, (uint8*)&c2, 1);
                     }
                 }
             }
@@ -457,7 +457,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         return 0;//success
     }
     default:
-        printkf("slave_ioctl:Unknown request:%d\n", request);
+        printkf("slave_ioctl:Unknown request:%d (%x)\n", request, request);
         break;
     }
 
@@ -586,7 +586,7 @@ static uint32 processSlaveWrite(TtyDev* tty, uint32 size, uint8 *buffer)
         }
         else if (c == '\n' && (c_oflag & ONLCR))
         {
-            if (FifoBuffer_getFree(fifo >= 2))
+            if (FifoBuffer_getFree(fifo) >= 2)
             {
                 w = '\r';
                 FifoBuffer_enqueue(fifo, &w, 1);

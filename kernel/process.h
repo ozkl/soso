@@ -155,7 +155,7 @@ void changeProcessState(Process* process, ThreadState state);
 void changeThreadState(Thread* thread, ThreadState state, void* privateData);
 void resumeThread(Thread* thread);
 BOOL signalThread(Thread* thread, uint8 signal);
-void signalProcess(uint32 pid, uint8 signal);
+BOOL signalProcess(uint32 pid, uint8 signal);
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
 void waitForSchedule();
 int32 getEmptyFd(Process* process);

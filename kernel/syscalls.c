@@ -1009,30 +1009,9 @@ int syscall_kill(int pid, int sig)
 {
     Process* selfProcess = getCurrentThread()->owner;
 
-    Thread* thread = getMainKernelThread();
-    while (thread)
+    if (signalProcess(pid, sig))
     {
-        if (pid == thread->owner->pid)
-        {
-            //We have found the process
-
-            Process* threadOwnerProcess = thread->owner;
-
-            signalThread(thread, SIGKILL);
-
-            if (threadOwnerProcess == selfProcess)
-            {
-                waitForSchedule();
-            }
-            else
-            {
-                return 0;
-            }
-
-            break;
-        }
-
-        thread = thread->next;
+        return 0;
     }
 
     return -1;

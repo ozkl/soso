@@ -684,7 +684,7 @@ BOOL signalThread(Thread* thread, uint8 signal)
     return result;
 }
 
-void signalProcess(uint32 pid, uint8 signal)
+BOOL signalProcess(uint32 pid, uint8 signal)
 {
     Thread* t = getMainKernelThread();
 
@@ -695,11 +695,13 @@ void signalProcess(uint32 pid, uint8 signal)
             if (signalThread(t, signal))
             {
                 //only one thread should receive a signal per process!
-                return;
+                return TRUE;
             }
         }
         t = t->next;
     }
+
+    return FALSE;
 }
 
 void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
