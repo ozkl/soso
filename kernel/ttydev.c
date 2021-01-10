@@ -444,6 +444,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
 
         return 0;//success
     }
+        break;
     case TIOCSWINSZ:
     {
         if (!checkUserAccess(argp))
@@ -456,6 +457,35 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
 
         return 0;//success
     }
+        break;
+    case TCGETS:
+    {
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        struct termios* term = (struct termios*)argp;
+
+        *term = tty->term;
+
+        return 0;//success
+    }
+        break;
+    case TCSETS:
+    case TCSETSW:
+    case TCSETSF:
+    {
+        if (!checkUserAccess(argp))
+        {
+            return -EFAULT;
+        }
+        struct termios* term = (struct termios*)argp;
+
+        tty->term = *term;
+
+        return 0;//success
+    }
+        break;
     default:
         printkf("slave_ioctl:Unknown request:%d (%x)\n", request, request);
         break;
