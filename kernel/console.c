@@ -16,6 +16,7 @@
 
 static Terminal* gTerminals[TERMINAL_COUNT];
 static uint32 gActiveTerminalIndex = 0;
+Terminal* gActiveTerminal = NULL;
 
 static uint8 gKeyModifier = 0;
 
@@ -27,23 +28,25 @@ static int32 console_ioctl(File *file, int32 request, void * argp);
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode);
 static void processScancode(uint8 scancode);
 
+static void setActiveTerminal(uint32 index);
+
 void initializeConsole(BOOL graphicMode)
 {
     for (int i = 0; i < 10; ++i)
     {
         Terminal* terminal = NULL;
-        if (graphicMode)
+        FileSystemNode* ttyNode = createTTYDev();
+        if (ttyNode)
         {
-            terminal = Terminal_create(768 / 16, 1024 / 9);
+            TtyDev* ttyDev = (TtyDev*)ttyNode->privateNodeData;
+        
+            terminal = Terminal_create(ttyDev, graphicMode);
         }
-        else
-        {
-            terminal = Terminal_create(25, 80);
-        }
-
         
         gTerminals[i] = terminal;
     }
+
+    setActiveTerminal(0);
 
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
@@ -66,7 +69,7 @@ void sendKeyToConsole(uint8 scancode)
 
     if (character > 0 && keyRelease == 0)
     {
-        Terminal_sendKey(gTerminals[gActiveTerminalIndex], character);
+        Terminal_sendKey(gActiveTerminal, gKeyModifier, character);
     }
 
 }
@@ -87,26 +90,24 @@ static int32 console_ioctl(File *file, int32 request, void * argp)
     return -1;
 }
 
-static void setActiveTty(uint32 index)
+static void setActiveTerminal(uint32 index)
 {
     if (index >= 0 && index < TERMINAL_COUNT)
     {
         gActiveTerminalIndex = index;
+        gActiveTerminal = gTerminals[gActiveTerminalIndex];
 
         Gfx_Fill(0xFFFFFFFF);
 
-        //if (gTerminals[gActiveTerminalIndex]->flushScreen)
+        if (gActiveTerminal->refreshFunction)
         {
-            //gTerminals[gActiveTerminalIndex]->flushScreen(tty);
+            gActiveTerminal->refreshFunction(gActiveTerminal);
         }
     }
-
-    //Serial_PrintF("line:%d column:%d\r\n", gActiveTty->currentLine, gActiveTty->currentColumn);
 }
 
 static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)
 {
-    //return gKeyboardLayout[scancode];
     if ((modifier & KM_LeftShift) || (modifier & KM_RightShift))
     {
         return gKeyShiftMap[scancode];
@@ -140,8 +141,6 @@ static void processScancode(uint8 scancode)
             gKeyModifier &= ~KM_Alt;
             break;
         }
-
-        //Screen_PrintF("released: %x (%d)\n", scancode, scancode);
     }
     else
     {
@@ -163,13 +162,11 @@ static void processScancode(uint8 scancode)
             break;
         }
 
-        //Screen_PrintF("pressed: %x (%d)\n", scancode, scancode);
-
         if ((gKeyModifier & KM_Ctrl) == KM_Ctrl)
         {
             int ttyIndex = scancode - KEY_F1;
             
-            setActiveTty(ttyIndex);
+            setActiveTerminal(ttyIndex);
         }
     }
 }

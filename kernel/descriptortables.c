@@ -199,7 +199,7 @@ static void handleGeneralProtectionFault(Registers *regs)
 
                     changeProcessState(faultingThread->owner, TS_SUSPEND);
 
-                    changeThreadState(faultingThread, TS_DEAD, regs->errorCode);
+                    changeThreadState(faultingThread, TS_DEAD, (void*)regs->errorCode);
                 }
                 else
                 {

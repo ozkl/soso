@@ -218,7 +218,11 @@ File *open_fs(FileSystemNode *node, uint32 flags)
 
 File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
 {
-    Process* process = thread->owner;
+    Process* process = NULL;
+    if (thread)
+    {
+        process = thread->owner;
+    }
 
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {

@@ -4,6 +4,7 @@
 #include "common.h"
 #include "spinlock.h"
 #include "termios.h"
+#include "fs.h"
 
 #define TTYDEV_LINEBUFFER_SIZE 4096
 
@@ -20,6 +21,9 @@ typedef struct winsize_t
     uint16 ws_ypixel;	/* vertical size, pixels */
 } winsize_t;
 
+typedef struct TtyDev TtyDev;
+
+typedef void (*TtyIOReady)(TtyDev* tty, uint32 size);
 typedef struct TtyDev
 {
     FileSystemNode* masterNode;
@@ -36,6 +40,7 @@ typedef struct TtyDev
     List* slaveReaders;
     Spinlock slaveReadersLock;
     Thread* masterReader;
+    TtyIOReady masterReadReady; //used for kernel terminal, because it does not read like a user process
     uint8 lineBuffer[TTYDEV_LINEBUFFER_SIZE];
     uint32 lineBufferIndex;
     struct termios term;
@@ -43,5 +48,7 @@ typedef struct TtyDev
 } TtyDev;
 
 FileSystemNode* createTTYDev();
+
+int32 TtyDev_master_read_nonblock(File *file, uint32 size, uint8 *buffer);
 
 #endif //TTYDEV_H

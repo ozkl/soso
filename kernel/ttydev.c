@@ -1,5 +1,4 @@
 #include "alloc.h"
-#include "fs.h"
 #include "devfs.h"
 #include "device.h"
 #include "fifobuffer.h"
@@ -192,6 +191,31 @@ static int32 master_read(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
+int32 TtyDev_master_read_nonblock(File *file, uint32 size, uint8 *buffer)
+{
+    if (size > 0)
+    {
+        TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+
+        int readSize = 0;
+        if (Spinlock_TryLock(&tty->bufferMasterReadLock))
+        {
+            uint32 neededSize = 1;
+            uint32 bufferLen = FifoBuffer_getSize(tty->bufferMasterRead);
+
+            if (bufferLen >= neededSize)
+            {
+                readSize = FifoBuffer_dequeue(tty->bufferMasterRead, buffer, MIN(bufferLen, size));
+            }
+
+            Spinlock_Unlock(&tty->bufferMasterReadLock);
+        }
+        return readSize;
+    }
+
+    return -1;
+}
+
 static BOOL master_writeTestReady(File *file)
 {
     return TRUE;
@@ -244,7 +268,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
 
     FifoBuffer_clear(tty->bufferEcho);
 
-    enableInterrupts();
+    //enableInterrupts(); //TODO: check
 
     Spinlock_Lock(&tty->bufferMasterWriteLock);
 
@@ -378,13 +402,23 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
 
         int32 w = FifoBuffer_enqueueFromOther(tty->bufferMasterRead, tty->bufferEcho);
 
+        uint32 bytesUsable = FifoBuffer_getSize(tty->bufferMasterRead);
+
         Spinlock_Unlock(&tty->bufferMasterReadLock);
 
-        if (w > 0 && tty->masterReader)
+        if (bytesUsable > 0 && tty->masterReadReady)
         {
-            if (tty->masterReader->state == TS_WAITIO && tty->masterReader->state_privateData == tty)
+            tty->masterReadReady(tty, bytesUsable);
+        }
+
+        if (w > 0)
+        {
+            if (tty->masterReader)
             {
-                resumeThread(tty->masterReader);
+                if (tty->masterReader->state == TS_WAITIO && tty->masterReader->state_privateData == tty)
+                {
+                    resumeThread(tty->masterReader);
+                }
             }
         }
     }
@@ -659,7 +693,14 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
         written = processSlaveWrite(tty, MIN(size, free), buffer);
     }
 
+    uint32 bytesUsable = FifoBuffer_getSize(tty->bufferMasterRead);
+
     Spinlock_Unlock(&tty->bufferMasterReadLock);
+
+    if (bytesUsable > 0 && tty->masterReadReady)
+    {
+        tty->masterReadReady(tty, bytesUsable);
+    }
 
     if (written > 0)
     {
@@ -670,6 +711,7 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
                 resumeThread(tty->masterReader);
             }
         }
+        
         return written;
     }
 

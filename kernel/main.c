@@ -25,6 +25,7 @@
 #include "gfx.h"
 #include "mouse.h"
 #include "sleep.h"
+#include "console.h"
 
 extern uint32 _start;
 extern uint32 _end;
@@ -117,7 +118,7 @@ int kmain(struct Multiboot *mboot_ptr)
     {
         Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
 
-        initializeTTYs(TRUE);
+        //initializeTTYs(TRUE);
     }
     else
     {
@@ -142,6 +143,8 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initializeTasking();
 
+    initializeConsole(TRUE);
+
     initialiseSyscalls();
 
     initializeTimer();
@@ -154,9 +157,10 @@ int kmain(struct Multiboot *mboot_ptr)
         printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
     }
 
-    Debug_initialize("/dev/tty9");
-
     initializeSerial();
+
+    //Debug_initialize("/dev/com1");
+    Debug_initialize("/dev/ptty9");
 
     initializeRandom();
     initializeNull();
@@ -192,10 +196,10 @@ int kmain(struct Multiboot *mboot_ptr)
         {
             printkf("Starting shell on TTYs\n");
 
-            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty1"));
-            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty2"));
-            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty3"));
-            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/tty4"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/ptty1"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/ptty2"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/ptty3"));
+            executeFile("/initrd/shell", argv, envp, getFileSystemNode("/dev/ptty4"));
         }
         else
         {

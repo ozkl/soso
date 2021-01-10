@@ -2,33 +2,39 @@
 #define TERMINAL_H
 
 #include "common.h"
+#include "fs.h"
 #include "fifobuffer.h"
 #include "termios.h"
+#include "ttydev.h"
+
+typedef struct Terminal Terminal;
+
+typedef void (*TerminalRefresh)(Terminal* terminal);
 
 typedef struct Terminal
 {
-    uint16 lineCount;
-    uint16 columnCount;
+    TtyDev* tty;
     uint8* buffer;
     uint16 currentLine;
     uint16 currentColumn;
     uint8 color;
-    void* privateData;
+    File* openedMaster;
+    TerminalRefresh refreshFunction;
     //TODO: function pointers of underlying text renderer
 } Terminal;
 
 
 
-Terminal* Terminal_create(uint16 lineCount, uint16 columnCount);
-void Terminal_destroy(Terminal* tty);
+Terminal* Terminal_create(TtyDev* tty, BOOL graphicMode);
+void Terminal_destroy(Terminal* terminal);
 
-void Terminal_print(Terminal* tty, int row, int column, const char* text);
-void Terminal_clear(Terminal* tty);
-void Terminal_putChar(Terminal* tty, char c);
-void Terminal_putText(Terminal* tty, const char* text);
-void Terminal_moveCursor(Terminal* tty, uint16 line, uint16 column);
-void Terminal_scrollUp(Terminal* tty);
+void Terminal_print(Terminal* terminal, int row, int column, const char* text);
+void Terminal_clear(Terminal* terminal);
+void Terminal_putChar(Terminal* terminal, char c);
+void Terminal_putText(Terminal* terminal, const char* text, uint32 size);
+void Terminal_moveCursor(Terminal* terminal, uint16 line, uint16 column);
+void Terminal_scrollUp(Terminal* terminal);
 
-void Terminal_sendKey(Terminal* tty, uint8 character);
+void Terminal_sendKey(Terminal* terminal, uint8 modifier, uint8 character);
 
 #endif // TERMINAL_H

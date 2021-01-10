@@ -8,6 +8,7 @@
 #include "alloc.h"
 #include "devfs.h"
 #include "list.h"
+#include "console.h"
 
 static uint8* gKeyBuffer = NULL;
 static uint32 gKeyBufferWriteIndex = 0;
@@ -179,5 +180,7 @@ static void handleKeyboardInterrupt(Registers *regs)
         }
     }
 
-    sendKeyInputToTTY(getActiveTTY(), scancode);
+    //sendKeyInputToTTY(getActiveTTY(), scancode);
+
+    sendKeyToConsole(scancode);
 }
