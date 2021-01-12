@@ -13,7 +13,7 @@ uint8 gPhysicalPageFrameBitmap[RAM_AS_4K_PAGES / 8];
 static int gTotalPageCount = 0;
 
 static void handlePageFault(Registers *regs);
-static void syncPageDirectoriesKernelMemory();
+static void syncPageDirectoriesFromKernelMemory();
 
 void initializeMemory(uint32 high_mem)
 {
@@ -217,6 +217,15 @@ BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags)
 
     uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pdIndex);
 
+    uint32 cr3 = 0;
+
+    if (v_addr < (char*)(KERN_HEAP_END))
+    {
+        cr3 = readCr3();
+
+        CHANGE_PD(gKernelPageDirectory);
+    }
+
     //Serial_PrintF("addPageToPd 1");
     if ((pd[pdIndex] & PG_PRESENT) != PG_PRESENT)
     {
@@ -239,10 +248,16 @@ BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags)
         }
     }
 
-
     if ((pt[ptIndex] & PG_PRESENT) == PG_PRESENT)
     {
         //Serial_PrintF("addPageToPd 6");
+
+        if (0 != cr3)
+        {
+            //restore
+            CHANGE_PD(cr3);
+        }
+
         return FALSE;
     }
 
@@ -254,13 +269,17 @@ BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags)
 
     //Serial_PrintF("addPageToPd 8");
 
+    if (0 != cr3)
+    {
+        //restore
+        CHANGE_PD(cr3);
+    }
+
     if (v_addr < (char*)(KERN_HEAP_END))
     {
         //If this is the kernel page directory, sync others for first 1GB
-        if ((pd[1023] & 0xFFFFF000) == (uint32)gKernelPageDirectory)
-        {
-            syncPageDirectoriesKernelMemory();
-        }
+
+        syncPageDirectoriesFromKernelMemory();
     }
 
     return TRUE;
@@ -273,6 +292,15 @@ BOOL removePageFromPd(char *v_addr)
     int ptIndex = (((uint32) v_addr) >> 12) & 0x03FF;
 
     uint32* pd = (uint32*)0xFFFFF000;
+
+    uint32 cr3 = 0;
+
+    if (v_addr < (char*)(KERN_HEAP_END))
+    {
+        cr3 = readCr3();
+
+        CHANGE_PD(gKernelPageDirectory);
+    }
 
 
     if ((pd[pdIndex] & PG_PRESENT) == PG_PRESENT)
@@ -317,22 +345,32 @@ BOOL removePageFromPd(char *v_addr)
 
         INVALIDATE(v_addr);
 
+        if (0 != cr3)
+        {
+            //restore
+            CHANGE_PD(cr3);
+        }
+
         if (v_addr < (char*)(KERN_HEAP_END))
         {
             //If this is the kernel page directory, sync others for first 1GB
-            if ((pd[1023] & 0xFFFFF000) == (uint32)gKernelPageDirectory)
-            {
-                syncPageDirectoriesKernelMemory();
-            }
+            
+            syncPageDirectoriesFromKernelMemory();
         }
 
         return TRUE;
     }
 
+    if (0 != cr3)
+    {
+        //restore
+        CHANGE_PD(cr3);
+    }
+
     return FALSE;
 }
 
-static void syncPageDirectoriesKernelMemory()
+static void syncPageDirectoriesFromKernelMemory()
 {
     uint32 address = KERN_PD_AREA_BEGIN;
     for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)

@@ -136,9 +136,7 @@ void createKernelThread(Function0 func)
 
     uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
 
-    //thread->miniAllocations[0] = (uint32)stack;
-
-    thread->regs.esp = (uint32)(stack + KERN_STACK_SIZE);
+    thread->regs.esp = (uint32)(stack + KERN_STACK_SIZE - 4);
 
     thread->kstack.ss0 = 0x10;
     thread->kstack.esp0 = 0;//For kernel threads, this is not required
@@ -432,7 +430,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     initializeProgramBreak(process, sizeInMemory);
 
 
-    const uint32 stackPageCount = 5;
+    const uint32 stackPageCount = 50;
     char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4K * stackPageCount);
     uint32 stackFrames[stackPageCount];
     for (uint32 i = 0; i < stackPageCount; ++i)
