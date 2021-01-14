@@ -103,6 +103,11 @@ static void setActiveTerminal(uint32 index)
         {
             gActiveTerminal->refreshFunction(gActiveTerminal);
         }
+
+        if (gActiveTerminal->moveCursorFunction)
+        {
+            gActiveTerminal->moveCursorFunction(gActiveTerminal, gActiveTerminal->currentLine, gActiveTerminal->currentColumn, gActiveTerminal->currentLine, gActiveTerminal->currentColumn);
+        }
     }
 }
 

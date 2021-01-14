@@ -119,6 +119,7 @@ int kmain(struct Multiboot *mboot_ptr)
         Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
 
         //initializeTTYs(TRUE);
+        initializeConsole(TRUE);
     }
     else
     {
@@ -142,8 +143,6 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeSharedMemory();
 
     initializeTasking();
-
-    initializeConsole(TRUE);
 
     initialiseSyscalls();
 

@@ -10,6 +10,8 @@
 typedef struct Terminal Terminal;
 
 typedef void (*TerminalRefresh)(Terminal* terminal);
+typedef void (*TerminalAddCharacter)(Terminal* terminal, uint8 character);
+typedef void (*TerminalMoveCursor)(Terminal* terminal, uint16 oldLine, uint16 oldColumn, uint16 line, uint16 column);
 
 typedef struct Terminal
 {
@@ -20,7 +22,8 @@ typedef struct Terminal
     uint8 color;
     File* openedMaster;
     TerminalRefresh refreshFunction;
-    //TODO: function pointers of underlying text renderer
+    TerminalAddCharacter addCharacterFunction;
+    TerminalMoveCursor moveCursorFunction;
 } Terminal;
 
 
@@ -30,8 +33,8 @@ void Terminal_destroy(Terminal* terminal);
 
 void Terminal_print(Terminal* terminal, int row, int column, const char* text);
 void Terminal_clear(Terminal* terminal);
-void Terminal_putChar(Terminal* terminal, char c);
-void Terminal_putText(Terminal* terminal, const char* text, uint32 size);
+void Terminal_putChar(Terminal* terminal, uint8 c);
+void Terminal_putText(Terminal* terminal, const uint8* text, uint32 size);
 void Terminal_moveCursor(Terminal* terminal, uint16 line, uint16 column);
 void Terminal_scrollUp(Terminal* terminal);
 

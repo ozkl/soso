@@ -14,6 +14,7 @@ void Gfx_PutCharAt(
     /* foreground and background colors, say 0xFFFFFF and 0x000000 */
     uint32 fg, uint32 bg);
 
+
 void Gfx_FlushFromTty(Tty* tty);
 
 uint8* Gfx_GetVideoMemory();

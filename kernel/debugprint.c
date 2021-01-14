@@ -8,7 +8,10 @@ void Debug_initialize(const char* fileName)
 {
     FileSystemNode* node = getFileSystemNode(fileName);
 
-    gFile = open_fs(node, 0);
+    if (node)
+    {
+      gFile = open_fs(node, 0);
+    }
 }
 
 void Debug_PrintF(const char *format, ...)

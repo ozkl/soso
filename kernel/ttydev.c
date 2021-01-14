@@ -304,7 +304,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                 escaped[1] = ('@' + character) % 128;
                 FifoBuffer_enqueue(tty->bufferEcho, escaped, 2);
             }
-            else
+            else if (character != 127)
             {
                 FifoBuffer_enqueue(tty->bufferEcho, &character, 1);
             }

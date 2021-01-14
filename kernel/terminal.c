@@ -1,11 +1,9 @@
 #include "alloc.h"
 #include "keymap.h"
-#include "gfx.h"
 #include "fs.h"
 #include "console.h"
+#include "fbterminal.h"
 #include "terminal.h"
-
-void Framebuffer_RefreshTerminal(Terminal* terminal);
 
 static void master_read_ready(TtyDev* tty, uint32 size);
 
@@ -17,9 +15,7 @@ Terminal* Terminal_create(TtyDev* tty, BOOL graphicMode)
     terminal->tty = tty;
     if (graphicMode)
     {
-        terminal->tty->winsize.ws_row = Gfx_GetHeight() / 16;
-        terminal->tty->winsize.ws_col = Gfx_GetWidth() / 9;
-        terminal->refreshFunction = Framebuffer_RefreshTerminal;
+        fbterminal_setup(terminal);
     }
     else
     {
@@ -91,6 +87,14 @@ void Terminal_scrollUp(Terminal* terminal)
         lastLine[i] = 0;
         lastLine[i + 1] = terminal->color;
     }
+
+    if (gActiveTerminal == terminal)
+    {
+        if (terminal->refreshFunction)
+        {
+            terminal->refreshFunction(terminal);
+        }
+    }
 }
 
 void Terminal_clear(Terminal* terminal)
@@ -104,21 +108,20 @@ void Terminal_clear(Terminal* terminal)
         *video++ = terminal->color;
     }
 
-    terminal->currentLine = 0;
-    terminal->currentColumn = 0;
+    Terminal_moveCursor(terminal, 0, 0);
 }
 
-void Terminal_putChar(Terminal* terminal, char c)
+void Terminal_putChar(Terminal* terminal, uint8 c)
 {
     unsigned char * video = terminal->buffer;
 
     if ('\n' == c)
     {
-        ++terminal->currentLine;
+        Terminal_moveCursor(terminal, terminal->currentLine + 1, terminal->currentColumn);
 
-        if (terminal->currentLine >= terminal->tty->winsize.ws_row - 0)
+        if (terminal->currentLine >= terminal->tty->winsize.ws_row - 1)
         {
-            --terminal->currentLine;
+            Terminal_moveCursor(terminal, terminal->currentLine - 1, terminal->currentColumn);
             Terminal_scrollUp(terminal);
         }
 
@@ -127,34 +130,29 @@ void Terminal_putChar(Terminal* terminal, char c)
     }
     if ('\r' == c)
     {
-        terminal->currentColumn = 0;
-
-        Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn);
+        Terminal_moveCursor(terminal, terminal->currentLine, 0);
         return;
     }
     else if ('\b' == c)
     {
         if (terminal->currentColumn > 0)
         {
-            --terminal->currentColumn;
+            Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn - 1);
             c = '\0';
             video = terminal->buffer + (terminal->currentLine * terminal->tty->winsize.ws_col + terminal->currentColumn) * 2;
             video[0] = c;
             video[1] = terminal->color;
-            Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn);
             return;
         }
         else if (terminal->currentColumn == 0)
         {
             if (terminal->currentLine > 0)
             {
-                --terminal->currentLine;
-                terminal->currentColumn = terminal->tty->winsize.ws_col - 1;
+                Terminal_moveCursor(terminal, terminal->currentLine - 1, terminal->tty->winsize.ws_col - 1);
                 c = '\0';
                 video = terminal->buffer + (terminal->currentLine * terminal->tty->winsize.ws_col + terminal->currentColumn) * 2;
                 video[0] = c;
                 video[1] = terminal->color;
-                Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn);
                 return;
             }
         }
@@ -162,13 +160,12 @@ void Terminal_putChar(Terminal* terminal, char c)
 
     if (terminal->currentColumn >= terminal->tty->winsize.ws_col)
     {
-        ++terminal->currentLine;
-        terminal->currentColumn = 0;
+        Terminal_moveCursor(terminal, terminal->currentLine + 1, 0);
     }
 
-    if (terminal->currentLine >= terminal->tty->winsize.ws_row - 0)
+    if (terminal->currentLine >= terminal->tty->winsize.ws_row - 1)
     {
-        --terminal->currentLine;
+        Terminal_moveCursor(terminal, terminal->currentLine - 1, terminal->currentColumn);
         Terminal_scrollUp(terminal);
     }
 
@@ -177,14 +174,20 @@ void Terminal_putChar(Terminal* terminal, char c)
     video[0] = c;
     video[1] = terminal->color;
 
-    ++terminal->currentColumn;
+    if (gActiveTerminal == terminal)
+    {
+        if (terminal->addCharacterFunction)
+        {
+            terminal->addCharacterFunction(terminal, c);
+        }
+    }
 
-    Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn);
+    Terminal_moveCursor(terminal, terminal->currentLine, terminal->currentColumn + 1);
 }
 
-void Terminal_putText(Terminal* terminal, const char* text, uint32 size)
+void Terminal_putText(Terminal* terminal, const uint8* text, uint32 size)
 {
-    const char* c = text;
+    const uint8* c = text;
     uint32 i = 0;
     while (*c && i < size)
     {
@@ -196,6 +199,21 @@ void Terminal_putText(Terminal* terminal, const char* text, uint32 size)
 
 void Terminal_moveCursor(Terminal* terminal, uint16 line, uint16 column)
 {
+    if (line >= terminal->tty->winsize.ws_row)
+    {
+        line = terminal->tty->winsize.ws_row - 1;
+    }
+
+    if (column >= terminal->tty->winsize.ws_col)
+    {
+        column = terminal->tty->winsize.ws_col - 1;
+    }
+
+    if (gActiveTerminal == terminal && terminal->moveCursorFunction)
+    {
+        terminal->moveCursorFunction(terminal, terminal->currentLine, terminal->currentColumn, line, column);
+    }
+
     terminal->currentLine = line;
     terminal->currentColumn = column;
 }
@@ -310,24 +328,7 @@ void Terminal_sendKey(Terminal* terminal, uint8 modifier, uint8 character)
     write_fs(terminal->openedMaster, size, seq);
 }
 
-//TODO: move
-void Framebuffer_RefreshTerminal(Terminal* terminal)
-{
-    for (uint32 r = 0; r < terminal->tty->winsize.ws_row; ++r)
-    {
-        for (uint32 c = 0; c < terminal->tty->winsize.ws_col; ++c)
-        {
-            uint8* characterPos = terminal->buffer + (r * terminal->tty->winsize.ws_col + c) * 2;
 
-            uint8 chr = characterPos[0];
-            uint8 color = characterPos[1];
-
-            Gfx_PutCharAt(chr, c, r, 0, 0xFFFFFFFF);
-        }
-    }
-
-    //TODO: cursor
-}
 
 static void master_read_ready(TtyDev* tty, uint32 size)
 {
@@ -344,12 +345,4 @@ static void master_read_ready(TtyDev* tty, uint32 size)
             Terminal_putText(terminal, characters, bytes);
         }
     } while (bytes > 0);
-
-    if (gActiveTerminal == terminal)
-    {
-        if (terminal->refreshFunction)
-        {
-            terminal->refreshFunction(terminal);
-        }
-    }
 }
