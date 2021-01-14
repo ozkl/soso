@@ -114,18 +114,14 @@ int kmain(struct Multiboot *mboot_ptr)
     initializeVFS();
     initializeDevFS();
 
-    if (MULTIBOOT_FRAMEBUFFER_TYPE_RGB == mboot_ptr->framebuffer_type)
+    BOOL graphics_mode = (MULTIBOOT_FRAMEBUFFER_TYPE_RGB == mboot_ptr->framebuffer_type);
+
+    if (graphics_mode)
     {
         Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
+    }
 
-        //initializeTTYs(TRUE);
-        initializeConsole(TRUE);
-    }
-    else
-    {
-        initializeTTYs(FALSE);
-    }
-    //printkf works after TTY initialization
+    initializeConsole(graphics_mode);
 
     printAsciiArt();
 

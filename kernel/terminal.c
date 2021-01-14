@@ -3,6 +3,7 @@
 #include "fs.h"
 #include "console.h"
 #include "fbterminal.h"
+#include "vgaterminal.h"
 #include "terminal.h"
 
 static void master_read_ready(TtyDev* tty, uint32 size);
@@ -19,8 +20,7 @@ Terminal* Terminal_create(TtyDev* tty, BOOL graphicMode)
     }
     else
     {
-        terminal->tty->winsize.ws_row = 25;
-        terminal->tty->winsize.ws_col = 80;
+        vgaterminal_setup(terminal);
     }
 
     terminal->buffer = kmalloc(terminal->tty->winsize.ws_row * terminal->tty->winsize.ws_col * 2);
