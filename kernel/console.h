@@ -7,10 +7,10 @@
 
 typedef struct Terminal Terminal;
 
-extern Terminal* gActiveTerminal;
+extern Terminal* g_active_terminal;
 
-void initializeConsole(BOOL graphicMode);
+void console_initialize(BOOL graphicMode);
 
-void sendKeyToConsole(uint8 scancode);
+void console_send_key(uint8 scancode);
 
 #endif // CONSOLE_H

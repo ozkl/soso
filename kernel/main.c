@@ -9,7 +9,6 @@
 #include "alloc.h"
 #include "process.h"
 #include "keyboard.h"
-#include "ttydriver.h"
 #include "devfs.h"
 #include "systemfs.h"
 #include "pipe.h"
@@ -121,7 +120,7 @@ int kmain(struct Multiboot *mboot_ptr)
         Gfx_Initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
     }
 
-    initializeConsole(graphics_mode);
+    console_initialize(graphics_mode);
 
     printAsciiArt();
 

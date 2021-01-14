@@ -17,8 +17,8 @@ typedef struct Terminal
 {
     TtyDev* tty;
     uint8* buffer;
-    uint16 currentLine;
-    uint16 currentColumn;
+    uint16 current_line;
+    uint16 current_column;
     uint8 color;
     File* openedMaster;
     TerminalRefresh refreshFunction;
@@ -28,16 +28,16 @@ typedef struct Terminal
 
 
 
-Terminal* Terminal_create(TtyDev* tty, BOOL graphicMode);
-void Terminal_destroy(Terminal* terminal);
+Terminal* terminal_create(TtyDev* tty, BOOL graphicMode);
+void terminal_destroy(Terminal* terminal);
 
-void Terminal_print(Terminal* terminal, int row, int column, const char* text);
-void Terminal_clear(Terminal* terminal);
-void Terminal_putChar(Terminal* terminal, uint8 c);
-void Terminal_putText(Terminal* terminal, const uint8* text, uint32 size);
-void Terminal_moveCursor(Terminal* terminal, uint16 line, uint16 column);
-void Terminal_scrollUp(Terminal* terminal);
+void terminal_print(Terminal* terminal, int row, int column, const char* text);
+void terminal_clear(Terminal* terminal);
+void terminal_put_character(Terminal* terminal, uint8 c);
+void terminal_put_text(Terminal* terminal, const uint8* text, uint32 size);
+void terminal_move_cursor(Terminal* terminal, uint16 line, uint16 column);
+void terminal_scroll_up(Terminal* terminal);
 
-void Terminal_sendKey(Terminal* terminal, uint8 modifier, uint8 character);
+void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character);
 
 #endif // TERMINAL_H

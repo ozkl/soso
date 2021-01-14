@@ -32,7 +32,7 @@ static void fbterminal_refreshTerminal(Terminal* terminal)
 
 static void fbterminal_addCharacter(Terminal* terminal, uint8 character)
 {
-    Gfx_PutCharAt(character, terminal->currentColumn, terminal->currentLine, 0, 0xFFFFFFFF);
+    Gfx_PutCharAt(character, terminal->current_column, terminal->current_line, 0, 0xFFFFFFFF);
 }
 
 static void fbterminal_moveCursor(Terminal* terminal, uint16 oldLine, uint16 oldColumn, uint16 line, uint16 column)

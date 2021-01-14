@@ -1,8 +1,6 @@
 #include "keyboard.h"
 #include "isr.h"
 #include "common.h"
-#include "vgatext.h"
-#include "ttydriver.h"
 #include "fs.h"
 #include "device.h"
 #include "alloc.h"
@@ -182,5 +180,5 @@ static void handleKeyboardInterrupt(Registers *regs)
 
     //sendKeyInputToTTY(getActiveTTY(), scancode);
 
-    sendKeyToConsole(scancode);
+    console_send_key(scancode);
 }

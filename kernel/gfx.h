@@ -2,7 +2,6 @@
 #define GFX_H
 
 #include "common.h"
-#include "tty.h"
 
 void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch);
 
@@ -15,7 +14,6 @@ void Gfx_PutCharAt(
     uint32 fg, uint32 bg);
 
 
-void Gfx_FlushFromTty(Tty* tty);
 
 uint8* Gfx_GetVideoMemory();
 uint16 Gfx_GetWidth();

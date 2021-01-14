@@ -1,6 +1,5 @@
 #include "terminal.h"
 #include "device.h"
-#include "vgatext.h"
 #include "serial.h"
 #include "devfs.h"
 #include "alloc.h"
@@ -14,23 +13,23 @@
 #include "keymap.h"
 #include "console.h"
 
-static Terminal* gTerminals[TERMINAL_COUNT];
-static uint32 gActiveTerminalIndex = 0;
-Terminal* gActiveTerminal = NULL;
+static Terminal* g_terminals[TERMINAL_COUNT];
+static uint32 g_active_terminal_index = 0;
+Terminal* g_active_terminal = NULL;
 
-static uint8 gKeyModifier = 0;
+static uint8 g_key_modifier = 0;
 
 
 static BOOL console_open(File *file, uint32 flags);
 static void console_close(File *file);
 static int32 console_ioctl(File *file, int32 request, void * argp);
 
-static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode);
-static void processScancode(uint8 scancode);
+static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode);
+static void process_scancode(uint8 scancode);
 
-static void setActiveTerminal(uint32 index);
+static void set_active_terminal(uint32 index);
 
-void initializeConsole(BOOL graphicMode)
+void console_initialize(BOOL graphicMode)
 {
     for (int i = 0; i < 10; ++i)
     {
@@ -40,13 +39,13 @@ void initializeConsole(BOOL graphicMode)
         {
             TtyDev* ttyDev = (TtyDev*)ttyNode->privateNodeData;
         
-            terminal = Terminal_create(ttyDev, graphicMode);
+            terminal = terminal_create(ttyDev, graphicMode);
         }
         
-        gTerminals[i] = terminal;
+        g_terminals[i] = terminal;
     }
 
-    setActiveTerminal(0);
+    set_active_terminal(0);
 
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
@@ -59,17 +58,17 @@ void initializeConsole(BOOL graphicMode)
 }
 
 
-void sendKeyToConsole(uint8 scancode)
+void console_send_key(uint8 scancode)
 {
-    processScancode(scancode);
+    process_scancode(scancode);
 
-    uint8 character = getCharacterForScancode(gKeyModifier, scancode);
+    uint8 character = get_character_for_scancode(g_key_modifier, scancode);
 
     uint8 keyRelease = (0x80 & scancode); //ignore release event
 
     if (character > 0 && keyRelease == 0)
     {
-        Terminal_sendKey(gActiveTerminal, gKeyModifier, character);
+        terminal_send_key(g_active_terminal, g_key_modifier, character);
     }
 
 }
@@ -90,28 +89,28 @@ static int32 console_ioctl(File *file, int32 request, void * argp)
     return -1;
 }
 
-static void setActiveTerminal(uint32 index)
+static void set_active_terminal(uint32 index)
 {
     if (index >= 0 && index < TERMINAL_COUNT)
     {
-        gActiveTerminalIndex = index;
-        gActiveTerminal = gTerminals[gActiveTerminalIndex];
+        g_active_terminal_index = index;
+        g_active_terminal = g_terminals[g_active_terminal_index];
 
         Gfx_Fill(0xFFFFFFFF);
 
-        if (gActiveTerminal->refreshFunction)
+        if (g_active_terminal->refreshFunction)
         {
-            gActiveTerminal->refreshFunction(gActiveTerminal);
+            g_active_terminal->refreshFunction(g_active_terminal);
         }
 
-        if (gActiveTerminal->moveCursorFunction)
+        if (g_active_terminal->moveCursorFunction)
         {
-            gActiveTerminal->moveCursorFunction(gActiveTerminal, gActiveTerminal->currentLine, gActiveTerminal->currentColumn, gActiveTerminal->currentLine, gActiveTerminal->currentColumn);
+            g_active_terminal->moveCursorFunction(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
         }
     }
 }
 
-static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)
+static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode)
 {
     if ((modifier & KM_LeftShift) || (modifier & KM_RightShift))
     {
@@ -121,7 +120,7 @@ static uint8 getCharacterForScancode(KeyModifier modifier, uint8 scancode)
     return gKeyMap[scancode];
 }
 
-static void processScancode(uint8 scancode)
+static void process_scancode(uint8 scancode)
 {
     uint8 lastBit = scancode & 0x80;
 
@@ -134,16 +133,16 @@ static void processScancode(uint8 scancode)
         switch (scancode)
         {
         case KEY_LEFTSHIFT:
-            gKeyModifier &= ~KM_LeftShift;
+            g_key_modifier &= ~KM_LeftShift;
             break;
         case KEY_RIGHTSHIFT:
-            gKeyModifier &= ~KM_RightShift;
+            g_key_modifier &= ~KM_RightShift;
             break;
         case KEY_CTRL:
-            gKeyModifier &= ~KM_Ctrl;
+            g_key_modifier &= ~KM_Ctrl;
             break;
         case KEY_ALT:
-            gKeyModifier &= ~KM_Alt;
+            g_key_modifier &= ~KM_Alt;
             break;
         }
     }
@@ -154,24 +153,24 @@ static void processScancode(uint8 scancode)
         switch (scancode)
         {
         case KEY_LEFTSHIFT:
-            gKeyModifier |= KM_LeftShift;
+            g_key_modifier |= KM_LeftShift;
             break;
         case KEY_RIGHTSHIFT:
-            gKeyModifier |= KM_RightShift;
+            g_key_modifier |= KM_RightShift;
             break;
         case KEY_CTRL:
-            gKeyModifier |= KM_Ctrl;
+            g_key_modifier |= KM_Ctrl;
             break;
         case KEY_ALT:
-            gKeyModifier |= KM_Alt;
+            g_key_modifier |= KM_Alt;
             break;
         }
 
-        if ((gKeyModifier & KM_Ctrl) == KM_Ctrl)
+        if ((g_key_modifier & KM_Ctrl) == KM_Ctrl)
         {
             int ttyIndex = scancode - KEY_F1;
             
-            setActiveTerminal(ttyIndex);
+            set_active_terminal(ttyIndex);
         }
     }
 }

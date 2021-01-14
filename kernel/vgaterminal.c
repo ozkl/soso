@@ -42,7 +42,7 @@ static void vgaterminal_refresh_terminal(Terminal* terminal)
 
 static void vgaterminal_add_character(Terminal* terminal, uint8 character)
 {
-    uint8 * video = g_video_start + (terminal->currentLine * SCREEN_COLUMN_COUNT + terminal->currentColumn) * 2;
+    uint8 * video = g_video_start + (terminal->current_line * SCREEN_COLUMN_COUNT + terminal->current_column) * 2;
     
     *video++ = character;
     *video++ = g_color;

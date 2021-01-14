@@ -8,7 +8,6 @@
 #include "debugprint.h"
 #include "timer.h"
 #include "sleep.h"
-#include "ttydriver.h"
 #include "spinlock.h"
 #include "message.h"
 #include "commonuser.h"

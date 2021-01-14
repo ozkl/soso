@@ -1,5 +1,4 @@
 #include "common.h"
-#include "ttydriver.h"
 #include "serial.h"
 #include "debugprint.h"
 
@@ -390,23 +389,14 @@ void printkf(const char *format, ...)
     buffer[1] = ':';
     buffer[2] = 0;
 
-    Tty* tty = getActiveTTY();
-    if (tty)
-    {
-        __builtin_va_list vl;
-        __builtin_va_start(vl, format);
+    __builtin_va_list vl;
+    __builtin_va_start(vl, format);
 
-        sprintf_va(buffer+2, format, vl);
+    sprintf_va(buffer+2, format, vl);
 
-        __builtin_va_end(vl);
+    __builtin_va_end(vl);
 
-        Tty_PutText(tty, buffer);
-
-        if (tty->flushScreen)
-        {
-            tty->flushScreen(tty);
-        }
-    }
+    //TODO: send printkf output to a terminal
 }
 
 void panic(const char *message, const char *file, uint32 line)

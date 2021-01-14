@@ -120,24 +120,6 @@ void Gfx_PutCharAt(
     }
 }
 
-void Gfx_FlushFromTty(Tty* tty)
-{
-    for (uint32 r = 0; r < tty->lineCount; ++r)
-    {
-        for (uint32 c = 0; c < tty->columnCount; ++c)
-        {
-            uint8* ttyPos = tty->buffer + (r * tty->columnCount + c) * 2;
-
-            uint8 chr = ttyPos[0];
-            uint8 color = ttyPos[1];
-
-            Gfx_PutCharAt(chr, c, r, 0, 0xFFFFFFFF);
-        }
-    }
-
-    //Screen_MoveCursor(tty->currentLine, tty->currentColumn);
-}
-
 uint8* Gfx_GetVideoMemory()
 {
     return (uint8*)gPixels;
