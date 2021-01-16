@@ -32,6 +32,10 @@ typedef struct Registers
 } Registers;
 
 typedef void (*IsrFunction)(Registers*);
-void registerInterruptHandler(uint8 n, IsrFunction handler);
+
+extern IsrFunction g_interrupt_handlers[];
+
+void interrupt_register(uint8 n, IsrFunction handler);
+
 
 #endif //ISR_H

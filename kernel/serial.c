@@ -23,7 +23,7 @@ static int32 serial_write(File *file, uint32 size, uint8 *buffer);
 
 //TODO: support more than one serial devices
 
-void initializeSerial()
+void initialize_serial()
 {
     outb(PORT + 1, 0x00);    // Disable all interrupts
     outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
@@ -34,7 +34,7 @@ void initializeSerial()
     outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
     outb(PORT + 1, 0x01);    // Enable interrupts
 
-    registerInterruptHandler(IRQ4, handleSerialInterrupt);
+    interrupt_register(IRQ4, handleSerialInterrupt);
 
     gBufferCom1 = FifoBuffer_create(4096);
     gAccessingThreads = List_Create();
@@ -42,15 +42,15 @@ void initializeSerial()
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "com1");
-    device.deviceType = FT_CharacterDevice;
+    device.device_type = FT_CharacterDevice;
     device.open = serial_open;
     device.close = serial_close;
     device.read = serial_read;
     device.write = serial_write;
-    device.readTestReady = serial_readTestReady;
-    device.writeTestReady = serial_writeTestReady;
+    device.read_test_ready = serial_readTestReady;
+    device.write_test_ready = serial_writeTestReady;
 
-    registerDevice(&device);
+    devfs_register_device(&device);
 }
 
 int serialReceived()

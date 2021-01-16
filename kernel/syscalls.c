@@ -124,7 +124,7 @@ int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp);
 int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp);
 int32 syscall_clock_getres64(int32 clockid, struct timespec *res);
 
-void initialiseSyscalls()
+void initialize_syscalls()
 {
     memset((uint8*)gSyscallTable, 0, sizeof(void*) * SYSCALL_COUNT);
 
@@ -181,12 +181,12 @@ void initialiseSyscalls()
     gSyscallTable[SYS_clock_getres64] = syscall_clock_getres64;
 
     // Register our syscall handler.
-    registerInterruptHandler (0x80, &handleSyscall);
+    interrupt_register (0x80, &handleSyscall);
 }
 
 static void handleSyscall(Registers* regs)
 {
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
     Process* process = thread->owner;
 
     ++thread->calledSyscallCount;
@@ -194,7 +194,7 @@ static void handleSyscall(Registers* regs)
     if (regs->eax >= SYSCALL_COUNT)
     {
         printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
-        Debug_PrintF("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        log_printf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         regs->eax = -1;
         return;
@@ -205,7 +205,7 @@ static void handleSyscall(Registers* regs)
     if (NULL == location)
     {
         printkf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
-        Debug_PrintF("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        log_printf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         regs->eax = -1;
         return;
@@ -235,7 +235,7 @@ static void handleSyscall(Registers* regs)
 
 int syscall_printk(const char *str, int num)
 {
-    if (!checkUserAccess((char*)str))
+    if (!check_user_access((char*)str))
     {
         return -EFAULT;
     }
@@ -247,18 +247,18 @@ int syscall_printk(const char *str, int num)
 
 int syscall_open(const char *pathname, int flags)
 {
-    if (!checkUserAccess((char*)pathname))
+    if (!check_user_access((char*)pathname))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(pathname, process);
+        FileSystemNode* node = fs_get_node_absolute_or_relative(pathname, process);
         if (node)
         {
-            File* file = open_fs(node, flags);
+            File* file = fs_open(node, flags);
 
             if (file)
             {
@@ -272,7 +272,7 @@ int syscall_open(const char *pathname, int flags)
 
 int syscall_close(int fd)
 {
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -281,7 +281,7 @@ int syscall_close(int fd)
 
             if (file)
             {
-                close_fs(file);
+                fs_close(file);
 
                 return 0;
             }
@@ -305,14 +305,14 @@ int syscall_close(int fd)
 
 int syscall_read(int fd, void *buf, int nbytes)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
     //Screen_PrintF("syscall_read: begin - nbytes:%d\n", nbytes);
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -321,14 +321,14 @@ int syscall_read(int fd, void *buf, int nbytes)
 
             if (file)
             {
-                //Debug_PrintF("syscall_read(%d): %s\n", process->pid, buf);
+                //log_printf("syscall_read(%d): %s\n", process->pid, buf);
 
                 //enableInterrupts();
 
                 //Each handler is free to enable interrupts.
                 //We don't enable them here.
 
-                int ret = read_fs(file, nbytes, buf);
+                int ret = fs_read(file, nbytes, buf);
 
                 return ret;
             }
@@ -352,12 +352,12 @@ int syscall_read(int fd, void *buf, int nbytes)
 
 int syscall_write(int fd, void *buf, int nbytes)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         //Screen_PrintF("syscall_write() called from process: %d. fd:%d\n", process->pid, fd);
@@ -371,11 +371,11 @@ int syscall_write(int fd, void *buf, int nbytes)
                 /*
                 for (int i = 0; i < nbytes; ++i)
                 {
-                    Debug_PrintF("pid:%d syscall_write:buf[%d]=%c\n", process->pid, i, ((char*)buf)[i]);
+                    log_printf("pid:%d syscall_write:buf[%d]=%c\n", process->pid, i, ((char*)buf)[i]);
                 }
                 */
 
-                uint32 writeResult = write_fs(file, nbytes, buf);
+                uint32 writeResult = fs_write(file, nbytes, buf);
 
                 return writeResult;
             }
@@ -399,7 +399,7 @@ int syscall_write(int fd, void *buf, int nbytes)
 
 int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
 {
-    if (!checkUserAccess((void*)iovs))
+    if (!check_user_access((void*)iovs))
     {
         return -EFAULT;
     }
@@ -427,7 +427,7 @@ int syscall_readv(int fd, const struct iovec *iovs, int iovcnt)
 
 int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
 {
-    if (!checkUserAccess((void*)iovs))
+    if (!check_user_access((void*)iovs))
     {
         return -EFAULT;
     }
@@ -455,7 +455,7 @@ int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
 
 int syscall_set_thread_area(void *p)
 {
-    if (!checkUserAccess(p))
+    if (!check_user_access(p))
     {
         return -EFAULT;
     }
@@ -465,12 +465,12 @@ int syscall_set_thread_area(void *p)
 
 int syscall_set_tid_address(void* p)
 {
-    if (!checkUserAccess(p))
+    if (!check_user_access(p))
     {
         return -EFAULT;
     }
 
-    return getCurrentThread()->threadId;
+    return get_current_thread()->threadId;
 }
 
 int syscall_exit_group(int status)
@@ -480,7 +480,7 @@ int syscall_exit_group(int status)
 
 int syscall_lseek(int fd, int offset, int whence)
 {
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -489,7 +489,7 @@ int syscall_lseek(int fd, int offset, int whence)
 
             if (file)
             {
-                int result = lseek_fs(file, offset, whence);
+                int result = fs_lseek(file, offset, whence);
 
                 return result;
             }
@@ -515,14 +515,14 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
             unsigned int offset_low, int64 *result,
             unsigned int whence)
 {
-    if (!checkUserAccess(result))
+    if (!check_user_access(result))
     {
         return -EFAULT;
     }
 
     //this syscall is used for large files in 32 bit systems for the offset (offset_high<<32) | offset_low
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     //printkf("syscall_llseek() called from process: %d. fd:%d\n", process->pid, fd);
 
     if (offset_high != 0)
@@ -544,24 +544,24 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
 
 int syscall_stat(const char *path, struct stat *buf)
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
+        FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
 
         if (node)
         {
-            return stat_fs(node, buf);
+            return fs_stat(node, buf);
         }
     }
     else
@@ -574,12 +574,12 @@ int syscall_stat(const char *path, struct stat *buf)
 
 int syscall_fstat(int fd, struct stat *buf)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -588,7 +588,7 @@ int syscall_fstat(int fd, struct stat *buf)
 
             if (file)
             {
-                return stat_fs(file->node, buf);
+                return fs_stat(file->node, buf);
             }
             else
             {
@@ -611,10 +611,10 @@ int syscall_fstat(int fd, struct stat *buf)
 int syscall_ioctl(int fd, int32 request, void *arg)
 {
     //Important!!
-    //We don't checkUserAccess() for arg here. Because it is not always a pointer.
-    //So it is driver's responsibility to checkUserAccess(arg) for using it as a pointer.
+    //We don't check_user_access() for arg here. Because it is not always a pointer.
+    //So it is driver's responsibility to check_user_access(arg) for using it as a pointer.
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         //Serial_PrintF("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
@@ -625,7 +625,7 @@ int syscall_ioctl(int fd, int32 request, void *arg)
 
             if (file)
             {
-                return ioctl_fs(file, request, arg);
+                return fs_ioctl(file, request, arg);
             }
             else
             {
@@ -647,7 +647,7 @@ int syscall_ioctl(int fd, int32 request, void *arg)
 
 int syscall_exit()
 {
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
 
     signalThread(thread, SIGTERM);
     
@@ -660,7 +660,7 @@ void* syscall_sbrk(uint32 increment)
 {
     //Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         return sbrk(process, increment);
@@ -682,7 +682,7 @@ int syscall_fork()
 
 int syscall_getpid()
 {
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         return process->pid;
@@ -698,39 +698,39 @@ int syscall_getpid()
 //NON-posix
 int syscall_execute(const char *path, char *const argv[], char *const envp[])
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(argv))
+    if (!check_user_access_string_array(argv))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(envp))
+    if (!check_user_access_string_array(envp))
     {
         return -EFAULT;
     }
 
     int result = -1;
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
+        FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
         if (node)
         {
-            File* f = open_fs(node, 0);
+            File* f = fs_open(node, 0);
             if (f)
             {
                 void* image = kmalloc(node->length);
 
                 //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
 
-                int32 bytesRead = read_fs(f, node->length, image);
+                int32 bytesRead = fs_read(f, node->length, image);
 
-                //Screen_PrintF("syscall_execute: read_fs returned %d bytes\n", bytesRead);
+                //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytesRead);
 
                 if (bytesRead > 0)
                 {
@@ -739,14 +739,14 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
                     {
                         name = argv[0];
                     }
-                    Process* newProcess = createUserProcessFromElfData(name, image, argv, envp, process, NULL);
+                    Process* newProcess = create_user_process_from_elf_data(name, image, argv, envp, process, NULL);
 
                     if (newProcess)
                     {
                         result = newProcess->pid;
                     }
                 }
-                close_fs(f);
+                fs_close(f);
 
                 kfree(image);
             }
@@ -763,45 +763,45 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
 int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(argv))
+    if (!check_user_access_string_array(argv))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(envp))
+    if (!check_user_access_string_array(envp))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess((char*)ttyPath))
+    if (!check_user_access((char*)ttyPath))
     {
         return -EFAULT;
     }
 
     int result = -1;
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
-        FileSystemNode* ttyNode = getFileSystemNodeAbsoluteOrRelative(ttyPath, process);
+        FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
+        FileSystemNode* ttyNode = fs_get_node_absolute_or_relative(ttyPath, process);
         if (node && ttyNode)
         {
-            File* f = open_fs(node, 0);
+            File* f = fs_open(node, 0);
             if (f)
             {
                 void* image = kmalloc(node->length);
 
                 //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
 
-                int32 bytesRead = read_fs(f, node->length, image);
+                int32 bytesRead = fs_read(f, node->length, image);
 
-                //Screen_PrintF("syscall_execute: read_fs returned %d bytes\n", bytesRead);
+                //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytesRead);
 
                 if (bytesRead > 0)
                 {
@@ -810,14 +810,14 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
                     {
                         name = argv[0];
                     }
-                    Process* newProcess = createUserProcessFromElfData(name, image, argv, envp, process, ttyNode);
+                    Process* newProcess = create_user_process_from_elf_data(name, image, argv, envp, process, ttyNode);
 
                     if (newProcess)
                     {
                         result = newProcess->pid;
                     }
                 }
-                close_fs(f);
+                fs_close(f);
 
                 kfree(image);
             }
@@ -834,38 +834,38 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
 
 int syscall_execve(const char *path, char *const argv[], char *const envp[])
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(argv))
+    if (!check_user_access_string_array(argv))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccessStringArray(envp))
+    if (!check_user_access_string_array(envp))
     {
         return -EFAULT;
     }
 
-    Process* callingProcess = getCurrentThread()->owner;
+    Process* callingProcess = get_current_thread()->owner;
 
-    FileSystemNode* node = getFileSystemNode(path);
+    FileSystemNode* node = fs_get_node(path);
     if (node)
     {
-        File* f = open_fs(node, 0);
+        File* f = fs_open(node, 0);
         if (f)
         {
             void* image = kmalloc(node->length);
 
-            if (read_fs(f, node->length, image) > 0)
+            if (fs_read(f, node->length, image) > 0)
             {
                 disableInterrupts(); //just in case if a file operation left interrupts enabled.
 
                 Process* newProcess = createUserProcessEx("fromExecve", callingProcess->pid, 0, NULL, image, argv, envp, NULL, callingProcess->tty);
 
-                close_fs(f);
+                fs_close(f);
 
                 kfree(image);
 
@@ -879,7 +879,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
                 }
             }
 
-            close_fs(f);
+            fs_close(f);
 
             kfree(image);
         }
@@ -892,14 +892,14 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
 int syscall_wait(int *wstatus)
 {
-    if (!checkUserAccess(wstatus))
+    if (!check_user_access(wstatus))
     {
         return -EFAULT;
     }
 
     //TODO: return pid of exited child. implement with sendsignal
 
-    Thread* currentThread = getCurrentThread();
+    Thread* currentThread = get_current_thread();
 
     Process* process = currentThread->owner;
     if (process)
@@ -932,17 +932,17 @@ int syscall_wait(int *wstatus)
 
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
 {
-    if (!checkUserAccess(wstatus))
+    if (!check_user_access(wstatus))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(rusage))
+    if (!check_user_access(rusage))
     {
         return -EFAULT;
     }
 
-    Thread* currentThread = getCurrentThread();
+    Thread* currentThread = get_current_thread();
 
     Process* process = currentThread->owner;
     if (process)
@@ -976,7 +976,7 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
 
 int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
 {
-    if (!checkUserAccess(tp))
+    if (!check_user_access(tp))
     {
         return -EFAULT;
     }
@@ -986,7 +986,7 @@ int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
 
 int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
 {
-    if (!checkUserAccess((void*)tp))
+    if (!check_user_access((void*)tp))
     {
         return -EFAULT;
     }
@@ -996,7 +996,7 @@ int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
 
 int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
 {
-    if (!checkUserAccess(res))
+    if (!check_user_access(res))
     {
         return -EFAULT;
     }
@@ -1006,7 +1006,7 @@ int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
 
 int syscall_kill(int pid, int sig)
 {
-    Process* selfProcess = getCurrentThread()->owner;
+    Process* selfProcess = get_current_thread()->owner;
 
     if (signalProcess(pid, sig))
     {
@@ -1018,27 +1018,27 @@ int syscall_kill(int pid, int sig)
 
 int syscall_mount(const char *source, const char *target, const char *fsType, unsigned long flags, void *data)//non-posix
 {
-    if (!checkUserAccess((char*)source))
+    if (!check_user_access((char*)source))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess((char*)target))
+    if (!check_user_access((char*)target))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess((char*)fsType))
+    if (!check_user_access((char*)fsType))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(data))
+    if (!check_user_access(data))
     {
         return -EFAULT;
     }
 
-    BOOL result = mountFileSystem(source, target, fsType, flags, data);
+    BOOL result = fs_mount(source, target, fsType, flags, data);
 
     if (TRUE == result)
     {
@@ -1050,12 +1050,12 @@ int syscall_mount(const char *source, const char *target, const char *fsType, un
 
 int syscall_unmount(const char *target)//non-posix
 {
-    if (!checkUserAccess((char*)target))
+    if (!check_user_access((char*)target))
     {
         return -EFAULT;
     }
 
-    FileSystemNode* targetNode = getFileSystemNode(target);
+    FileSystemNode* targetNode = fs_get_node(target);
 
     if (targetNode)
     {
@@ -1076,7 +1076,7 @@ int syscall_unmount(const char *target)//non-posix
 
 int syscall_mkdir(const char *path, uint32 mode)
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
@@ -1108,11 +1108,11 @@ int syscall_mkdir(const char *path, uint32 mode)
 
     //Screen_PrintF("mkdir: parent:[%s] name:[%s]\n", parentPath, name);
 
-    FileSystemNode* targetNode = getFileSystemNode(parentPath);
+    FileSystemNode* targetNode = fs_get_node(parentPath);
 
     if (targetNode)
     {
-        BOOL success = mkdir_fs(targetNode, name, mode);
+        BOOL success = fs_mkdir(targetNode, name, mode);
         if (success)
         {
             return 0;//on success
@@ -1124,7 +1124,7 @@ int syscall_mkdir(const char *path, uint32 mode)
 
 int syscall_rmdir(const char *path)
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
@@ -1137,12 +1137,12 @@ int syscall_rmdir(const char *path)
 
 int syscall_getdents(int fd, char *buf, int nbytes)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1156,7 +1156,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
                 int byteCounter = 0;
 
                 int index = 0;
-                FileSystemDirent* dirent = readdir_fs(file->node, index);
+                FileSystemDirent* dirent = fs_readdir(file->node, index);
 
                 while (NULL != dirent && (byteCounter + sizeof(FileSystemDirent) <= nbytes))
                 {
@@ -1165,7 +1165,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
                     byteCounter += sizeof(FileSystemDirent);
 
                     index += 1;
-                    dirent = readdir_fs(file->node, index);
+                    dirent = fs_readdir(file->node, index);
                 }
 
                 return byteCounter;
@@ -1190,12 +1190,12 @@ int syscall_getdents(int fd, char *buf, int nbytes)
 
 int syscall_readDir(int fd, void *dirent, int index)
 {
-    if (!checkUserAccess(dirent))
+    if (!check_user_access(dirent))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1204,7 +1204,7 @@ int syscall_readDir(int fd, void *dirent, int index)
 
             if (file)
             {
-                FileSystemDirent* direntFs = readdir_fs(file->node, index);
+                FileSystemDirent* direntFs = fs_readdir(file->node, index);
 
                 if (direntFs)
                 {
@@ -1233,17 +1233,17 @@ int syscall_readDir(int fd, void *dirent, int index)
 
 int syscall_getWorkingDirectory(char *buf, int size)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (process->workingDirectory)
         {
-            return getFileSystemNodePath(process->workingDirectory, buf, size);
+            return fs_get_node_path(process->workingDirectory, buf, size);
         }
     }
     else
@@ -1256,15 +1256,15 @@ int syscall_getWorkingDirectory(char *buf, int size)
 
 int syscall_setWorkingDirectory(const char *path)
 {
-    if (!checkUserAccess((char*)path))
+    if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = getFileSystemNodeAbsoluteOrRelative(path, process);
+        FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
 
         if (node)
         {
@@ -1283,7 +1283,7 @@ int syscall_setWorkingDirectory(const char *path)
 
 int syscall_managePipe(const char *pipeName, int operation, int data)
 {
-    if (!checkUserAccess((char*)pipeName))
+    if (!check_user_access((char*)pipeName))
     {
         return -EFAULT;
     }
@@ -1293,13 +1293,13 @@ int syscall_managePipe(const char *pipeName, int operation, int data)
     switch (operation)
     {
     case 0:
-        result = existsPipe(pipeName);
+        result = pipe_exists(pipeName);
         break;
     case 1:
-        result = createPipe(pipeName, data);
+        result = pipe_create(pipeName, data);
         break;
     case 2:
-        result = destroyPipe(pipeName);
+        result = pipe_destroy(pipeName);
         break;
     }
 
@@ -1308,12 +1308,12 @@ int syscall_managePipe(const char *pipeName, int operation, int data)
 
 int syscall_getUptimeMilliseconds()
 {
-    return getUptimeMilliseconds();
+    return get_uptime_milliseconds();
 }
 
 int syscall_sleepMilliseconds(int ms)
 {
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
 
     sleepMilliseconds(thread, (uint32)ms);
 
@@ -1322,12 +1322,12 @@ int syscall_sleepMilliseconds(int ms)
 
 int syscall_manageMessage(int command, void* message)
 {
-    if (!checkUserAccess(message))
+    if (!check_user_access(message))
     {
         return -EFAULT;
     }
 
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
 
     int result = -1;
 
@@ -1371,7 +1371,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
         return (void*)-1;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
 
     if (process)
     {
@@ -1417,7 +1417,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
 
                 if (file)
                 {
-                    void* ret = mmap_fs(file, length, offset, flags);
+                    void* ret = fs_mmap(file, length, offset, flags);
 
                     if (ret)
                     {
@@ -1445,12 +1445,12 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
 
 int syscall_munmap(void *addr, int length)
 {
-    if (!checkUserAccess(addr))
+    if (!check_user_access(addr))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
 
     if (process)
     {
@@ -1476,7 +1476,7 @@ int syscall_munmap(void *addr, int length)
 
                 if (file)
                 {
-                    if (munmap_fs(file, addr, length))
+                    if (fs_munmap(file, addr, length))
                     {
                         return 0;//on success
                     }
@@ -1515,17 +1515,17 @@ int syscall_munmap(void *addr, int length)
 
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf)
 {
-    if (!checkUserAccess((char*)pathname))
+    if (!check_user_access((char*)pathname))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(statxbuf))
+    if (!check_user_access(statxbuf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         int pathLen = strlen(pathname);
@@ -1536,20 +1536,20 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
         {
             if (pathname[0] == '/') //ignore dirfd. this is absolute path
             {
-                node = getFileSystemNode(pathname);
+                node = fs_get_node(pathname);
             }
             else
             {
                 if (dirfd == AT_FDCWD) //pathname is relative to Current Working Directory
                 {
-                    node = getFileSystemNodeRelativeToNode(pathname, process->workingDirectory);
+                    node = fs_get_node_relative_to_node(pathname, process->workingDirectory);
                 }
                 else if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
                 {
                     File* dirFdDir = process->fd[dirfd];
                     if ((dirFdDir->node->nodeType & FT_Directory) == FT_Directory) //pathname is relative to the directory that dirfd refers to
                     {
-                        node = getFileSystemNodeRelativeToNode(pathname, dirFdDir->node);
+                        node = fs_get_node_relative_to_node(pathname, dirFdDir->node);
                     }
                 }
             }
@@ -1570,7 +1570,7 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
             struct stat st;
             memset((uint8*)&st, 0, sizeof(st));
 
-            int statResult = stat_fs(node, &st);
+            int statResult = fs_stat(node, &st);
 
             statxbuf->stx_mode = st.st_mode;
             statxbuf->stx_size = st.st_size;
@@ -1592,7 +1592,7 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
 
 int syscall_shm_open(const char *name, int oflag, int mode)
 {
-    if (!checkUserAccess((char*)name))
+    if (!check_user_access((char*)name))
     {
         return -EFAULT;
     }
@@ -1610,7 +1610,7 @@ int syscall_shm_open(const char *name, int oflag, int mode)
 
     if (node)
     {
-        File* file = open_fs(node, oflag);
+        File* file = fs_open(node, oflag);
 
         if (file)
         {
@@ -1623,7 +1623,7 @@ int syscall_shm_open(const char *name, int oflag, int mode)
 
 int syscall_shm_unlink(const char *name)
 {
-    if (!checkUserAccess((char*)name))
+    if (!check_user_access((char*)name))
     {
         return -EFAULT;
     }
@@ -1633,7 +1633,7 @@ int syscall_shm_unlink(const char *name)
 
 int syscall_ftruncate(int fd, int size)
 {
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1642,7 +1642,7 @@ int syscall_ftruncate(int fd, int size)
 
             if (file)
             {
-                return ftruncate_fs(file, size);
+                return fs_ftruncate(file, size);
             }
             else
             {
@@ -1664,7 +1664,7 @@ int syscall_ftruncate(int fd, int size)
 
 int syscall_posix_openpt(int flags)
 {
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         FileSystemNode* node = createTTYDev();
@@ -1674,7 +1674,7 @@ int syscall_posix_openpt(int flags)
             ttyDev->controllingProcess = process->pid;
             ttyDev->foregroundProcess = process->pid;
 
-            File* file = open_fs(node, flags);
+            File* file = fs_open(node, flags);
 
             if (file)
             {
@@ -1692,12 +1692,12 @@ int syscall_posix_openpt(int flags)
 
 int syscall_ptsname_r(int fd, char *buf, int buflen)
 {
-    if (!checkUserAccess(buf))
+    if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = getCurrentThread()->owner;
+    Process* process = get_current_thread()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1708,9 +1708,9 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
             {
                 TtyDev* ttyDev = file->node->privateNodeData;
 
-                FileSystemNode* slaveNode = ttyDev->slaveNode;
+                FileSystemNode* slaveNode = ttyDev->slave_node;
 
-                int result = getFileSystemNodePath(slaveNode, buf, buflen);
+                int result = fs_get_node_path(slaveNode, buf, buflen);
 
                 if (result >= 0)
                 {

@@ -50,11 +50,11 @@ void console_initialize(BOOL graphicMode)
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     sprintf(device.name, "console");
-    device.deviceType = FT_CharacterDevice;
+    device.device_type = FT_CharacterDevice;
     device.open = console_open;
     device.close = console_close;
     device.ioctl = console_ioctl;
-    registerDevice(&device);
+    devfs_register_device(&device);
 }
 
 

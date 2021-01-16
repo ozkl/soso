@@ -144,9 +144,9 @@ typedef struct TimerInt_Registers
 
 typedef void (*Function0)();
 
-void initializeTasking();
+void initialize_tasking();
 void createKernelThread(Function0 func);
-Process* createUserProcessFromElfData(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
+Process* create_user_process_from_elf_data(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* createUserProcessFromFunction(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 void destroyThread(Thread* thread);
@@ -164,7 +164,7 @@ int32 removeFileFromProcess(Process* process, File* file);
 Thread* getThreadById(uint32 threadId);
 Thread* getPreviousThread(Thread* thread);
 Thread* getMainKernelThread();
-Thread* getCurrentThread();
+Thread* get_current_thread();
 void schedule(TimerInt_Registers* registers);
 BOOL isThreadValid(Thread* thread);
 BOOL isProcessValid(Process* process);

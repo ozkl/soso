@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch);
+void gfx_initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch);
 
 void Gfx_PutCharAt(
     /* note that this is int, not char as it's a unicode character */

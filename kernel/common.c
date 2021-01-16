@@ -137,7 +137,7 @@ char *strcpy(char *dest, const char *src)
     return dest;
 }
 
-char *strcpyNonNull(char *dest, const char *src)
+char *strcpy_nonnull(char *dest, const char *src)
 {
     do
     {
@@ -175,7 +175,7 @@ char *strncpy(char *dest, const char *src, uint32 num)
     return dest;
 }
 
-char* strncpyNull(char *dest, const char *src, uint32 num)
+char* strncpy_null(char *dest, const char *src, uint32 num)
 {
     BOOL sourceEnded = FALSE;
     for (uint32 i = 0; i < num; ++i)
@@ -225,7 +225,7 @@ int strlen(const char *src)
     return i;
 }
 
-int strFirstIndexOf(const char *src, char c)
+int str_first_index_of(const char *src, char c)
 {
     int i = 0;
     while (src[i])
@@ -405,7 +405,7 @@ void panic(const char *message, const char *file, uint32 line)
 
     printkf("PANIC:%s:%d:%s\n", file, line, message);
 
-    Debug_PrintF("PANIC:%s:%d:%s\n", file, line, message);
+    log_printf("PANIC:%s:%d:%s\n", file, line, message);
 
     halt();
 }
@@ -424,7 +424,7 @@ void panic_assert(const char *file, uint32 line, const char *desc)
     halt();
 }
 
-uint32 readEsp()
+uint32 read_esp()
 {
     uint32 stack_pointer;
     asm volatile("mov %%esp, %0" : "=r" (stack_pointer));
@@ -432,7 +432,7 @@ uint32 readEsp()
     return stack_pointer;
 }
 
-uint32 readCr3()
+uint32 read_cr3()
 {
     uint32 value;
     asm volatile("mov %%cr3, %0" : "=r" (value));
@@ -440,7 +440,7 @@ uint32 readCr3()
     return value;
 }
 
-uint32 getCpuFlags()
+uint32 get_cpu_flags()
 {
     uint32 eflags = 0;
 
@@ -449,23 +449,23 @@ uint32 getCpuFlags()
     return eflags;
 }
 
-BOOL isInterruptsEnabled()
+BOOL is_interrupts_enabled()
 {
-    uint32 eflags = getCpuFlags();
+    uint32 eflags = get_cpu_flags();
 
     uint32 interruptFlag = 0x200; //9th flag
 
     return (eflags & interruptFlag) == interruptFlag;
 }
 
-void beginCriticalSection()
+void begin_critical_section()
 {
-    gInterruptsWereEnabled = isInterruptsEnabled();
+    gInterruptsWereEnabled = is_interrupts_enabled();
 
     disableInterrupts();
 }
 
-void endCriticalSection()
+void end_critical_section()
 {
     if (gInterruptsWereEnabled)
     {
@@ -473,7 +473,7 @@ void endCriticalSection()
     }
 }
 
-BOOL checkUserAccess(void* pointer)
+BOOL check_user_access(void* pointer)
 {
     //TODO: check MEMORY_END as well
     if ((uint32)pointer >= USER_OFFSET || pointer == NULL)
@@ -484,13 +484,13 @@ BOOL checkUserAccess(void* pointer)
     return FALSE;
 }
 
-BOOL checkUserAccessStringArray(char *const array[])
+BOOL check_user_access_string_array(char *const array[])
 {
     int i = 0;
     const char* a = array[0];
     while (NULL != a)
     {
-        if (!checkUserAccess((char*)a))
+        if (!check_user_access((char*)a))
         {
             return FALSE;
         }

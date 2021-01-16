@@ -26,8 +26,8 @@ typedef struct TtyDev TtyDev;
 typedef void (*TtyIOReady)(TtyDev* tty, uint32 size);
 typedef struct TtyDev
 {
-    FileSystemNode* masterNode;
-    FileSystemNode* slaveNode;
+    FileSystemNode* master_node;
+    FileSystemNode* slave_node;
     void* privateData;
     int32 controllingProcess;
     int32 foregroundProcess;

@@ -15,25 +15,25 @@ static FileSystemNode *systemfs_finddir(FileSystemNode *node, char *name);
 
 static void createNodes();
 
-static FileSystemDirent gDirent;
+static FileSystemDirent g_dirent;
 
 static int32 systemfs_read_meminfo_totalpages(File *file, uint32 size, uint8 *buffer);
 static int32 systemfs_read_meminfo_usedpages(File *file, uint32 size, uint8 *buffer);
 static BOOL systemfs_open_threads_dir(File *file, uint32 flags);
 static void systemfs_close_threads_dir(File *file);
 
-void initializeSystemFS()
+void initialize_systemfs()
 {
     gSystemFsRoot = kmalloc(sizeof(FileSystemNode));
     memset((uint8*)gSystemFsRoot, 0, sizeof(FileSystemNode));
 
     gSystemFsRoot->nodeType = FT_Directory;
 
-    FileSystemNode* rootFs = getFileSystemRootNode();
+    FileSystemNode* rootFs = fs_get_root_node();
 
-    mkdir_fs(rootFs, "system", 0);
+    fs_mkdir(rootFs, "system", 0);
 
-    FileSystemNode* systemNode = finddir_fs(rootFs, "system");
+    FileSystemNode* systemNode = fs_finddir(rootFs, "system");
 
     if (systemNode)
     {
@@ -145,10 +145,10 @@ static FileSystemDirent *systemfs_readdir(FileSystemNode *node, uint32 index)
         //Screen_PrintF("systemfs_readdir-child:%s\n", child->name);
         if (counter == index)
         {
-            strcpy(gDirent.name, child->name);
-            gDirent.fileType = child->nodeType;
+            strcpy(g_dirent.name, child->name);
+            g_dirent.fileType = child->nodeType;
 
-            return &gDirent;
+            return &g_dirent;
         }
 
         ++counter;

@@ -7,20 +7,20 @@
 typedef struct Device
 {
     char name[16];
-    FileType deviceType;
-    ReadWriteBlockFunction readBlock;
-    ReadWriteBlockFunction writeBlock;
+    FileType device_type;
+    ReadWriteBlockFunction read_block;
+    ReadWriteBlockFunction write_block;
     ReadWriteFunction read;
     ReadWriteFunction write;
-    ReadWriteTestFunction readTestReady;
-    ReadWriteTestFunction writeTestReady;
+    ReadWriteTestFunction read_test_ready;
+    ReadWriteTestFunction write_test_ready;
     OpenFunction open;
     CloseFunction close;
     IoctlFunction ioctl;
     FtruncateFunction ftruncate;
     MmapFunction mmap;
     MunmapFunction munmap;
-    void * privateData;
+    void * private_data;
 } Device;
 
 #endif // DEVICE_H

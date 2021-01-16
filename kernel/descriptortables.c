@@ -20,21 +20,19 @@ IdtEntry gIdtEntries[256];
 IdtPointer   gIdtPointer;
 Tss 		gTss;
 
-extern IsrFunction gInterruptHandlers[];
-
 static void handleDoubleFault(Registers *regs);
 static void handleGeneralProtectionFault(Registers *regs);
 
-void initializeDescriptorTables()
+void initialize_descriptor_tables()
 {
     initializeGdt();
 
     initializeIdt();
 
-    memset((uint8*)&gInterruptHandlers, 0, sizeof(IsrFunction)*256);
+    memset((uint8*)&g_interrupt_handlers, 0, sizeof(IsrFunction)*256);
 
-    registerInterruptHandler(8, handleDoubleFault);
-    registerInterruptHandler(13, handleGeneralProtectionFault);
+    interrupt_register(8, handleDoubleFault);
+    interrupt_register(13, handleGeneralProtectionFault);
 }
 
 static void initializeGdt()
@@ -175,9 +173,9 @@ static void handleDoubleFault(Registers *regs)
 
 static void handleGeneralProtectionFault(Registers *regs)
 {
-    Debug_PrintF("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
+    log_printf("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
 
-    Thread* faultingThread = getCurrentThread();
+    Thread* faultingThread = get_current_thread();
     if (NULL != faultingThread)
     {
         Thread* mainThread = getMainKernelThread();
@@ -188,14 +186,14 @@ static void handleGeneralProtectionFault(Registers *regs)
         }
         else
         {
-            Debug_PrintF("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
+            log_printf("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
 
             if (faultingThread->userMode)
             {
                 if (faultingThread->state == TS_CRITICAL ||
                     faultingThread->state == TS_UNINTERRUPTIBLE)
                 {
-                    Debug_PrintF("CRITICAL!! process %d\n", faultingThread->owner->pid);
+                    log_printf("CRITICAL!! process %d\n", faultingThread->owner->pid);
 
                     changeProcessState(faultingThread->owner, TS_SUSPEND);
 
@@ -203,20 +201,20 @@ static void handleGeneralProtectionFault(Registers *regs)
                 }
                 else
                 {
-                    //Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+                    //log_printf("Destroying process %d\n", faultingThread->owner->pid);
 
                     //destroyProcess(faultingThread->owner);
 
                     //TODO: state in RUN?
 
-                    Debug_PrintF("General protection fault %d\n", faultingThread->owner->pid);
+                    log_printf("General protection fault %d\n", faultingThread->owner->pid);
 
                     signalThread(faultingThread, SIGILL);
                 }
             }
             else
             {
-                Debug_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
+                log_printf("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }

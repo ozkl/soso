@@ -94,12 +94,12 @@ int memcmp(const void* p1, const void* p2, uint32 c);
 int strcmp(const char *str1, const char *str2);
 int strncmp(const char *str1, const char *str2, int length);
 char *strcpy(char *dest, const char *src);
-char *strcpyNonNull(char *dest, const char *src);
+char *strcpy_nonnull(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, uint32 num);
-char* strncpyNull(char *dest, const char *src, uint32 num);
+char* strncpy_null(char *dest, const char *src, uint32 num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
-int strFirstIndexOf(const char *src, char c);
+int str_first_index_of(const char *src, char c);
 int sprintf(char* buffer, const char *format, ...);
 
 void printkf(const char *format, ...);
@@ -109,17 +109,17 @@ void itoa(char *buf, int base, int d);
 
 uint32 rand();
 
-uint32 readEip();
-uint32 readEsp();
-uint32 readCr3();
-uint32 getCpuFlags();
-BOOL isInterruptsEnabled();
+uint32 read_eip();
+uint32 read_esp();
+uint32 read_cr3();
+uint32 get_cpu_flags();
+BOOL is_interrupts_enabled();
 
-void beginCriticalSection();
-void endCriticalSection();
+void begin_critical_section();
+void end_critical_section();
 
-BOOL checkUserAccess(void* pointer);
-BOOL checkUserAccessStringArray(char *const array[]);
+BOOL check_user_access(void* pointer);
+BOOL check_user_access_string_array(char *const array[]);
 
 
 #define isalpha(a) ((((unsigned)(a)|32)-'a') < 26)

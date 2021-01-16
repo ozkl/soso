@@ -19,7 +19,7 @@ extern uint32 *gKernelPageDirectory;
 uint32 acquirePageFrame4K();
 void releasePageFrame4K(uint32 p_addr);
 
-void initializeMemory(uint32 high_mem);
+void initialize_memory(uint32 high_mem);
 
 uint32 *acquirePageDirectory();
 void destroyPageDirectoryWithMemory(uint32 physicalPd);

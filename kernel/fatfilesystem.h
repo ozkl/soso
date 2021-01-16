@@ -1,6 +1,6 @@
 #ifndef FATFILESYSTEM_H
 #define FATFILESYSTEM_H
 
-void initializeFatFileSystem();
+void fatfs_initialize();
 
 #endif // FATFILESYSTEM_H

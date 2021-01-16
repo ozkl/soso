@@ -4,7 +4,7 @@
 #include "common.h"
 #include "fs.h"
 
-void initializeSharedMemory();
+void initialize_sharedmemory();
 FileSystemNode* createSharedMemory(const char* name);
 void destroySharedMemory(const char* name);
 FileSystemNode* getSharedMemoryNode(const char* name);

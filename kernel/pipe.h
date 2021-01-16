@@ -3,9 +3,9 @@
 
 #include "common.h"
 
-void initializePipes();
-BOOL createPipe(const char* name, uint32 bufferSize);
-BOOL destroyPipe(const char* name);
-BOOL existsPipe(const char* name);
+void pipe_initialize();
+BOOL pipe_create(const char* name, uint32 bufferSize);
+BOOL pipe_destroy(const char* name);
+BOOL pipe_exists(const char* name);
 
 #endif // PIPE_H

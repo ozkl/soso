@@ -2,52 +2,33 @@
 #include "alloc.h"
 #include "rootfs.h"
 
-FileSystemNode *gFileSystemRoot = NULL; // The root of the filesystem.
+FileSystemNode *g_fs_root = NULL; // The root of the filesystem.
 
 #define FILESYSTEM_CAPACITY 10
 
-static FileSystem gRegisteredFileSystems[FILESYSTEM_CAPACITY];
-static int gNextFileSystemIndex = 0;
+static FileSystem g_registered_filesystems[FILESYSTEM_CAPACITY];
+static int g_next_filesystem_index = 0;
 
-void initializeVFS()
+void fs_initialize()
 {
-    memset((uint8*)gRegisteredFileSystems, 0, sizeof(gRegisteredFileSystems));
+    memset((uint8*)g_registered_filesystems, 0, sizeof(g_registered_filesystems));
 
-    gFileSystemRoot = initializeRootFS();
+    g_fs_root = rootfs_initialize();
 
-    mkdir_fs(gFileSystemRoot, "dev", 0);
-    mkdir_fs(gFileSystemRoot, "initrd", 0);
+    fs_mkdir(g_fs_root, "dev", 0);
+    fs_mkdir(g_fs_root, "initrd", 0);
 }
 
-FileSystemNode* getFileSystemRootNode()
+FileSystemNode* fs_get_root_node()
 {
-    return gFileSystemRoot;
+    return g_fs_root;
 }
 
-void copyFileDescriptors(Process* fromProcess, Process* toProcess)
+int fs_get_node_path(FileSystemNode *node, char* buffer, uint32 buffer_size)
 {
-    for (int i = 0; i < MAX_OPENED_FILES; ++i)
+    if (node == g_fs_root)
     {
-        File* original = fromProcess->fd[i];
-
-        if (original)
-        {
-            File* file = kmalloc(sizeof(File));
-            memcpy((uint8*)file, (uint8*)original, sizeof(File));
-            file->process = toProcess;
-            file->thread = NULL;
-
-            toProcess->fd[i] = file;
-
-        }
-    }
-}
-
-int getFileSystemNodePath(FileSystemNode *node, char* buffer, uint32 bufferSize)
-{
-    if (node == gFileSystemRoot)
-    {
-        if (bufferSize > 1)
+        if (buffer_size > 1)
         {
             buffer[0] = '/';
             buffer[1] = '\0';
@@ -60,55 +41,55 @@ int getFileSystemNodePath(FileSystemNode *node, char* buffer, uint32 bufferSize)
         }
     }
 
-    char targetPath[128];
+    char target_path[128];
 
     FileSystemNode *n = node;
-    int charIndex = 127;
-    targetPath[charIndex] = '\0';
+    int char_index = 127;
+    target_path[char_index] = '\0';
     while (NULL != n)
     {
         int length = strlen(n->name);
-        charIndex -= length;
+        char_index -= length;
 
-        if (charIndex < 2)
+        if (char_index < 2)
         {
             return -1;
         }
 
         if (NULL != n->parent)
         {
-            strcpyNonNull(targetPath + charIndex, n->name);
-            charIndex -= 1;
-            targetPath[charIndex] = '/';
+            strcpy_nonnull(target_path + char_index, n->name);
+            char_index -= 1;
+            target_path[char_index] = '/';
         }
 
         n = n->parent;
     }
 
-    int len = 127 - charIndex;
+    int len = 127 - char_index;
 
-    //Screen_PrintF("getFileSystemNodePath: len:[%s] %d\n", targetPath + charIndex, len);
+    //Screen_PrintF("fs_get_node_path: len:[%s] %d\n", target_path + char_index, len);
 
-    if (bufferSize < len)
+    if (buffer_size < len)
     {
         return -1;
     }
 
-    strcpy(buffer, targetPath + charIndex);
+    strcpy(buffer, target_path + char_index);
 
     return len;
 }
 
-BOOL resolvePath(const char* path, char* buffer, int bufferSize)
+BOOL fs_resolve_path(const char* path, char* buffer, int buffer_size)
 {
-    int lengthPath = strlen(path);
+    int length_path = strlen(path);
 
     if (path[0] != '/')
     {
         return FALSE;
     }
 
-    if (bufferSize < 2)
+    if (buffer_size < 2)
     {
         return FALSE;
     }
@@ -116,47 +97,47 @@ BOOL resolvePath(const char* path, char* buffer, int bufferSize)
     buffer[0] = '/';
     buffer[1] = '\0';
     int index = 0;
-    int indexBuffer = 1;
+    int index_buffer = 1;
 
-    while (index < lengthPath - 1)
+    while (index < length_path - 1)
     {
         while (path[++index] == '/');//eliminate successive
 
         const char* current = path + index;
-        int nextIndex = strFirstIndexOf(path + index, '/');
+        int next_index = str_first_index_of(path + index, '/');
 
-        int lengthToken = 0;
+        int length_token = 0;
 
-        if (nextIndex >= 0)
+        if (next_index >= 0)
         {
-            const char* next = path + index + nextIndex;
+            const char* next = path + index + next_index;
 
-            lengthToken = next - (path + index);
+            length_token = next - (path + index);
         }
         else
         {
-            lengthToken = strlen(current);
+            length_token = strlen(current);
         }
 
-        if (lengthToken > 0)
+        if (length_token > 0)
         {
-            index += lengthToken;
+            index += length_token;
             if (strncmp(current, "..", 2) == 0)
             {
-                --indexBuffer;
-                while (indexBuffer > 0)
+                --index_buffer;
+                while (index_buffer > 0)
                 {
-                    --indexBuffer;
+                    --index_buffer;
 
-                    if (buffer[indexBuffer] == '/')
+                    if (buffer[index_buffer] == '/')
                     {
                         break;
                     }
 
-                    buffer[indexBuffer] = '\0';
+                    buffer[index_buffer] = '\0';
                 }
 
-                ++indexBuffer;
+                ++index_buffer;
                 continue;
             }
             else if (strncmp(current, ".", 1) == 0)
@@ -164,34 +145,34 @@ BOOL resolvePath(const char* path, char* buffer, int bufferSize)
                 continue;
             }
 
-            if (indexBuffer + lengthToken + 2 > bufferSize)
+            if (index_buffer + length_token + 2 > buffer_size)
             {
                 return FALSE;
             }
 
-            strncpy(buffer + indexBuffer, current, lengthToken);
-            indexBuffer += lengthToken;
+            strncpy(buffer + index_buffer, current, length_token);
+            index_buffer += length_token;
 
-            if (current[lengthToken] == '/')
+            if (current[length_token] == '/')
             {
-                buffer[indexBuffer++] = '/';
+                buffer[index_buffer++] = '/';
             }
-            buffer[indexBuffer] = '\0';
+            buffer[index_buffer] = '\0';
         }
     }
 
-    if (indexBuffer > 2)
+    if (index_buffer > 2)
     {
-        if (buffer[indexBuffer - 1] == '/')
+        if (buffer[index_buffer - 1] == '/')
         {
-            buffer[indexBuffer - 1] = '\0';
+            buffer[index_buffer - 1] = '\0';
         }
     }
 
     return TRUE;
 }
 
-uint32 read_fs(File *file, uint32 size, uint8 *buffer)
+uint32 fs_read(File *file, uint32 size, uint8 *buffer)
 {
     if (file->node->read != 0)
     {
@@ -201,7 +182,7 @@ uint32 read_fs(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-uint32 write_fs(File *file, uint32 size, uint8 *buffer)
+uint32 fs_write(File *file, uint32 size, uint8 *buffer)
 {
     if (file->node->write != 0)
     {
@@ -211,12 +192,12 @@ uint32 write_fs(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-File *open_fs(FileSystemNode *node, uint32 flags)
+File *fs_open(FileSystemNode *node, uint32 flags)
 {
-    return open_fs_forProcess(getCurrentThread(), node, flags);
+    return fs_open_for_process(get_current_thread(), node, flags);
 }
 
-File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
+File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
 {
     Process* process = NULL;
     if (thread)
@@ -250,7 +231,7 @@ File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
                 //TODO: sett errno max files opened already
                 printkf("Maxfiles opened already!!\n");
 
-                close_fs(file);
+                fs_close(file);
                 file = NULL;
             }
         }
@@ -266,7 +247,7 @@ File *open_fs_forProcess(Thread* thread, FileSystemNode *node, uint32 flags)
     return NULL;
 }
 
-void close_fs(File *file)
+void fs_close(File *file)
 {
     if (file->node->close != NULL)
     {
@@ -278,7 +259,7 @@ void close_fs(File *file)
     kfree(file);
 }
 
-int32 ioctl_fs(File *file, int32 request, void * argp)
+int32 fs_ioctl(File *file, int32 request, void * argp)
 {
     if (file->node->ioctl != NULL)
     {
@@ -288,7 +269,7 @@ int32 ioctl_fs(File *file, int32 request, void * argp)
     return 0;
 }
 
-int32 lseek_fs(File *file, int32 offset, int32 whence)
+int32 fs_lseek(File *file, int32 offset, int32 whence)
 {
     if (file->node->lseek != NULL)
     {
@@ -298,7 +279,7 @@ int32 lseek_fs(File *file, int32 offset, int32 whence)
     return 0;
 }
 
-int32 ftruncate_fs(File* file, int32 length)
+int32 fs_ftruncate(File* file, int32 length)
 {
     if (file->node->ftruncate != NULL)
     {
@@ -308,7 +289,7 @@ int32 ftruncate_fs(File* file, int32 length)
     return -1;
 }
 
-int32 stat_fs(FileSystemNode *node, struct stat *buf)
+int32 fs_stat(FileSystemNode *node, struct stat *buf)
 {
 #define	__S_IFDIR	0040000	/* Directory.  */
 #define	__S_IFCHR	0020000	/* Character device.  */
@@ -364,9 +345,9 @@ int32 stat_fs(FileSystemNode *node, struct stat *buf)
     return -1;
 }
 
-FileSystemDirent *readdir_fs(FileSystemNode *node, uint32 index)
+FileSystemDirent *fs_readdir(FileSystemNode *node, uint32 index)
 {
-    //Screen_PrintF("readdir_fs: node->name:%s index:%d\n", node->name, index);
+    //Screen_PrintF("fs_readdir: node->name:%s index:%d\n", node->name, index);
 
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {
@@ -387,9 +368,9 @@ FileSystemDirent *readdir_fs(FileSystemNode *node, uint32 index)
     return NULL;
 }
 
-FileSystemNode *finddir_fs(FileSystemNode *node, char *name)
+FileSystemNode *fs_finddir(FileSystemNode *node, char *name)
 {
-    //Screen_PrintF("finddir_fs: name:%s\n", name);
+    //Screen_PrintF("fs_finddir: name:%s\n", name);
 
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {
@@ -410,7 +391,7 @@ FileSystemNode *finddir_fs(FileSystemNode *node, char *name)
     return NULL;
 }
 
-BOOL mkdir_fs(FileSystemNode *node, const char *name, uint32 flags)
+BOOL fs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
 {
     if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
     {
@@ -427,7 +408,7 @@ BOOL mkdir_fs(FileSystemNode *node, const char *name, uint32 flags)
     return FALSE;
 }
 
-void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 flags)
+void* fs_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
 {
     if (file->node->mmap)
     {
@@ -437,7 +418,7 @@ void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 flags)
     return NULL;
 }
 
-BOOL munmap_fs(File* file, void* address, uint32 size)
+BOOL fs_munmap(File* file, void* address, uint32 size)
 {
     if (file->node->munmap)
     {
@@ -447,9 +428,9 @@ BOOL munmap_fs(File* file, void* address, uint32 size)
     return FALSE;
 }
 
-FileSystemNode *getFileSystemNode(const char *path)
+FileSystemNode *fs_get_node(const char *path)
 {
-    //Screen_PrintF("getFileSystemNode:%s *0\n", path);
+    //Screen_PrintF("fs_get_node:%s *0\n", path);
 
     if (path[0] != '/')
     {
@@ -458,84 +439,84 @@ FileSystemNode *getFileSystemNode(const char *path)
     }
 
 
-    char realPath[256];
+    char real_path[256];
 
-    BOOL resolved = resolvePath(path, realPath, 256);
+    BOOL resolved = fs_resolve_path(path, real_path, 256);
 
     if (FALSE == resolved)
     {
         return NULL;
     }
 
-    const char* inputPath = realPath;
-    int pathLength = strlen(inputPath);
+    const char* input_path = real_path;
+    int path_length = strlen(input_path);
 
-    if (pathLength < 1)
+    if (path_length < 1)
     {
         return NULL;
     }
 
 
 
-    //Screen_PrintF("getFileSystemNode:%s *1\n", path);
+    //Screen_PrintF("fs_get_node:%s *1\n", path);
 
-    FileSystemNode* root = getFileSystemRootNode();
+    FileSystemNode* root = fs_get_root_node();
 
-    if (pathLength == 1)
+    if (path_length == 1)
     {
         return root;
     }
 
-    int nextIndex = 0;
+    int next_index = 0;
 
     FileSystemNode* node = root;
 
-    //Screen_PrintF("getFileSystemNode:%s *2\n", path);
+    //Screen_PrintF("fs_get_node:%s *2\n", path);
 
     char buffer[64];
 
     do
     {
         do_start:
-        inputPath = inputPath + nextIndex + 1;
-        nextIndex = strFirstIndexOf(inputPath, '/');
+        input_path = input_path + next_index + 1;
+        next_index = str_first_index_of(input_path, '/');
 
-        if (nextIndex == 0)
+        if (next_index == 0)
         {
             //detected successive slash
             goto do_start;
         }
 
-        if (nextIndex > 0)
+        if (next_index > 0)
         {
-            int tokenSize = nextIndex;
+            int token_size = next_index;
 
-            strncpy(buffer, inputPath, tokenSize);
-            buffer[tokenSize] = '\0';
+            strncpy(buffer, input_path, token_size);
+            buffer[token_size] = '\0';
         }
         else
         {
             //Last part
-            strcpy(buffer, inputPath);
+            strcpy(buffer, input_path);
         }
 
-        //Screen_PrintF("getFileSystemNode:%s *3\n", path);
+        //Screen_PrintF("fs_get_node:%s *3\n", path);
 
-        node = finddir_fs(node, buffer);
+        node = fs_finddir(node, buffer);
 
-        //Screen_PrintF("getFileSystemNode:%s *4\n", path);
+        //Screen_PrintF("fs_get_node:%s *4\n", path);
 
         if (NULL == node)
         {
             return NULL;
         }
 
-    } while (nextIndex > 0);
+    } while (next_index > 0);
 
     return node;
 }
 
-FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* process)
+FileSystemNode* fs_get_node_absolute_or_relative(const char* path, Process* process)
 {
     FileSystemNode* node = NULL;
 
@@ -549,7 +530,7 @@ FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* p
         {
             //absolute
 
-            node = getFileSystemNode(path);
+            node = fs_get_node(path);
         }
         else
         {
@@ -557,7 +538,7 @@ FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* p
 
             if (process->workingDirectory)
             {
-                node = getFileSystemNodeRelativeToNode(path, process->workingDirectory);
+                node = fs_get_node_relative_to_node(path, process->workingDirectory);
             }
         }
     }
@@ -565,56 +546,56 @@ FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* p
     return node;
 }
 
-FileSystemNode* getFileSystemNodeRelativeToNode(const char* path, FileSystemNode* relativeTo)
+FileSystemNode* fs_get_node_relative_to_node(const char* path, FileSystemNode* relative_to)
 {
     FileSystemNode* node = NULL;
 
-    if (relativeTo)
+    if (relative_to)
     {
         char buffer[256];
 
-        if (getFileSystemNodePath(relativeTo, buffer, 256) >= 0)
+        if (fs_get_node_path(relative_to, buffer, 256) >= 0)
         {
             strcat(buffer, "/");
             strcat(buffer, path);
 
-            node = getFileSystemNode(buffer);
+            node = fs_get_node(buffer);
         }
     }
 
     return node;
 }
 
-BOOL registerFileSystem(FileSystem* fs)
+BOOL fs_register(FileSystem* fs)
 {
     if (strlen(fs->name) <= 0)
     {
         return FALSE;
     }
 
-    for (int i = 0; i < gNextFileSystemIndex; ++i)
+    for (int i = 0; i < g_next_filesystem_index; ++i)
     {
-        if (strcmp(gRegisteredFileSystems[i].name, fs->name) == 0)
+        if (strcmp(g_registered_filesystems[i].name, fs->name) == 0)
         {
             //name is in use
             return FALSE;
         }
     }
 
-    gRegisteredFileSystems[gNextFileSystemIndex++] = *fs;
+    g_registered_filesystems[g_next_filesystem_index++] = *fs;
 
     return TRUE;
 }
 
-BOOL mountFileSystem(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
+BOOL fs_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
 {
     FileSystem* fs = NULL;
 
-    for (int i = 0; i < gNextFileSystemIndex; ++i)
+    for (int i = 0; i < g_next_filesystem_index; ++i)
     {
-        if (strcmp(gRegisteredFileSystems[i].name, fsType) == 0)
+        if (strcmp(g_registered_filesystems[i].name, fsType) == 0)
         {
-            fs = &gRegisteredFileSystems[i];
+            fs = &g_registered_filesystems[i];
             break;
         }
     }
@@ -627,15 +608,15 @@ BOOL mountFileSystem(const char *source, const char *target, const char *fsType,
     return fs->mount(source, target, flags, data);
 }
 
-BOOL checkMountFileSystem(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
+BOOL fs_check_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
 {
     FileSystem* fs = NULL;
 
-    for (int i = 0; i < gNextFileSystemIndex; ++i)
+    for (int i = 0; i < g_next_filesystem_index; ++i)
     {
-        if (strcmp(gRegisteredFileSystems[i].name, fsType) == 0)
+        if (strcmp(g_registered_filesystems[i].name, fsType) == 0)
         {
-            fs = &gRegisteredFileSystems[i];
+            fs = &g_registered_filesystems[i];
             break;
         }
     }

@@ -6,46 +6,46 @@
 #include "list.h"
 #include "spinlock.h"
 
-static FileSystemNode* gDevRoot = NULL;
+static FileSystemNode* g_dev_root = NULL;
 
-static List* gDeviceList = NULL;
-static Spinlock gDeviceListLock;
+static List* g_device_list = NULL;
+static Spinlock g_device_list_lock;
 
 static BOOL devfs_open(File *node, uint32 flags);
 static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index);
 static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name);
 
-static FileSystemDirent gDirent;
+static FileSystemDirent g_dirent;
 
-void initializeDevFS()
+void devfs_initialize()
 {
-    gDevRoot = kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)gDevRoot, 0, sizeof(FileSystemNode));
+    g_dev_root = kmalloc(sizeof(FileSystemNode));
+    memset((uint8*)g_dev_root, 0, sizeof(FileSystemNode));
 
-    gDevRoot->nodeType = FT_Directory;
+    g_dev_root->nodeType = FT_Directory;
 
-    FileSystemNode* rootFs = getFileSystemRootNode();
+    FileSystemNode* root_node = fs_get_root_node();
 
-    FileSystemNode* devNode = finddir_fs(rootFs, "dev");
+    FileSystemNode* dev_node = fs_finddir(root_node, "dev");
 
-    if (devNode)
+    if (dev_node)
     {
-        devNode->nodeType |= FT_MountPoint;
-        devNode->mountPoint = gDevRoot;
-        gDevRoot->parent = devNode->parent;
-        strcpy(gDevRoot->name, devNode->name);
+        dev_node->nodeType |= FT_MountPoint;
+        dev_node->mountPoint = g_dev_root;
+        g_dev_root->parent = dev_node->parent;
+        strcpy(g_dev_root->name, dev_node->name);
     }
     else
     {
         PANIC("/dev does not exist!");
     }
 
-    gDevRoot->open = devfs_open;
-    gDevRoot->finddir = devfs_finddir;
-    gDevRoot->readdir = devfs_readdir;
+    g_dev_root->open = devfs_open;
+    g_dev_root->finddir = devfs_finddir;
+    g_dev_root->readdir = devfs_readdir;
 
-    gDeviceList = List_Create();
-    Spinlock_Init(&gDeviceListLock);
+    g_device_list = List_Create();
+    Spinlock_Init(&g_device_list_lock);
 }
 
 static BOOL devfs_open(File *node, uint32 flags)
@@ -59,23 +59,23 @@ static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index)
 
     uint32 counter = 0;
 
-    Spinlock_Lock(&gDeviceListLock);
+    Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, gDeviceList)
+    List_Foreach(n, g_device_list)
     {
         if (index == counter)
         {
-            FileSystemNode* deviceNode = (FileSystemNode*)n->data;
-            strcpy(gDirent.name, deviceNode->name);
-            gDirent.fileType = deviceNode->nodeType;
-            gDirent.inode = index;
-            result = &gDirent;
+            FileSystemNode* device_node = (FileSystemNode*)n->data;
+            strcpy(g_dirent.name, device_node->name);
+            g_dirent.fileType = device_node->nodeType;
+            g_dirent.inode = index;
+            result = &g_dirent;
             break;
         }
 
         ++counter;
     }
-    Spinlock_Unlock(&gDeviceListLock);
+    Spinlock_Unlock(&g_device_list_lock);
 
     return result;
 }
@@ -85,9 +85,9 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
     FileSystemNode* result = NULL;
 
 
-    Spinlock_Lock(&gDeviceListLock);
+    Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, gDeviceList)
+    List_Foreach(n, g_device_list)
     {
         FileSystemNode* deviceNode = (FileSystemNode*)n->data;
 
@@ -98,49 +98,49 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
         }
     }
 
-    Spinlock_Unlock(&gDeviceListLock);
+    Spinlock_Unlock(&g_device_list_lock);
 
     return result;
 }
 
-FileSystemNode* registerDevice(Device* device)
+FileSystemNode* devfs_register_device(Device* device)
 {
-    Spinlock_Lock(&gDeviceListLock);
+    Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, gDeviceList)
+    List_Foreach(n, g_device_list)
     {
-        FileSystemNode* deviceNode = (FileSystemNode*)n->data;
+        FileSystemNode* device_node = (FileSystemNode*)n->data;
 
-        if (strcmp(device->name, deviceNode->name) == 0)
+        if (strcmp(device->name, device_node->name) == 0)
         {
             //There is already a device with the same name
-            Spinlock_Unlock(&gDeviceListLock);
+            Spinlock_Unlock(&g_device_list_lock);
             return NULL;
         }
     }
 
-    FileSystemNode* deviceNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)deviceNode, 0, sizeof(FileSystemNode));
-    strcpy(deviceNode->name, device->name);
-    deviceNode->nodeType = device->deviceType;
-    deviceNode->open = device->open;
-    deviceNode->close = device->close;
-    deviceNode->readBlock = device->readBlock;
-    deviceNode->writeBlock = device->writeBlock;
-    deviceNode->read = device->read;
-    deviceNode->write = device->write;
-    deviceNode->readTestReady = device->readTestReady;
-    deviceNode->writeTestReady = device->writeTestReady;
-    deviceNode->ioctl = device->ioctl;
-    deviceNode->ftruncate = device->ftruncate;
-    deviceNode->mmap = device->mmap;
-    deviceNode->munmap = device->munmap;
-    deviceNode->privateNodeData = device->privateData;
-    deviceNode->parent = gDevRoot;
+    FileSystemNode* device_node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
+    memset((uint8*)device_node, 0, sizeof(FileSystemNode));
+    strcpy(device_node->name, device->name);
+    device_node->nodeType = device->device_type;
+    device_node->open = device->open;
+    device_node->close = device->close;
+    device_node->readBlock = device->read_block;
+    device_node->writeBlock = device->write_block;
+    device_node->read = device->read;
+    device_node->write = device->write;
+    device_node->readTestReady = device->read_test_ready;
+    device_node->writeTestReady = device->write_test_ready;
+    device_node->ioctl = device->ioctl;
+    device_node->ftruncate = device->ftruncate;
+    device_node->mmap = device->mmap;
+    device_node->munmap = device->munmap;
+    device_node->privateNodeData = device->private_data;
+    device_node->parent = g_dev_root;
 
-    List_Append(gDeviceList, deviceNode);
+    List_Append(g_device_list, device_node);
 
-    Spinlock_Unlock(&gDeviceListLock);
+    Spinlock_Unlock(&g_device_list_lock);
 
-    return deviceNode;
+    return device_node;
 }

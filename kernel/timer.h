@@ -4,15 +4,15 @@
 #include "common.h"
 #include "time.h"
 
-void initializeTimer();
-uint32 getSystemTickCount();
-uint64 getSystemTickCount64();
-uint32 getUptimeSeconds();
-uint64 getUptimeSeconds64();
-uint32 getUptimeMilliseconds();
-uint64 getUptimeMilliseconds64();
-void enableScheduler();
-void disableScheduler();
+void timer_initialize();
+uint32 get_system_tick_count();
+uint64 get_system_tick_count64();
+uint32 get_uptime_seconds();
+uint64 get_uptime_seconds64();
+uint32 get_uptime_milliseconds();
+uint64 get_uptime_milliseconds64();
+void scheduler_enable();
+void scheduler_disable();
 
 int32 clock_getres64(int32 clockid, struct timespec *res);
 int32 clock_gettime64(int32 clockid, struct timespec *tp);

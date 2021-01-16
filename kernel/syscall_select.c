@@ -47,7 +47,7 @@ void updateSelect(Thread* thread)
     }
     else if (thread->select.targetTime > 0)
     {
-        time_t now = getUptimeMilliseconds64();
+        time_t now = get_uptime_milliseconds64();
 
         if (now > thread->select.targetTime)
         {
@@ -77,27 +77,27 @@ static int finishSelect(Thread* thread, fd_set* rfds, fd_set* wfds)
 
 int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timeval* tv)
 {
-    if (!checkUserAccess(rfds))
+    if (!check_user_access(rfds))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(wfds))
+    if (!check_user_access(wfds))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(efds))
+    if (!check_user_access(efds))
     {
         return -EFAULT;
     }
 
-    if (!checkUserAccess(tv))
+    if (!check_user_access(tv))
     {
         return -EFAULT;
     }
 
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
     Process* process = thread->owner;
 
     if (process)
@@ -126,7 +126,7 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
         thread->select.targetTime = 0;
         if (tv)
         {
-            thread->select.targetTime = getUptimeMilliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
+            thread->select.targetTime = get_uptime_milliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
         }
 
         updateSelect(thread);

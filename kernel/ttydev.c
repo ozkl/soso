@@ -78,33 +78,33 @@ FileSystemNode* createTTYDev()
     Device master;
     memset((uint8*)&master, 0, sizeof(Device));
     sprintf(master.name, "ptty%d-m", gNameGenerator);
-    master.deviceType = FT_CharacterDevice;
+    master.device_type = FT_CharacterDevice;
     master.open = master_open;
     master.close = master_close;
     master.read = master_read;
     master.write = master_write;
-    master.readTestReady = master_readTestReady;
-    master.writeTestReady = master_writeTestReady;
-    master.privateData = ttyDev;
+    master.read_test_ready = master_readTestReady;
+    master.write_test_ready = master_writeTestReady;
+    master.private_data = ttyDev;
 
     Device slave;
     memset((uint8*)&slave, 0, sizeof(Device));
     sprintf(slave.name, "ptty%d", gNameGenerator);
-    slave.deviceType = FT_CharacterDevice;
+    slave.device_type = FT_CharacterDevice;
     slave.open = slave_open;
     slave.close = slave_close;
     slave.read = slave_read;
     slave.write = slave_write;
-    slave.readTestReady = slave_readTestReady;
-    slave.writeTestReady = slave_writeTestReady;
+    slave.read_test_ready = slave_readTestReady;
+    slave.write_test_ready = slave_writeTestReady;
     slave.ioctl = slave_ioctl;
-    slave.privateData = ttyDev;
+    slave.private_data = ttyDev;
 
-    FileSystemNode* masterNode = registerDevice(&master);
-    FileSystemNode* slaveNode = registerDevice(&slave);
+    FileSystemNode* masterNode = devfs_register_device(&master);
+    FileSystemNode* slaveNode = devfs_register_device(&slave);
 
-    ttyDev->masterNode = masterNode;
-    ttyDev->slaveNode = slaveNode;
+    ttyDev->master_node = masterNode;
+    ttyDev->slave_node = slaveNode;
 
     return masterNode;
 }
@@ -451,7 +451,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
     switch (request)
     {
     case TIOCGPGRP:
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -459,7 +459,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         return 0;
         break;
     case TIOCSPGRP:
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -468,7 +468,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         break;
     case TIOCGWINSZ:
     {
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -481,7 +481,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         break;
     case TIOCSWINSZ:
     {
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -494,7 +494,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         break;
     case TCGETS:
     {
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -509,7 +509,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
     case TCSETSW:
     case TCSETSF:
     {
-        if (!checkUserAccess(argp))
+        if (!check_user_access(argp))
         {
             return -EFAULT;
         }
@@ -558,7 +558,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer)
     enableInterrupts();
 
     //TODO: implement VTIME
-    //uint32 timer = getUptimeMilliseconds();
+    //uint32 timer = get_uptime_milliseconds();
 
     if (size > 0)
     {

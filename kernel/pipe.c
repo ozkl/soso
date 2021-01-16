@@ -5,11 +5,11 @@
 #include "fifobuffer.h"
 #include "errno.h"
 
-static List* gPipeList = NULL;
+static List* g_pipe_list = NULL;
 
-static FileSystemNode* gPipesRoot = NULL;
+static FileSystemNode* g_pipes_root = NULL;
 
-static FileSystemDirent gDirent;
+static FileSystemDirent g_dirent;
 
 typedef struct Pipe
 {
@@ -25,21 +25,21 @@ static BOOL pipes_open(File *file, uint32 flags);
 static FileSystemDirent *pipes_readdir(FileSystemNode *node, uint32 index);
 static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name);
 
-void initializePipes()
+void pipe_initialize()
 {
-    gPipeList = List_Create();
+    g_pipe_list = List_Create();
 
-    gPipesRoot = getFileSystemNode("/system/pipes");
+    g_pipes_root = fs_get_node("/system/pipes");
 
-    if (NULL == gPipesRoot)
+    if (NULL == g_pipes_root)
     {
         WARNING("/system/pipes not found!!");
     }
     else
     {
-        gPipesRoot->open = pipes_open;
-        gPipesRoot->finddir = pipes_finddir;
-        gPipesRoot->readdir = pipes_readdir;
+        g_pipes_root->open = pipes_open;
+        g_pipes_root->finddir = pipes_finddir;
+        g_pipes_root->readdir = pipes_readdir;
     }
 }
 
@@ -52,16 +52,16 @@ static FileSystemDirent *pipes_readdir(FileSystemNode *node, uint32 index)
 {
     int counter = 0;
 
-    List_Foreach (n, gPipeList)
+    List_Foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
 
         if (counter == index)
         {
-            strcpy(gDirent.name, p->name);
-            gDirent.fileType = FT_Pipe;
+            strcpy(g_dirent.name, p->name);
+            g_dirent.fileType = FT_Pipe;
 
-            return &gDirent;
+            return &g_dirent;
         }
         ++counter;
     }
@@ -71,7 +71,7 @@ static FileSystemDirent *pipes_readdir(FileSystemNode *node, uint32 index)
 
 static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name)
 {
-    List_Foreach (n, gPipeList)
+    List_Foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
 
@@ -84,7 +84,7 @@ static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-static void blockAccessingThreads(Pipe* pipe, List* list)
+static void block_accessing_threads(Pipe* pipe, List* list)
 {
     disableInterrupts();
 
@@ -100,9 +100,9 @@ static void blockAccessingThreads(Pipe* pipe, List* list)
     halt();
 }
 
-static void wakeupAccessingThreads(Pipe* pipe, List* list)
+static void wakeup_accessing_threads(Pipe* pipe, List* list)
 {
-    beginCriticalSection();
+    begin_critical_section();
 
     List_Foreach (n, list)
     {
@@ -117,14 +117,14 @@ static void wakeupAccessingThreads(Pipe* pipe, List* list)
         }
     }
 
-    endCriticalSection();
+    end_critical_section();
 }
 
 static BOOL pipe_open(File *file, uint32 flags)
 {
     if (CHECK_ACCESS(file->flags, O_RDONLY) || CHECK_ACCESS(file->flags, O_WRONLY))
     {
-        beginCriticalSection();
+        begin_critical_section();
 
         gCurrentThread->state = TS_CRITICAL;
 
@@ -136,7 +136,7 @@ static BOOL pipe_open(File *file, uint32 flags)
         {
             List_Append(pipe->readers, file->thread);
 
-            wakeupAccessingThreads(pipe, pipe->writers);
+            wakeup_accessing_threads(pipe, pipe->writers);
         }
         else if (CHECK_ACCESS(file->flags, O_WRONLY))
         {
@@ -145,7 +145,7 @@ static BOOL pipe_open(File *file, uint32 flags)
 
         gCurrentThread->state = TS_RUN;
 
-        endCriticalSection();
+        end_critical_section();
 
         return TRUE;
     }
@@ -155,7 +155,7 @@ static BOOL pipe_open(File *file, uint32 flags)
 
 static void pipe_close(File *file)
 {
-    beginCriticalSection();
+    begin_critical_section();
 
     Pipe* pipe = file->node->privateNodeData;
 
@@ -173,13 +173,13 @@ static void pipe_close(File *file)
         //No readers left
         pipe->isBroken = TRUE;
 
-        wakeupAccessingThreads(pipe, pipe->writers);
+        wakeup_accessing_threads(pipe, pipe->writers);
     }
 
-    endCriticalSection();
+    end_critical_section();
 }
 
-static BOOL pipe_readTestReady(File *file)
+static BOOL pipe_read_test_ready(File *file)
 {
     Pipe* pipe = file->node->privateNodeData;
 
@@ -201,7 +201,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 used = 0;
-    while (pipe_readTestReady(file) == FALSE)
+    while (pipe_read_test_ready(file) == FALSE)
     {
         if (pipe->isBroken)
         {
@@ -214,7 +214,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
             return -EINTR;
         }
 
-        blockAccessingThreads(pipe, pipe->readers);
+        block_accessing_threads(pipe, pipe->readers);
     }
 
     if (gCurrentThread->pendingSignalCount > 0)
@@ -228,18 +228,18 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
 
     int32 readBytes = FifoBuffer_dequeue(pipe->buffer, buffer, size);
 
-    wakeupAccessingThreads(pipe, pipe->writers);
+    wakeup_accessing_threads(pipe, pipe->writers);
 
     return readBytes;
 }
 
-static BOOL pipe_writeTestReady(File *file)
+static BOOL pipe_write_test_ready(File *file)
 {
     Pipe* pipe = file->node->privateNodeData;
 
-    beginCriticalSection();
+    begin_critical_section();
     int readerCount = List_GetCount(pipe->readers);
-    endCriticalSection();
+    end_critical_section();
 
     if (FifoBuffer_getFree(pipe->buffer) > 0 && readerCount > 0)
     {
@@ -259,7 +259,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
     Pipe* pipe = file->node->privateNodeData;
 
     uint32 free = 0;
-    while (pipe_writeTestReady(file) == FALSE)
+    while (pipe_write_test_ready(file) == FALSE)
     {
         if (pipe->isBroken)
         {
@@ -272,7 +272,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
             return -EINTR;
         }
 
-        blockAccessingThreads(pipe, pipe->writers);
+        block_accessing_threads(pipe, pipe->writers);
     }
 
     if (gCurrentThread->pendingSignalCount > 0)
@@ -284,14 +284,14 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
 
     int32 bytesWritten = FifoBuffer_enqueue(pipe->buffer, buffer, size);
 
-    wakeupAccessingThreads(pipe, pipe->readers);
+    wakeup_accessing_threads(pipe, pipe->readers);
 
     return bytesWritten;
 }
 
-BOOL createPipe(const char* name, uint32 bufferSize)
+BOOL pipe_create(const char* name, uint32 bufferSize)
 {
-    List_Foreach (n, gPipeList)
+    List_Foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
         if (strcmp(name, p->name) == 0)
@@ -318,22 +318,22 @@ BOOL createPipe(const char* name, uint32 bufferSize)
     pipe->fsNode->close = pipe_close;
     pipe->fsNode->read = pipe_read;
     pipe->fsNode->write = pipe_write;
-    pipe->fsNode->readTestReady = pipe_readTestReady;
-    pipe->fsNode->writeTestReady = pipe_writeTestReady;
+    pipe->fsNode->readTestReady = pipe_read_test_ready;
+    pipe->fsNode->writeTestReady = pipe_write_test_ready;
 
-    List_Append(gPipeList, pipe);
+    List_Append(g_pipe_list, pipe);
 
     return TRUE;
 }
 
-BOOL destroyPipe(const char* name)
+BOOL pipe_destroy(const char* name)
 {
-    List_Foreach (n, gPipeList)
+    List_Foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
         if (strcmp(name, p->name) == 0)
         {
-            List_RemoveFirstOccurrence(gPipeList, p);
+            List_RemoveFirstOccurrence(g_pipe_list, p);
             FifoBuffer_destroy(p->buffer);
             List_Destroy(p->readers);
             List_Destroy(p->writers);
@@ -347,9 +347,9 @@ BOOL destroyPipe(const char* name)
     return FALSE;
 }
 
-BOOL existsPipe(const char* name)
+BOOL pipe_exists(const char* name)
 {
-    List_Foreach (n, gPipeList)
+    List_Foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
         if (strcmp(name, p->name) == 0)

@@ -17,7 +17,7 @@ static uint16 *gUnicode = NULL;
 
 #define LINE_HEIGHT 16
 
-void Gfx_Initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch)
+void gfx_initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch)
 {
     uint32 p_address = (uint32)pixels;
     char* v_address = (char*)GFX_MEMORY;

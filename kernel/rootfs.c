@@ -7,7 +7,7 @@ static FileSystemNode *rootfs_finddir(FileSystemNode *node, char *name);
 static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32 index);
 static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags);
 
-FileSystemNode* initializeRootFS()
+FileSystemNode* rootfs_initialize()
 {
     FileSystemNode* root = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8*)root, 0, sizeof(FileSystemNode));
@@ -21,7 +21,7 @@ FileSystemNode* initializeRootFS()
     return root;
 }
 
-static FileSystemDirent gDirent;
+static FileSystemDirent g_dirent;
 
 static BOOL rootfs_open(File *node, uint32 flags)
 {
@@ -41,11 +41,11 @@ static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32 inde
     {
         if (index == i)
         {
-            gDirent.fileType = n->nodeType;
-            gDirent.inode = n->inode;
-            strcpy(gDirent.name, n->name);
+            g_dirent.fileType = n->nodeType;
+            g_dirent.inode = n->inode;
+            strcpy(g_dirent.name, n->name);
 
-            return &gDirent;
+            return &g_dirent;
         }
         n = n->nextSibling;
         ++i;
@@ -81,20 +81,20 @@ static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
         n = n->nextSibling;
     }
 
-    FileSystemNode* newNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)newNode, 0, sizeof(FileSystemNode));
-    strcpy(newNode->name, name);
-    newNode->nodeType = FT_Directory;
-    newNode->open = rootfs_open;
-    newNode->close = rootfs_close;
-    newNode->readdir = rootfs_readdir;
-    newNode->finddir = rootfs_finddir;
-    newNode->mkdir = rootfs_mkdir;
-    newNode->parent = node;
+    FileSystemNode* new_node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
+    memset((uint8*)new_node, 0, sizeof(FileSystemNode));
+    strcpy(new_node->name, name);
+    new_node->nodeType = FT_Directory;
+    new_node->open = rootfs_open;
+    new_node->close = rootfs_close;
+    new_node->readdir = rootfs_readdir;
+    new_node->finddir = rootfs_finddir;
+    new_node->mkdir = rootfs_mkdir;
+    new_node->parent = node;
 
     if (node->firstChild == NULL)
     {
-        node->firstChild = newNode;
+        node->firstChild = new_node;
     }
     else
     {
@@ -103,7 +103,7 @@ static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
         {
             n = n->nextSibling;
         }
-        n->nextSibling = newNode;
+        n->nextSibling = new_node;
     }
 
     return TRUE;

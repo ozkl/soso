@@ -2,26 +2,26 @@
 #include "common.h"
 #include "fs.h"
 
-static File* gFile = NULL;
+static File* g_file = NULL;
 
-void Debug_initialize(const char* fileName)
+void log_initialize(const char* file_name)
 {
-    FileSystemNode* node = getFileSystemNode(fileName);
+    FileSystemNode* node = fs_get_node(file_name);
 
     if (node)
     {
-      gFile = open_fs(node, 0);
+      g_file = fs_open(node, 0);
     }
 }
 
-void Debug_PrintF(const char *format, ...)
+void log_printf(const char *format, ...)
 {
     char **arg = (char **) &format;
     char c;
     char buf[20];
     char buffer[512];
 
-    int bufferIndex = 0;
+    int buffer_index = 0;
 
     //arg++;
     __builtin_va_list vl;
@@ -29,13 +29,13 @@ void Debug_PrintF(const char *format, ...)
 
     while ((c = *format++) != 0)
       {
-        if (bufferIndex > 510)
+        if (buffer_index > 510)
         {
             break;
         }
 
         if (c != '%')
-          buffer[bufferIndex++] = c;
+          buffer[buffer_index++] = c;
         else
           {
             char *p;
@@ -67,22 +67,22 @@ void Debug_PrintF(const char *format, ...)
 
               string:
                 while (*p)
-                  buffer[bufferIndex++] = (*p++);
+                  buffer[buffer_index++] = (*p++);
                 break;
 
               default:
-                //buffer[bufferIndex++] = (*((int *) arg++));
-                buffer[bufferIndex++] = __builtin_va_arg(vl, int);
+                //buffer[buffer_index++] = (*((int *) arg++));
+                buffer[buffer_index++] = __builtin_va_arg(vl, int);
                 break;
               }
           }
       }
 
-    buffer[bufferIndex] = '\0';
+    buffer[buffer_index] = '\0';
 
-    if (gFile)
+    if (g_file)
     {
-        write_fs(gFile, strlen(buffer), (uint8*)buffer);
+        fs_write(g_file, strlen(buffer), (uint8*)buffer);
     }
 
     __builtin_va_end(vl);

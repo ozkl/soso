@@ -15,12 +15,12 @@ static int gTotalPageCount = 0;
 static void handlePageFault(Registers *regs);
 static void syncPageDirectoriesFromKernelMemory();
 
-void initializeMemory(uint32 high_mem)
+void initialize_memory(uint32 high_mem)
 {
     int pg;
     unsigned long i;
 
-    registerInterruptHandler(14, handlePageFault);
+    interrupt_register(14, handlePageFault);
 
     gTotalPageCount = (high_mem * 1024) / PAGESIZE_4K;
 
@@ -79,7 +79,7 @@ uint32 acquirePageFrame4K()
     uint32 page = -1;
 
     int pid = -1;
-    Thread* thread = getCurrentThread();
+    Thread* thread = get_current_thread();
     if (thread)
     {
         Process* process = thread->owner;
@@ -100,7 +100,7 @@ uint32 acquirePageFrame4K()
                     page = 8 * byte + bit;
                     SET_PAGEFRAME_USED(gPhysicalPageFrameBitmap, page);
 
-                    //Debug_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
+                    //log_printf("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
                     //Serial_PrintF("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
 
                     return (page * PAGESIZE_4K);
@@ -115,7 +115,7 @@ uint32 acquirePageFrame4K()
 
 void releasePageFrame4K(uint32 p_addr)
 {
-    //Debug_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
+    //log_printf("DEBUG: Released 4K Physical %x\n", p_addr);
     //Serial_PrintF("DEBUG: Released 4K Physical %x\n", p_addr);
 
     SET_PAGEFRAME_UNUSED(gPhysicalPageFrameBitmap, p_addr);
@@ -155,11 +155,11 @@ uint32* acquirePageDirectory()
 
 void destroyPageDirectoryWithMemory(uint32 physicalPd)
 {
-    beginCriticalSection();
+    begin_critical_section();
 
     uint32* pd = (uint32*)0xFFFFF000;
 
-    uint32 cr3 = readCr3();
+    uint32 cr3 = read_cr3();
 
     CHANGE_PD(physicalPd);
 
@@ -195,7 +195,7 @@ void destroyPageDirectoryWithMemory(uint32 physicalPd)
         pd[pdIndex] = 0;
     }
 
-    endCriticalSection();
+    end_critical_section();
     //return to caller's Page Directory
     CHANGE_PD(cr3);
 }
@@ -221,7 +221,7 @@ BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags)
 
     if (v_addr < (char*)(KERN_HEAP_END))
     {
-        cr3 = readCr3();
+        cr3 = read_cr3();
 
         CHANGE_PD(gKernelPageDirectory);
     }
@@ -297,7 +297,7 @@ BOOL removePageFromPd(char *v_addr)
 
     if (v_addr < (char*)(KERN_HEAP_END))
     {
-        cr3 = readCr3();
+        cr3 = read_cr3();
 
         CHANGE_PD(gKernelPageDirectory);
     }
@@ -421,21 +421,21 @@ static void printPageFaultInfo(uint32 faultingAddress, Registers *regs)
     int reserved = regs->errorCode & 0x8;
     int id = regs->errorCode & 0x10;
 
-    Debug_PrintF("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
+    log_printf("Page fault!!! When trying to %s %x - IP:%x\n", rw ? "write to" : "read from", faultingAddress, regs->eip);
 
-    Debug_PrintF("The page was %s\n", present ? "present" : "not present");
+    log_printf("The page was %s\n", present ? "present" : "not present");
 
     if (reserved)
     {
-        Debug_PrintF("Reserved bit was set\n");
+        log_printf("Reserved bit was set\n");
     }
 
     if (id)
     {
-        Debug_PrintF("Caused by an instruction fetch\n");
+        log_printf("Caused by an instruction fetch\n");
     }
 
-    Debug_PrintF("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
+    log_printf("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
 static void handlePageFault(Registers *regs)
@@ -446,10 +446,10 @@ static void handlePageFault(Registers *regs)
     uint32 faultingAddress;
     asm volatile("mov %%cr2, %0" : "=r" (faultingAddress));
 
-    //Debug_PrintF("page_fault()\n");
-    //Debug_PrintF("stack of handler is %x\n", &faultingAddress);
+    //log_printf("page_fault()\n");
+    //log_printf("stack of handler is %x\n", &faultingAddress);
 
-    Thread* faultingThread = getCurrentThread();
+    Thread* faultingThread = get_current_thread();
     if (NULL != faultingThread)
     {
         Thread* mainThread = getMainKernelThread();
@@ -464,14 +464,14 @@ static void handlePageFault(Registers *regs)
         {
             printPageFaultInfo(faultingAddress, regs);
 
-            Debug_PrintF("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
+            log_printf("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
 
             if (faultingThread->userMode)
             {
                 if (faultingThread->state == TS_CRITICAL ||
                     faultingThread->state == TS_UNINTERRUPTIBLE)
                 {
-                    Debug_PrintF("CRITICAL!! process %d\n", faultingThread->owner->pid);
+                    log_printf("CRITICAL!! process %d\n", faultingThread->owner->pid);
 
                     changeProcessState(faultingThread->owner, TS_SUSPEND);
 
@@ -479,20 +479,20 @@ static void handlePageFault(Registers *regs)
                 }
                 else
                 {
-                    //Debug_PrintF("Destroying process %d\n", faultingThread->owner->pid);
+                    //log_printf("Destroying process %d\n", faultingThread->owner->pid);
 
                     //destroyProcess(faultingThread->owner);
 
                     //TODO: state in RUN?
 
-                    Debug_PrintF("Segmentation fault pid:%d\n", faultingThread->owner->pid);
+                    log_printf("Segmentation fault pid:%d\n", faultingThread->owner->pid);
 
                     signalThread(faultingThread, SIGSEGV);
                 }
             }
             else
             {
-                Debug_PrintF("Destroying kernel thread %d\n", faultingThread->threadId);
+                log_printf("Destroying kernel thread %d\n", faultingThread->threadId);
 
                 destroyThread(faultingThread);
             }
@@ -561,7 +561,7 @@ void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressAr
         }
     }
 
-    //Debug_PrintF("mapMemory: needed:%d foundAdjacent:%d vMem:%x\n", neededPages, foundAdjacent, vMem);
+    //log_printf("mapMemory: needed:%d foundAdjacent:%d vMem:%x\n", neededPages, foundAdjacent, vMem);
 
     if (foundAdjacent == pageCount)
     {
@@ -579,7 +579,7 @@ void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressAr
 
             addPageToPd((char*)v, p, PG_USER | ownFlag);
 
-            //Debug_PrintF("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
+            //log_printf("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
             SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K(v));
 
@@ -621,7 +621,7 @@ BOOL unmapMemory(Process* process, uint32 vAddress, uint32 pageCount)
 
             removePageFromPd(vAddr);
 
-            Debug_PrintF("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, vAddr);
+            log_printf("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, vAddr);
 
             SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, vAddr);
 

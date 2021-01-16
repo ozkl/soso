@@ -11,7 +11,7 @@ static Spinlock gShmListLock;
 
 static FileSystemNode* gShmRoot = NULL;
 
-static FileSystemDirent gDirent;
+static FileSystemDirent g_dirent;
 
 static BOOL sharedmemorydir_open(File *file, uint32 flags);
 static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 index);
@@ -25,13 +25,13 @@ typedef struct SharedMemory
     //TODO: permissions
 } SharedMemory;
 
-void initializeSharedMemory()
+void initialize_sharedmemory()
 {
     Spinlock_Init(&gShmListLock);
 
     gShmList = List_Create();
 
-    gShmRoot = getFileSystemNode("/system/shm");
+    gShmRoot = fs_get_node("/system/shm");
 
     if (NULL == gShmRoot)
     {
@@ -64,10 +64,10 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 in
 
         if (counter == index)
         {
-            strcpy(gDirent.name, p->node->name);
-            gDirent.fileType = p->node->nodeType;
+            strcpy(g_dirent.name, p->node->name);
+            g_dirent.fileType = p->node->nodeType;
 
-            result = &gDirent;
+            result = &g_dirent;
 
             break;
         }

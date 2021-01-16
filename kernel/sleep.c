@@ -4,7 +4,7 @@
 
 void sleepMilliseconds(Thread* thread, uint32 ms)
 {
-    uint32 uptime = getUptimeMilliseconds();
+    uint32 uptime = get_uptime_milliseconds();
 
     //target uptime to wakeup
     uint32 target = uptime + ms;

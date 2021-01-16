@@ -8,16 +8,16 @@
 static BOOL random_open(File *file, uint32 flags);
 static int32 random_read(File *file, uint32 size, uint8 *buffer);
 
-void initializeRandom()
+void random_initialize()
 {
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "random");
-    device.deviceType = FT_CharacterDevice;
+    device.device_type = FT_CharacterDevice;
     device.open = random_open;
     device.read = random_read;
 
-    registerDevice(&device);
+    devfs_register_device(&device);
 }
 
 static BOOL random_open(File *file, uint32 flags)
@@ -31,12 +31,6 @@ static int32 random_read(File *file, uint32 size, uint8 *buffer)
     {
         return 0;
     }
-
-    //Screen_PrintF("random_read: calling sleep\n");
-
-    //sleep(10000);
-
-    //Screen_PrintF("random_read: returned from sleep\n");
 
     uint32 number = rand();
 

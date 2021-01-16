@@ -3,6 +3,6 @@
 
 #include "common.h"
 
-BOOL createRamdisk(const char* devName, uint32 size);
+BOOL ramdisk_create(const char* devName, uint32 size);
 
 #endif // RAMDISK_H

@@ -3,6 +3,6 @@
 
 #include "fs.h"
 
-FileSystemNode* initializeRootFS();
+FileSystemNode* rootfs_initialize();
 
 #endif // ROOTFS_H

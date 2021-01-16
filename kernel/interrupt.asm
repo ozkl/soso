@@ -3,7 +3,7 @@
   global isr%1
   isr%1:
     push dword %1         ; push the interrupt number
-    jmp handleISRCommon
+    jmp handle_isr_common
 %endmacro
 
 ; NASM macro
@@ -12,7 +12,7 @@
   isr%1:
     push dword 0          ; push a dummy error code just because to keep struct Registers the same as the above macro
     push dword %1         ; push the interrupt number
-    jmp handleISRCommon
+    jmp handle_isr_common
 %endmacro
 
 
@@ -22,7 +22,7 @@
   irq%1:
     push dword 0          ; push a dummy error code just because to keep struct Registers the same again
     push dword %2
-    jmp handleIRQCommon
+    jmp handle_irq_common
 %endmacro
         
 ISR_NO_ERROR_CODE  0
@@ -102,21 +102,20 @@ IRQ  15,    47
 %endmacro
 
 
-extern handleISR
+extern handle_isr
 
-handleISRCommon:
+handle_isr_common:
     SAVE_REGS
-    call handleISR
+    call handle_isr
     RESTORE_REGS
     add esp, 8     ; deallocate the error code and the interrupt number
     iret           ; pops CS, EIP, EFLAGS and also SS, and ESP if privilege change occurs
 
-extern handleIRQ
+extern handle_irq
 
-
-handleIRQCommon:
+handle_irq_common:
     SAVE_REGS
-    call handleIRQ
+    call handle_irq
     RESTORE_REGS
     add esp, 8     ; deallocate the error code and the interrupt number
     iret           ; pops CS, EIP, EFLAGS and also SS, and ESP if privilege change occurs

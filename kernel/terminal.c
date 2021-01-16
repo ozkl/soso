@@ -30,7 +30,7 @@ Terminal* terminal_create(TtyDev* tty, BOOL graphicMode)
 
     terminal_clear(terminal);
 
-    terminal->openedMaster = open_fs_forProcess(NULL, tty->masterNode, 0);
+    terminal->openedMaster = fs_open_for_process(NULL, tty->master_node, 0);
     tty->privateData = terminal;
 
     tty->masterReadReady = master_read_ready;
@@ -40,7 +40,7 @@ Terminal* terminal_create(TtyDev* tty, BOOL graphicMode)
 
 void terminal_destroy(Terminal* terminal)
 {
-    close_fs(terminal->openedMaster);
+    fs_close(terminal->openedMaster);
 
     kfree(terminal->buffer);
     kfree(terminal);
@@ -325,7 +325,7 @@ void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character)
         break;
     }
 
-    write_fs(terminal->openedMaster, size, seq);
+    fs_write(terminal->openedMaster, size, seq);
 }
 
 static void master_read_ready(TtyDev* tty, uint32 size)

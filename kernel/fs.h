@@ -109,7 +109,7 @@ typedef struct File
     int32 fd;
     uint32 flags;
     int32 offset;
-    void* privateData;
+    void* private_data;
 } File;
 
 struct stat
@@ -135,32 +135,31 @@ struct stat
 };
 
 
-uint32 read_fs(File* file, uint32 size, uint8* buffer);
-uint32 write_fs(File* file, uint32 size, uint8* buffer);
-File* open_fs(FileSystemNode* node, uint32 flags);
-File* open_fs_forProcess(Thread* thread, FileSystemNode* node, uint32 flags);
-void close_fs(File* file);
-int32 ioctl_fs(File* file, int32 request, void* argp);
-int32 lseek_fs(File* file, int32 offset, int32 whence);
-int32 ftruncate_fs(File* file, int32 length);
-int32 stat_fs(FileSystemNode *node, struct stat *buf);
-FileSystemDirent* readdir_fs(FileSystemNode* node, uint32 index);
-FileSystemNode* finddir_fs(FileSystemNode* node, char* name);
-BOOL mkdir_fs(FileSystemNode *node, const char* name, uint32 flags);
-void* mmap_fs(File* file, uint32 size, uint32 offset, uint32 flags);
-BOOL munmap_fs(File* file, void* address, uint32 size);
-int getFileSystemNodePath(FileSystemNode* node, char* buffer, uint32 bufferSize);
-BOOL resolvePath(const char* path, char* buffer, int bufferSize);
+uint32 fs_read(File* file, uint32 size, uint8* buffer);
+uint32 fs_write(File* file, uint32 size, uint8* buffer);
+File* fs_open(FileSystemNode* node, uint32 flags);
+File* fs_open_for_process(Thread* thread, FileSystemNode* node, uint32 flags);
+void fs_close(File* file);
+int32 fs_ioctl(File* file, int32 request, void* argp);
+int32 fs_lseek(File* file, int32 offset, int32 whence);
+int32 fs_ftruncate(File* file, int32 length);
+int32 fs_stat(FileSystemNode *node, struct stat *buf);
+FileSystemDirent* fs_readdir(FileSystemNode* node, uint32 index);
+FileSystemNode* fs_finddir(FileSystemNode* node, char* name);
+BOOL fs_mkdir(FileSystemNode *node, const char* name, uint32 flags);
+void* fs_mmap(File* file, uint32 size, uint32 offset, uint32 flags);
+BOOL fs_munmap(File* file, void* address, uint32 size);
+int fs_get_node_path(FileSystemNode* node, char* buffer, uint32 buffer_size);
+BOOL fs_resolve_path(const char* path, char* buffer, int buffer_size);
 
-void initializeVFS();
-FileSystemNode* getFileSystemRootNode();
-FileSystemNode* getFileSystemNode(const char* path);
-FileSystemNode* getFileSystemNodeAbsoluteOrRelative(const char* path, Process* process);
-FileSystemNode* getFileSystemNodeRelativeToNode(const char* path, FileSystemNode* relativeTo);
-void copyFileDescriptors(Process* fromProcess, Process* toProcess);
+void fs_initialize();
+FileSystemNode* fs_get_root_node();
+FileSystemNode* fs_get_node(const char* path);
+FileSystemNode* fs_get_node_absolute_or_relative(const char* path, Process* process);
+FileSystemNode* fs_get_node_relative_to_node(const char* path, FileSystemNode* relative_to);
 
-BOOL registerFileSystem(FileSystem* fs);
-BOOL mountFileSystem(const char *source, const char *target, const char *fsType, uint32 flags, void *data);
-BOOL checkMountFileSystem(const char *source, const char *target, const char *fsType, uint32 flags, void *data);
+BOOL fs_register(FileSystem* fs);
+BOOL fs_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data);
+BOOL fs_check_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data);
 
 #endif

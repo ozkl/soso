@@ -5,7 +5,7 @@
 #include "fs.h"
 #include "common.h"
 
-void initializeDevFS();
-FileSystemNode* registerDevice(Device* device);
+void devfs_initialize();
+FileSystemNode* devfs_register_device(Device* device);
 
 #endif // DEVFS_H

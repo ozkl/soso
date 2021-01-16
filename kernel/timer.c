@@ -5,67 +5,67 @@
 
 #define TIMER_FREQ 1000
 
-uint64 gSystemTickCount = 0;
+uint64 g_system_tick_count = 0;
 
-uint64 gSystemDateMs = 0;
+uint64 g_system_date_ms = 0;
 
-BOOL gSchedulerEnabled = FALSE;
+BOOL g_scheduler_enabled = FALSE;
 
 //called from assembly
 void handleTimerIRQ(TimerInt_Registers registers)
 {
-    gSystemTickCount++;
+    g_system_tick_count++;
 
-    gSystemDateMs++;
+    g_system_date_ms++;
 
-    if (gSchedulerEnabled == TRUE)
+    if (g_scheduler_enabled == TRUE)
     {
         schedule(&registers);
     }
 }
 
-uint32 getSystemTickCount()
+uint32 get_system_tick_count()
 {
-    return (uint32)gSystemTickCount;
+    return (uint32)g_system_tick_count;
 }
 
-uint64 getSystemTickCount64()
+uint64 get_system_tick_count64()
 {
-    return gSystemTickCount;
+    return g_system_tick_count;
 }
 
-uint32 getUptimeSeconds()
+uint32 get_uptime_seconds()
 {
-    return ((uint32)gSystemTickCount) / TIMER_FREQ;
+    return ((uint32)g_system_tick_count) / TIMER_FREQ;
 }
 
-uint64 getUptimeSeconds64()
+uint64 get_uptime_seconds64()
 {
     //TODO: make this real 64 bit
-    return getUptimeSeconds();
+    return get_uptime_seconds();
 }
 
-uint32 getUptimeMilliseconds()
+uint32 get_uptime_milliseconds()
 {
-    return (uint32)gSystemTickCount;
+    return (uint32)g_system_tick_count;
 }
 
-uint64 getUptimeMilliseconds64()
+uint64 get_uptime_milliseconds64()
 {
-    return gSystemTickCount;
+    return g_system_tick_count;
 }
 
-void enableScheduler()
+void scheduler_enable()
 {
-    gSchedulerEnabled = TRUE;
+    g_scheduler_enabled = TRUE;
 }
 
-void disableScheduler()
+void scheduler_disable()
 {
-    gSchedulerEnabled = FALSE;
+    g_scheduler_enabled = FALSE;
 }
 
-static void initTimer(uint32 frequency)
+static void timer_init(uint32 frequency)
 {
     uint32 divisor = 1193180 / frequency;
 
@@ -78,9 +78,9 @@ static void initTimer(uint32 frequency)
     outb(0x40, h);
 }
 
-void initializeTimer()
+void timer_initialize()
 {
-    initTimer(TIMER_FREQ);
+    timer_init(TIMER_FREQ);
 }
 
 int32 clock_getres64(int32 clockid, struct timespec *res)
@@ -97,13 +97,13 @@ int32 clock_gettime64(int32 clockid, struct timespec *tp)
 
     //TODO: make proper use of 64 bit fields
 
-    uint32 uptimeMilli = gSystemDateMs;
+    uint32 uptime_milli = g_system_date_ms;
 
-    tp->tv_sec = uptimeMilli / TIMER_FREQ;
+    tp->tv_sec = uptime_milli / TIMER_FREQ;
 
-    uint32 extraMilli = uptimeMilli - tp->tv_sec * 1000;
+    uint32 extra_milli = uptime_milli - tp->tv_sec * 1000;
 
-    tp->tv_nsec = extraMilli * 1000000;
+    tp->tv_nsec = extra_milli * 1000000;
 
     return 0;
 }
@@ -114,9 +114,9 @@ int32 clock_settime64(int32 clockid, const struct timespec *tp)
 
     //TODO: make use of tv_nsec
 
-    uint32 uptimeMilli = gSystemDateMs;
+    uint32 uptime_milli = g_system_date_ms;
 
-    gSystemDateMs = tp->tv_sec * TIMER_FREQ;
+    g_system_date_ms = tp->tv_sec * TIMER_FREQ;
 
     return 0;
 }

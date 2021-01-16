@@ -25,7 +25,7 @@ void initializeFrameBuffer(uint8* p_address, uint8* v_address)
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "fb0");
-    device.deviceType = FT_CharacterDevice;
+    device.device_type = FT_CharacterDevice;
     device.open = fb_open;
     device.read = fb_read;
     device.write = fb_write;
@@ -33,7 +33,7 @@ void initializeFrameBuffer(uint8* p_address, uint8* v_address)
     device.mmap = fb_mmap;
     device.munmap = fb_munmap;
 
-    registerDevice(&device);
+    devfs_register_device(&device);
 }
 
 static BOOL fb_open(File *file, uint32 flags)

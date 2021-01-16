@@ -25,7 +25,7 @@ static FileSystemDirent gFileSystemDirent;
 static FileSystemNode* gMountedBlockDevices[FF_VOLUMES];
 
 
-void initializeFatFileSystem()
+void fatfs_initialize()
 {
     FileSystem fs;
     memset((uint8*)&fs, 0, sizeof(fs));
@@ -33,7 +33,7 @@ void initializeFatFileSystem()
     fs.mount = mount;
     fs.checkMount = checkMount;
 
-    registerFileSystem(&fs);
+    fs_register(&fs);
 
     for (int i = 0; i < FF_VOLUMES; ++i)
     {
@@ -45,10 +45,10 @@ static BOOL mount(const char* sourcePath, const char* targetPath, uint32 flags, 
 {
     printkf("fat mount source: %s\n", sourcePath);
 
-    FileSystemNode* node = getFileSystemNode(sourcePath);
+    FileSystemNode* node = fs_get_node(sourcePath);
     if (node && node->nodeType == FT_BlockDevice)
     {
-        FileSystemNode* targetNode = getFileSystemNode(targetPath);
+        FileSystemNode* targetNode = fs_get_node(targetPath);
         if (targetNode)
         {
             if (targetNode->nodeType == FT_Directory)
@@ -117,10 +117,10 @@ static BOOL mount(const char* sourcePath, const char* targetPath, uint32 flags, 
 
 static BOOL checkMount(const char* sourcePath, const char* targetPath, uint32 flags, void *data)
 {
-    FileSystemNode* node = getFileSystemNode(sourcePath);
+    FileSystemNode* node = fs_get_node(sourcePath);
     if (node && node->nodeType == FT_BlockDevice)
     {
-        FileSystemNode* targetNode = getFileSystemNode(targetPath);
+        FileSystemNode* targetNode = fs_get_node(targetPath);
         if (targetNode)
         {
             if (targetNode->nodeType == FT_Directory)
@@ -156,7 +156,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
             return NULL;
         }
 
-        strcpyNonNull((char*)(targetPath + charIndex), n->name);
+        strcpy_nonnull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -174,7 +174,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
         return NULL;
     }
 
-    strcpyNonNull((char*)(targetPath + charIndex), number);
+    strcpy_nonnull((char*)(targetPath + charIndex), number);
     uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("readdir: targetpath:[%s]\n", target);
@@ -244,7 +244,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     memset(targetPath, 0, 128);
     int length = strlen(name);
     charIndex -= length;
-    strcpyNonNull((char*)(targetPath + charIndex), name);
+    strcpy_nonnull((char*)(targetPath + charIndex), name);
     charIndex -= 1;
     targetPath[charIndex] = '/';
     while (NULL == n->mountSource)
@@ -257,7 +257,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
             return NULL;
         }
 
-        strcpyNonNull((char*)(targetPath + charIndex), n->name);
+        strcpy_nonnull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -275,7 +275,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
         return NULL;
     }
 
-    strcpyNonNull((char*)(targetPath + charIndex), number);
+    strcpy_nonnull((char*)(targetPath + charIndex), number);
     uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("finddir: targetpath:[%s]\n", target);
@@ -336,12 +336,12 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
 
 static int32 read(File *file, uint32 size, uint8 *buffer)
 {
-    if (file->privateData == NULL)
+    if (file->private_data == NULL)
     {
         return -1;
     }
 
-    FIL* f = (FIL*)file->privateData;
+    FIL* f = (FIL*)file->private_data;
 
     UINT br = 0;
     FRESULT fr = f_read(f, buffer, size, &br);
@@ -357,12 +357,12 @@ static int32 read(File *file, uint32 size, uint8 *buffer)
 
 static int32 write(File *file, uint32 size, uint8 *buffer)
 {
-    if (file->privateData == NULL)
+    if (file->private_data == NULL)
     {
         return -1;
     }
 
-    FIL* f = (FIL*)file->privateData;
+    FIL* f = (FIL*)file->private_data;
 
     UINT bw = 0;
     FRESULT fr = f_write(f, buffer, size, &bw);
@@ -377,12 +377,12 @@ static int32 write(File *file, uint32 size, uint8 *buffer)
 
 static int32 lseek(File *file, int32 offset, int32 whence)
 {
-    if (file->privateData == NULL)
+    if (file->private_data == NULL)
     {
         return -1;
     }
 
-    FIL* f = (FIL*)file->privateData;
+    FIL* f = (FIL*)file->private_data;
 
     FRESULT fr = FR_INVALID_OBJECT;
 
@@ -431,7 +431,7 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
             return NULL;
         }
 
-        strcpyNonNull((char*)(targetPath + charIndex), n->name);
+        strcpy_nonnull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -449,7 +449,7 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
         return NULL;
     }
 
-    strcpyNonNull((char*)(targetPath + charIndex), number);
+    strcpy_nonnull((char*)(targetPath + charIndex), number);
     uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("fat stat target:[%s]\n", target);
@@ -502,7 +502,7 @@ static BOOL open(File *file, uint32 flags)
             return NULL;
         }
 
-        strcpyNonNull((char*)(targetPath + charIndex), n->name);
+        strcpy_nonnull((char*)(targetPath + charIndex), n->name);
         charIndex -= 1;
         targetPath[charIndex] = '/';
 
@@ -520,7 +520,7 @@ static BOOL open(File *file, uint32 flags)
         return NULL;
     }
 
-    strcpyNonNull((char*)(targetPath + charIndex), number);
+    strcpy_nonnull((char*)(targetPath + charIndex), number);
     uint8* target = targetPath + charIndex;
 
     //Screen_PrintF("fat open %s\n", target);
@@ -549,7 +549,7 @@ static BOOL open(File *file, uint32 flags)
     {
         file->offset = f->fptr;
 
-        file->privateData = f;
+        file->private_data = f;
 
         return TRUE;
     }
@@ -559,18 +559,18 @@ static BOOL open(File *file, uint32 flags)
 
 static void close(File *file)
 {
-    if (file->privateData == NULL)
+    if (file->private_data == NULL)
     {
         return;
     }
 
-    FIL* f = (FIL*)file->privateData;
+    FIL* f = (FIL*)file->private_data;
 
     f_close(f);
 
     kfree(f);
 
-    file->privateData = NULL;
+    file->private_data = NULL;
 }
 
 DSTATUS disk_initialize(
@@ -639,24 +639,24 @@ DRESULT disk_ioctl (
         dr = RES_OK;
         break;
     case GET_SECTOR_COUNT:
-        f = open_fs(gMountedBlockDevices[pdrv], 0);
+        f = fs_open(gMountedBlockDevices[pdrv], 0);
         if (f)
         {
-            ioctl_fs(f, IC_GetSectorCount, &value);
+            fs_ioctl(f, IC_GetSectorCount, &value);
             *(DWORD*)buff = value;
             dr = RES_OK;
-            close_fs(f);
+            fs_close(f);
         }
         printkf("disk_ioctl GET_SECTOR_COUNT: %d\n", value);
         break;
     case GET_BLOCK_SIZE:
-        f = open_fs(gMountedBlockDevices[pdrv], 0);
+        f = fs_open(gMountedBlockDevices[pdrv], 0);
         if (f)
         {
-            ioctl_fs(f, IC_GetSectorSizeInBytes, &value);
+            fs_ioctl(f, IC_GetSectorSizeInBytes, &value);
             *(DWORD*)buff = value;
             dr = RES_OK;
-            close_fs(f);
+            fs_close(f);
         }
         printkf("disk_ioctl GET_BLOCK_SIZE: %d\n", value);
         *(DWORD*)buff = value;
