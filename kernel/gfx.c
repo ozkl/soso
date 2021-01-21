@@ -37,7 +37,7 @@ void gfx_initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPer
     {
         uint32 offset = i * PAGESIZE_4K;
 
-        addPageToPd(v_address + offset, p_address + offset, 0);
+        vmm_add_page_to_pd(v_address + offset, p_address + offset, 0);
     }
 
     for (int y = 0; y < gHeight; ++y)

@@ -30,7 +30,7 @@ uint32 gThreadIdGenerator = 0;
 uint32 gSystemContextSwitchCount = 0;
 uint32 gUsageMarkPoint = 0;
 
-extern Tss gTss;
+extern Tss g_tss;
 
 static void fillAuxilaryVector(uint32 location, void* elfData);
 
@@ -359,7 +359,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     strncpy(process->name, name, PROCESS_NAME_MAX);
     process->name[PROCESS_NAME_MAX - 1] = 0;
     process->pid = processId;
-    process->pd = acquirePageDirectory();
+    process->pd = vmm_acquire_page_directory();
     process->workingDirectory = fs_get_root_node();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
@@ -421,13 +421,13 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     //Change memory view (page directory)
     CHANGE_PD(process->pd);
 
-    initializeProcessPages(process);
+    vmm_initialize_process_pages(process);
 
     uint32 sizeInMemory = imageDataEndInMemory - USER_OFFSET;
 
     //printkf("image sizeInMemory:%d\n", sizeInMemory);
 
-    initializeProgramBreak(process, sizeInMemory);
+    initialize_program_break(process, sizeInMemory);
 
 
     const uint32 stackPageCount = 50;
@@ -435,24 +435,24 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     uint32 stackFrames[stackPageCount];
     for (uint32 i = 0; i < stackPageCount; ++i)
     {
-        stackFrames[i] = acquirePageFrame4K();
+        stackFrames[i] = vmm_acquire_page_frame_4k();
     }
-    void* stackVMem = mapMemory(process, (uint32)vAddressStackPage, stackFrames, stackPageCount, TRUE);
+    void* stackVMem = vmm_map_memory(process, (uint32)vAddressStackPage, stackFrames, stackPageCount, TRUE);
     if (NULL == stackVMem)
     {
         for (uint32 i = 0; i < stackPageCount; ++i)
         {
-            releasePageFrame4K(stackFrames[i]);
+            vmm_release_page_frame_4k(stackFrames[i]);
         }
     }
 
     uint32 pAddressArgsEnvAux[1];
-    pAddressArgsEnvAux[0] = acquirePageFrame4K();
+    pAddressArgsEnvAux[0] = vmm_acquire_page_frame_4k();
     char* vAddressArgsEnvAux = (char *) (USER_STACK);
-    void* mapped = mapMemory(process, (uint32)vAddressArgsEnvAux, pAddressArgsEnvAux, 1, TRUE);
+    void* mapped = vmm_map_memory(process, (uint32)vAddressArgsEnvAux, pAddressArgsEnvAux, 1, TRUE);
     if (NULL == mapped)
     {
-        releasePageFrame4K(pAddressArgsEnvAux[0]);
+        vmm_release_page_frame_4k(pAddressArgsEnvAux[0]);
     }
     else
     {
@@ -617,7 +617,7 @@ void destroyProcess(Process* process)
 
     kfree(process);
 
-    destroyPageDirectoryWithMemory(physicalPD);
+    vmm_destroy_page_directory_with_memory(physicalPD);
 }
 
 void changeProcessState(Process* process, ThreadState state)
@@ -938,7 +938,7 @@ static void updateThreadState(Thread* t)
     }
     else if (t->state == TS_SELECT)
     {
-        updateSelect(t);
+        select_update(t);
 
         if (t->select.selectState == SS_FINISHED)
         {
@@ -1029,12 +1029,12 @@ static void endContext(TimerInt_Registers* registers, Thread* thread)
     {
         //log_printf("schedule() - 2.2\n");
         thread->regs.esp = registers->esp + 12;
-        thread->regs.ss = gTss.ss0;
+        thread->regs.ss = g_tss.ss0;
     }
 
     //Save the TSS from the old process
-    thread->kstack.ss0 = gTss.ss0;
-    thread->kstack.esp0 = gTss.esp0;
+    thread->kstack.ss0 = g_tss.ss0;
+    thread->kstack.esp0 = g_tss.esp0;
 }
 
 static void startContext(Thread* thread)
@@ -1141,8 +1141,8 @@ static void switchToTask(Thread* current, int mode)
     uint16 kss, ss, cs;
 
     //Set TSS values
-    gTss.ss0 = current->kstack.ss0;
-    gTss.esp0 = current->kstack.esp0;
+    g_tss.ss0 = current->kstack.ss0;
+    g_tss.esp0 = current->kstack.esp0;
 
     ss = current->regs.ss;
     cs = current->regs.cs;

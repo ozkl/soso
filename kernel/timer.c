@@ -12,7 +12,7 @@ uint64 g_system_date_ms = 0;
 BOOL g_scheduler_enabled = FALSE;
 
 //called from assembly
-void handleTimerIRQ(TimerInt_Registers registers)
+void handle_timer_irq(TimerInt_Registers registers)
 {
     g_system_tick_count++;
 

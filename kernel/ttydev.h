@@ -28,27 +28,27 @@ typedef struct TtyDev
 {
     FileSystemNode* master_node;
     FileSystemNode* slave_node;
-    void* privateData;
-    int32 controllingProcess;
-    int32 foregroundProcess;
+    void* private_data;
+    int32 controlling_process;
+    int32 foreground_process;
     winsize_t winsize;
-    FifoBuffer* bufferMasterWrite;
-    Spinlock bufferMasterWriteLock;
-    FifoBuffer* bufferMasterRead;
-    Spinlock bufferMasterReadLock;
-    FifoBuffer* bufferEcho; //used in only echoing by master_write, no need lock
-    List* slaveReaders;
-    Spinlock slaveReadersLock;
-    Thread* masterReader;
-    TtyIOReady masterReadReady; //used for kernel terminal, because it does not read like a user process
-    uint8 lineBuffer[TTYDEV_LINEBUFFER_SIZE];
-    uint32 lineBufferIndex;
+    FifoBuffer* buffer_master_write;
+    Spinlock buffer_master_write_lock;
+    FifoBuffer* buffer_master_read;
+    Spinlock buffer_master_read_lock;
+    FifoBuffer* buffer_echo; //used in only echoing by master_write, no need lock
+    List* slave_readers;
+    Spinlock slave_readers_lock;
+    Thread* master_reader;
+    TtyIOReady master_read_ready; //used for kernel terminal, because it does not read like a user process
+    uint8 line_buffer[TTYDEV_LINEBUFFER_SIZE];
+    uint32 line_buffer_index;
     struct termios term;
 
 } TtyDev;
 
-FileSystemNode* createTTYDev();
+FileSystemNode* ttydev_create();
 
-int32 TtyDev_master_read_nonblock(File *file, uint32 size, uint8 *buffer);
+int32 ttydev_master_read_nonblock(File *file, uint32 size, uint8 *buffer);
 
 #endif //TTYDEV_H

@@ -2,7 +2,7 @@
 #include "serial.h"
 #include "debugprint.h"
 
-static BOOL gInterruptsWereEnabled = FALSE;
+static BOOL g_interrupts_were_enabled = FALSE;
 
 // Write a byte out to the specified port.
 void outb(uint16 port, uint8 value)
@@ -154,15 +154,15 @@ char *strcpy_nonnull(char *dest, const char *src)
 //Thus, in this case, destination shall not be considered a null terminated C string.
 char *strncpy(char *dest, const char *src, uint32 num)
 {
-    BOOL sourceEnded = FALSE;
+    BOOL source_ended = FALSE;
     for (uint32 i = 0; i < num; ++i)
     {
-        if (sourceEnded == FALSE && src[i] == '\0')
+        if (source_ended == FALSE && src[i] == '\0')
         {
-            sourceEnded = TRUE;
+            source_ended = TRUE;
         }
 
-        if (sourceEnded)
+        if (source_ended)
         {
             dest[i] = '\0';
         }
@@ -177,15 +177,15 @@ char *strncpy(char *dest, const char *src, uint32 num)
 
 char* strncpy_null(char *dest, const char *src, uint32 num)
 {
-    BOOL sourceEnded = FALSE;
+    BOOL source_ended = FALSE;
     for (uint32 i = 0; i < num; ++i)
     {
-        if (sourceEnded == FALSE && src[i] == '\0')
+        if (source_ended == FALSE && src[i] == '\0')
         {
-            sourceEnded = TRUE;
+            source_ended = TRUE;
         }
 
-        if (sourceEnded)
+        if (source_ended)
         {
             dest[i] = '\0';
         }
@@ -314,12 +314,12 @@ int sprintf_va(char* buffer, const char *format, __builtin_va_list vl)
     char c;
     char buf[20];
 
-    int bufferIndex = 0;
+    int buffer_index = 0;
 
     while ((c = *format++) != 0)
       {
         if (c != '%')
-          buffer[bufferIndex++] = c;
+          buffer[buffer_index++] = c;
         else
           {
             char *p;
@@ -352,20 +352,20 @@ int sprintf_va(char* buffer, const char *format, __builtin_va_list vl)
 
               string:
                 while (*p)
-                  buffer[bufferIndex++] = (*p++);
+                  buffer[buffer_index++] = (*p++);
                 break;
 
               default:
-                //buffer[bufferIndex++] = (*((int *) arg++));
-                buffer[bufferIndex++] = __builtin_va_arg(vl, int);
+                //buffer[buffer_index++] = (*((int *) arg++));
+                buffer[buffer_index++] = __builtin_va_arg(vl, int);
                 break;
               }
           }
       }
 
-    buffer[bufferIndex] = '\0';
+    buffer[buffer_index] = '\0';
 
-    return bufferIndex;
+    return buffer_index;
 }
 
 int sprintf(char* buffer, const char *format, ...)
@@ -460,14 +460,14 @@ BOOL is_interrupts_enabled()
 
 void begin_critical_section()
 {
-    gInterruptsWereEnabled = is_interrupts_enabled();
+    g_interrupts_were_enabled = is_interrupts_enabled();
 
     disableInterrupts();
 }
 
 void end_critical_section()
 {
-    if (gInterruptsWereEnabled)
+    if (g_interrupts_were_enabled)
     {
         enableInterrupts();
     }

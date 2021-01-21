@@ -1,6 +1,6 @@
-[GLOBAL flushGdt]
+[GLOBAL flush_gdt]
 
-flushGdt:
+flush_gdt:
     mov eax, [esp+4] ;[esp+4] is the parametered passed
     lgdt [eax]
 
@@ -14,16 +14,16 @@ flushGdt:
 .flush:
     ret
 
-[GLOBAL flushIdt]
+[GLOBAL flush_idt]
 
-flushIdt:
+flush_idt:
     mov eax, [esp+4] ;[esp+4] is the parametered passed
     lidt [eax]
     ret
 
-[GLOBAL flushTss]
+[GLOBAL flush_tss]
 
-flushTss:
+flush_tss:
     mov ax, 0x2B ;index of the TSS structure is 0x28 (5*8) and OR'ing two bits in order to set RPL 3 and we get 0x2B
 
     ltr ax

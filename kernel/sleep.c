@@ -2,7 +2,7 @@
 #include "timer.h"
 #include "process.h"
 
-void sleepMilliseconds(Thread* thread, uint32 ms)
+void sleep_ms(Thread* thread, uint32 ms)
 {
     uint32 uptime = get_uptime_milliseconds();
 

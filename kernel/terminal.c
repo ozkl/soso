@@ -8,13 +8,13 @@
 
 static void master_read_ready(TtyDev* tty, uint32 size);
 
-Terminal* terminal_create(TtyDev* tty, BOOL graphicMode)
+Terminal* terminal_create(TtyDev* tty, BOOL graphic_mode)
 {
     Terminal* terminal = kmalloc(sizeof(Terminal));
     memset((uint8*)terminal, 0, sizeof(Terminal));
 
     terminal->tty = tty;
-    if (graphicMode)
+    if (graphic_mode)
     {
         fbterminal_setup(terminal);
     }
@@ -30,17 +30,17 @@ Terminal* terminal_create(TtyDev* tty, BOOL graphicMode)
 
     terminal_clear(terminal);
 
-    terminal->openedMaster = fs_open_for_process(NULL, tty->master_node, 0);
-    tty->privateData = terminal;
+    terminal->opened_master = fs_open_for_process(NULL, tty->master_node, 0);
+    tty->private_data = terminal;
 
-    tty->masterReadReady = master_read_ready;
+    tty->master_read_ready = master_read_ready;
 
     return terminal;
 }
 
 void terminal_destroy(Terminal* terminal)
 {
-    fs_close(terminal->openedMaster);
+    fs_close(terminal->opened_master);
 
     kfree(terminal->buffer);
     kfree(terminal);
@@ -90,9 +90,9 @@ void terminal_scroll_up(Terminal* terminal)
 
     if (g_active_terminal == terminal)
     {
-        if (terminal->refreshFunction)
+        if (terminal->refresh_function)
         {
-            terminal->refreshFunction(terminal);
+            terminal->refresh_function(terminal);
         }
     }
 }
@@ -176,9 +176,9 @@ void terminal_put_character(Terminal* terminal, uint8 c)
 
     if (g_active_terminal == terminal)
     {
-        if (terminal->addCharacterFunction)
+        if (terminal->add_character_function)
         {
-            terminal->addCharacterFunction(terminal, c);
+            terminal->add_character_function(terminal, c);
         }
     }
 
@@ -209,9 +209,9 @@ void terminal_move_cursor(Terminal* terminal, uint16 line, uint16 column)
         column = terminal->tty->winsize.ws_col - 1;
     }
 
-    if (g_active_terminal == terminal && terminal->moveCursorFunction)
+    if (g_active_terminal == terminal && terminal->move_cursor_function)
     {
-        terminal->moveCursorFunction(terminal, terminal->current_line, terminal->current_column, line, column);
+        terminal->move_cursor_function(terminal, terminal->current_line, terminal->current_column, line, column);
     }
 
     terminal->current_line = line;
@@ -325,18 +325,18 @@ void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character)
         break;
     }
 
-    fs_write(terminal->openedMaster, size, seq);
+    fs_write(terminal->opened_master, size, seq);
 }
 
 static void master_read_ready(TtyDev* tty, uint32 size)
 {
-    Terminal* terminal = (Terminal*)tty->privateData;
+    Terminal* terminal = (Terminal*)tty->private_data;
 
     uint8 characters[128];
     int32 bytes = 0;
     do
     {
-        bytes = TtyDev_master_read_nonblock(terminal->openedMaster, 8, characters);
+        bytes = ttydev_master_read_nonblock(terminal->opened_master, 8, characters);
 
         if (bytes > 0)
         {

@@ -4,89 +4,89 @@
 #include "process.h"
 #include "debugprint.h"
 
-extern void flushGdt(uint32);
-extern void flushIdt(uint32);
-extern void flushTss();
+extern void flush_gdt(uint32);
+extern void flush_idt(uint32);
+extern void flush_tss();
 
 
-static void initializeGdt();
-static void initializeIdt();
-static void setGdtEntry(int32 num, uint32 base, uint32 limit, uint8 access, uint8 gran);
-static void setIdtEntry(uint8 num, uint32 base, uint16 sel, uint8 flags);
+static void gdt_initialize();
+static void idt_initialize();
+static void set_gdt_entry(int32 num, uint32 base, uint32 limit, uint8 access, uint8 gran);
+static void set_idt_entry(uint8 num, uint32 base, uint16 sel, uint8 flags);
 
-GdtEntry gGdtEntries[6];
-GdtPointer   gGdtPointer;
-IdtEntry gIdtEntries[256];
-IdtPointer   gIdtPointer;
-Tss 		gTss;
+GdtEntry g_gdt_entries[6];
+GdtPointer g_gdt_pointer;
+IdtEntry g_idt_entries[256];
+IdtPointer g_idt_pointer;
+Tss g_tss;
 
-static void handleDoubleFault(Registers *regs);
-static void handleGeneralProtectionFault(Registers *regs);
+static void handle_double_fault(Registers *regs);
+static void handle_general_protection_fault(Registers *regs);
 
 void initialize_descriptor_tables()
 {
-    initializeGdt();
+    gdt_initialize();
 
-    initializeIdt();
+    idt_initialize();
 
     memset((uint8*)&g_interrupt_handlers, 0, sizeof(IsrFunction)*256);
 
-    interrupt_register(8, handleDoubleFault);
-    interrupt_register(13, handleGeneralProtectionFault);
+    interrupt_register(8, handle_double_fault);
+    interrupt_register(13, handle_general_protection_fault);
 }
 
-static void initializeGdt()
+static void gdt_initialize()
 {
-    gGdtPointer.limit = (sizeof(GdtEntry) * 7) - 1;
-    gGdtPointer.base  = (uint32)&gGdtEntries;
+    g_gdt_pointer.limit = (sizeof(GdtEntry) * 7) - 1;
+    g_gdt_pointer.base  = (uint32)&g_gdt_entries;
 
-    setGdtEntry(0, 0, 0, 0, 0);                // 0x00 Null segment
-    setGdtEntry(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // 0x08 Code segment
-    setGdtEntry(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // 0x10 Data segment
-    setGdtEntry(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // 0x18 User mode code segment
-    setGdtEntry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // 0x20 User mode data segment
+    set_gdt_entry(0, 0, 0, 0, 0);                // 0x00 Null segment
+    set_gdt_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xCF); // 0x08 Code segment
+    set_gdt_entry(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // 0x10 Data segment
+    set_gdt_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // 0x18 User mode code segment
+    set_gdt_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // 0x20 User mode data segment
 
     //TSS
-    memset((uint8*)&gTss, 0, sizeof(gTss));
-    gTss.debug_flag = 0x00;
-    gTss.io_map = 0x00;
-    gTss.esp0 = 0;//0x1FFF0;
-    gTss.ss0 = 0x10;//0x18;
+    memset((uint8*)&g_tss, 0, sizeof(g_tss));
+    g_tss.debug_flag = 0x00;
+    g_tss.io_map = 0x00;
+    g_tss.esp0 = 0;//0x1FFF0;
+    g_tss.ss0 = 0x10;//0x18;
 
-    gTss.cs   = 0x0B; //from ring 3 - 0x08 | 3 = 0x0B
-    gTss.ss = gTss.ds = gTss.es = gTss.fs = gTss.gs = 0x13; //from ring 3 = 0x10 | 3 = 0x13
-    uint32 tss_base = (uint32) &gTss;
-    uint32 tss_limit = tss_base + sizeof(gTss);
-    setGdtEntry(5, tss_base, tss_limit, 0xE9, 0x00);
+    g_tss.cs   = 0x0B; //from ring 3 - 0x08 | 3 = 0x0B
+    g_tss.ss = g_tss.ds = g_tss.es = g_tss.fs = g_tss.gs = 0x13; //from ring 3 = 0x10 | 3 = 0x13
+    uint32 tss_base = (uint32) &g_tss;
+    uint32 tss_limit = tss_base + sizeof(g_tss);
+    set_gdt_entry(5, tss_base, tss_limit, 0xE9, 0x00);
 
-    setGdtEntry(6, 0, 0xFFFFFFFF, 0x80, 0xCF); // Thread Local Storage pointer segment
+    set_gdt_entry(6, 0, 0xFFFFFFFF, 0x80, 0xCF); // Thread Local Storage pointer segment
 
-    flushGdt((uint32)&gGdtPointer);
-    flushTss();
+    flush_gdt((uint32)&g_gdt_pointer);
+    flush_tss();
 }
 
 // Set the value of one GDT entry.
-static void setGdtEntry(int32 num, uint32 base, uint32 limit, uint8 access, uint8 gran)
+static void set_gdt_entry(int32 num, uint32 base, uint32 limit, uint8 access, uint8 gran)
 {
-    gGdtEntries[num].base_low    = (base & 0xFFFF);
-    gGdtEntries[num].base_middle = (base >> 16) & 0xFF;
-    gGdtEntries[num].base_high   = (base >> 24) & 0xFF;
+    g_gdt_entries[num].base_low    = (base & 0xFFFF);
+    g_gdt_entries[num].base_middle = (base >> 16) & 0xFF;
+    g_gdt_entries[num].base_high   = (base >> 24) & 0xFF;
 
-    gGdtEntries[num].limit_low   = (limit & 0xFFFF);
-    gGdtEntries[num].granularity = (limit >> 16) & 0x0F;
+    g_gdt_entries[num].limit_low   = (limit & 0xFFFF);
+    g_gdt_entries[num].granularity = (limit >> 16) & 0x0F;
     
-    gGdtEntries[num].granularity |= gran & 0xF0;
-    gGdtEntries[num].access      = access;
+    g_gdt_entries[num].granularity |= gran & 0xF0;
+    g_gdt_entries[num].access      = access;
 }
 
-void irqTimer();
+void irq_timer();
 
-static void initializeIdt()
+static void idt_initialize()
 {
-    gIdtPointer.limit = sizeof(IdtEntry) * 256 -1;
-    gIdtPointer.base  = (uint32)&gIdtEntries;
+    g_idt_pointer.limit = sizeof(IdtEntry) * 256 -1;
+    g_idt_pointer.base  = (uint32)&g_idt_entries;
 
-    memset((uint8*)&gIdtEntries, 0, sizeof(IdtEntry)*256);
+    memset((uint8*)&g_idt_entries, 0, sizeof(IdtEntry)*256);
 
     // Remap the irq table.
     outb(0x20, 0x11);
@@ -100,123 +100,123 @@ static void initializeIdt()
     outb(0x21, 0x0);
     outb(0xA1, 0x0);
 
-    setIdtEntry( 0, (uint32)isr0 , 0x08, 0x8E);
-    setIdtEntry( 1, (uint32)isr1 , 0x08, 0x8E);
-    setIdtEntry( 2, (uint32)isr2 , 0x08, 0x8E);
-    setIdtEntry( 3, (uint32)isr3 , 0x08, 0x8E);
-    setIdtEntry( 4, (uint32)isr4 , 0x08, 0x8E);
-    setIdtEntry( 5, (uint32)isr5 , 0x08, 0x8E);
-    setIdtEntry( 6, (uint32)isr6 , 0x08, 0x8E);
-    setIdtEntry( 7, (uint32)isr7 , 0x08, 0x8E);
-    setIdtEntry( 8, (uint32)isr8 , 0x08, 0x8E);
-    setIdtEntry( 9, (uint32)isr9 , 0x08, 0x8E);
-    setIdtEntry(10, (uint32)isr10, 0x08, 0x8E);
-    setIdtEntry(11, (uint32)isr11, 0x08, 0x8E);
-    setIdtEntry(12, (uint32)isr12, 0x08, 0x8E);
-    setIdtEntry(13, (uint32)isr13, 0x08, 0x8E);
-    setIdtEntry(14, (uint32)isr14, 0x08, 0x8E);
-    setIdtEntry(15, (uint32)isr15, 0x08, 0x8E);
-    setIdtEntry(16, (uint32)isr16, 0x08, 0x8E);
-    setIdtEntry(17, (uint32)isr17, 0x08, 0x8E);
-    setIdtEntry(18, (uint32)isr18, 0x08, 0x8E);
-    setIdtEntry(19, (uint32)isr19, 0x08, 0x8E);
-    setIdtEntry(20, (uint32)isr20, 0x08, 0x8E);
-    setIdtEntry(21, (uint32)isr21, 0x08, 0x8E);
-    setIdtEntry(22, (uint32)isr22, 0x08, 0x8E);
-    setIdtEntry(23, (uint32)isr23, 0x08, 0x8E);
-    setIdtEntry(24, (uint32)isr24, 0x08, 0x8E);
-    setIdtEntry(25, (uint32)isr25, 0x08, 0x8E);
-    setIdtEntry(26, (uint32)isr26, 0x08, 0x8E);
-    setIdtEntry(27, (uint32)isr27, 0x08, 0x8E);
-    setIdtEntry(28, (uint32)isr28, 0x08, 0x8E);
-    setIdtEntry(29, (uint32)isr29, 0x08, 0x8E);
-    setIdtEntry(30, (uint32)isr30, 0x08, 0x8E);
-    setIdtEntry(31, (uint32)isr31, 0x08, 0x8E);
+    set_idt_entry( 0, (uint32)isr0 , 0x08, 0x8E);
+    set_idt_entry( 1, (uint32)isr1 , 0x08, 0x8E);
+    set_idt_entry( 2, (uint32)isr2 , 0x08, 0x8E);
+    set_idt_entry( 3, (uint32)isr3 , 0x08, 0x8E);
+    set_idt_entry( 4, (uint32)isr4 , 0x08, 0x8E);
+    set_idt_entry( 5, (uint32)isr5 , 0x08, 0x8E);
+    set_idt_entry( 6, (uint32)isr6 , 0x08, 0x8E);
+    set_idt_entry( 7, (uint32)isr7 , 0x08, 0x8E);
+    set_idt_entry( 8, (uint32)isr8 , 0x08, 0x8E);
+    set_idt_entry( 9, (uint32)isr9 , 0x08, 0x8E);
+    set_idt_entry(10, (uint32)isr10, 0x08, 0x8E);
+    set_idt_entry(11, (uint32)isr11, 0x08, 0x8E);
+    set_idt_entry(12, (uint32)isr12, 0x08, 0x8E);
+    set_idt_entry(13, (uint32)isr13, 0x08, 0x8E);
+    set_idt_entry(14, (uint32)isr14, 0x08, 0x8E);
+    set_idt_entry(15, (uint32)isr15, 0x08, 0x8E);
+    set_idt_entry(16, (uint32)isr16, 0x08, 0x8E);
+    set_idt_entry(17, (uint32)isr17, 0x08, 0x8E);
+    set_idt_entry(18, (uint32)isr18, 0x08, 0x8E);
+    set_idt_entry(19, (uint32)isr19, 0x08, 0x8E);
+    set_idt_entry(20, (uint32)isr20, 0x08, 0x8E);
+    set_idt_entry(21, (uint32)isr21, 0x08, 0x8E);
+    set_idt_entry(22, (uint32)isr22, 0x08, 0x8E);
+    set_idt_entry(23, (uint32)isr23, 0x08, 0x8E);
+    set_idt_entry(24, (uint32)isr24, 0x08, 0x8E);
+    set_idt_entry(25, (uint32)isr25, 0x08, 0x8E);
+    set_idt_entry(26, (uint32)isr26, 0x08, 0x8E);
+    set_idt_entry(27, (uint32)isr27, 0x08, 0x8E);
+    set_idt_entry(28, (uint32)isr28, 0x08, 0x8E);
+    set_idt_entry(29, (uint32)isr29, 0x08, 0x8E);
+    set_idt_entry(30, (uint32)isr30, 0x08, 0x8E);
+    set_idt_entry(31, (uint32)isr31, 0x08, 0x8E);
 
-    setIdtEntry(32, (uint32)irqTimer, 0x08, 0x8E);
-    setIdtEntry(33, (uint32)irq1, 0x08, 0x8E);
-    setIdtEntry(34, (uint32)irq2, 0x08, 0x8E);
-    setIdtEntry(35, (uint32)irq3, 0x08, 0x8E);
-    setIdtEntry(36, (uint32)irq4, 0x08, 0x8E);
-    setIdtEntry(37, (uint32)irq5, 0x08, 0x8E);
-    setIdtEntry(38, (uint32)irq6, 0x08, 0x8E);
-    setIdtEntry(39, (uint32)irq7, 0x08, 0x8E);
-    setIdtEntry(40, (uint32)irq8, 0x08, 0x8E);
-    setIdtEntry(41, (uint32)irq9, 0x08, 0x8E);
-    setIdtEntry(42, (uint32)irq10, 0x08, 0x8E);
-    setIdtEntry(43, (uint32)irq11, 0x08, 0x8E);
-    setIdtEntry(44, (uint32)irq12, 0x08, 0x8E);
-    setIdtEntry(45, (uint32)irq13, 0x08, 0x8E);
-    setIdtEntry(46, (uint32)irq14, 0x08, 0x8E);
-    setIdtEntry(47, (uint32)irq15, 0x08, 0x8E);
-    setIdtEntry(128, (uint32)isr128, 0x08, 0x8E);
+    set_idt_entry(32, (uint32)irq_timer, 0x08, 0x8E);
+    set_idt_entry(33, (uint32)irq1, 0x08, 0x8E);
+    set_idt_entry(34, (uint32)irq2, 0x08, 0x8E);
+    set_idt_entry(35, (uint32)irq3, 0x08, 0x8E);
+    set_idt_entry(36, (uint32)irq4, 0x08, 0x8E);
+    set_idt_entry(37, (uint32)irq5, 0x08, 0x8E);
+    set_idt_entry(38, (uint32)irq6, 0x08, 0x8E);
+    set_idt_entry(39, (uint32)irq7, 0x08, 0x8E);
+    set_idt_entry(40, (uint32)irq8, 0x08, 0x8E);
+    set_idt_entry(41, (uint32)irq9, 0x08, 0x8E);
+    set_idt_entry(42, (uint32)irq10, 0x08, 0x8E);
+    set_idt_entry(43, (uint32)irq11, 0x08, 0x8E);
+    set_idt_entry(44, (uint32)irq12, 0x08, 0x8E);
+    set_idt_entry(45, (uint32)irq13, 0x08, 0x8E);
+    set_idt_entry(46, (uint32)irq14, 0x08, 0x8E);
+    set_idt_entry(47, (uint32)irq15, 0x08, 0x8E);
+    set_idt_entry(128, (uint32)isr128, 0x08, 0x8E);
 
-    flushIdt((uint32)&gIdtPointer);
+    flush_idt((uint32)&g_idt_pointer);
 }
 
-static void setIdtEntry(uint8 num, uint32 base, uint16 sel, uint8 flags)
+static void set_idt_entry(uint8 num, uint32 base, uint16 sel, uint8 flags)
 {
-    gIdtEntries[num].base_lo = base & 0xFFFF;
-    gIdtEntries[num].base_hi = (base >> 16) & 0xFFFF;
+    g_idt_entries[num].base_lo = base & 0xFFFF;
+    g_idt_entries[num].base_hi = (base >> 16) & 0xFFFF;
 
-    gIdtEntries[num].sel     = sel;
-    gIdtEntries[num].always0 = 0;
-    gIdtEntries[num].flags   = flags  | 0x60;
+    g_idt_entries[num].sel     = sel;
+    g_idt_entries[num].always0 = 0;
+    g_idt_entries[num].flags   = flags  | 0x60;
 }
 
-static void handleDoubleFault(Registers *regs)
+static void handle_double_fault(Registers *regs)
 {
     printkf("Double fault!!! Error code:%d\n", regs->errorCode);
 
     PANIC("Double fault!!!");
 }
 
-static void handleGeneralProtectionFault(Registers *regs)
+static void handle_general_protection_fault(Registers *regs)
 {
     log_printf("General protection fault!!! Error code:%d - IP:%x\n", regs->errorCode, regs->eip);
 
-    Thread* faultingThread = get_current_thread();
-    if (NULL != faultingThread)
+    Thread* faulting_thread = get_current_thread();
+    if (NULL != faulting_thread)
     {
-        Thread* mainThread = getMainKernelThread();
+        Thread* main_thread = getMainKernelThread();
 
-        if (mainThread == faultingThread)
+        if (main_thread == faulting_thread)
         {
             PANIC("General protection fault in Kernel main thread!!!");
         }
         else
         {
-            log_printf("Faulting thread is %d and its state is %d\n", faultingThread->threadId, faultingThread->state);
+            log_printf("Faulting thread is %d and its state is %d\n", faulting_thread->threadId, faulting_thread->state);
 
-            if (faultingThread->userMode)
+            if (faulting_thread->userMode)
             {
-                if (faultingThread->state == TS_CRITICAL ||
-                    faultingThread->state == TS_UNINTERRUPTIBLE)
+                if (faulting_thread->state == TS_CRITICAL ||
+                    faulting_thread->state == TS_UNINTERRUPTIBLE)
                 {
-                    log_printf("CRITICAL!! process %d\n", faultingThread->owner->pid);
+                    log_printf("CRITICAL!! process %d\n", faulting_thread->owner->pid);
 
-                    changeProcessState(faultingThread->owner, TS_SUSPEND);
+                    changeProcessState(faulting_thread->owner, TS_SUSPEND);
 
-                    changeThreadState(faultingThread, TS_DEAD, (void*)regs->errorCode);
+                    changeThreadState(faulting_thread, TS_DEAD, (void*)regs->errorCode);
                 }
                 else
                 {
-                    //log_printf("Destroying process %d\n", faultingThread->owner->pid);
+                    //log_printf("Destroying process %d\n", faulting_thread->owner->pid);
 
-                    //destroyProcess(faultingThread->owner);
+                    //destroyProcess(faulting_thread->owner);
 
                     //TODO: state in RUN?
 
-                    log_printf("General protection fault %d\n", faultingThread->owner->pid);
+                    log_printf("General protection fault %d\n", faulting_thread->owner->pid);
 
-                    signalThread(faultingThread, SIGILL);
+                    signalThread(faulting_thread, SIGILL);
                 }
             }
             else
             {
-                log_printf("Destroying kernel thread %d\n", faultingThread->threadId);
+                log_printf("Destroying kernel thread %d\n", faulting_thread->threadId);
 
-                destroyThread(faultingThread);
+                destroyThread(faulting_thread);
             }
 
             waitForSchedule();

@@ -4,11 +4,11 @@
 #include "errno.h"
 #include "syscall_select.h"
 
-void updateSelect(Thread* thread)
+void select_update(Thread* thread)
 {
     Process* process = thread->owner;
 
-    int totalReady = 0;
+    int total_ready = 0;
     uint32 count = (uint32)thread->select.nfds;
     count = MIN(count, MAX_OPENED_FILES);
 
@@ -24,7 +24,7 @@ void updateSelect(Thread* thread)
                 {
                     FD_SET(fd, &thread->select.readSetResult);
 
-                    ++totalReady;
+                    ++total_ready;
                 }
             }
 
@@ -34,15 +34,15 @@ void updateSelect(Thread* thread)
                 {
                     FD_SET(fd, &thread->select.writeSetResult);
 
-                    ++totalReady;
+                    ++total_ready;
                 }
             }
         }
     }
 
-    if (totalReady > 0)
+    if (total_ready > 0)
     {
-        thread->select.result = totalReady;
+        thread->select.result = total_ready;
         thread->select.selectState = SS_FINISHED;
     }
     else if (thread->select.targetTime > 0)
@@ -57,7 +57,7 @@ void updateSelect(Thread* thread)
     }
 }
 
-static int finishSelect(Thread* thread, fd_set* rfds, fd_set* wfds)
+static int select_finish(Thread* thread, fd_set* rfds, fd_set* wfds)
 {
     if (rfds)
     {
@@ -129,11 +129,11 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
             thread->select.targetTime = get_uptime_milliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
         }
 
-        updateSelect(thread);
+        select_update(thread);
 
         if (thread->select.selectState == SS_FINISHED)
         {
-            int result = finishSelect(thread, rfds, wfds);
+            int result = select_finish(thread, rfds, wfds);
 
             return result;
         }
@@ -144,7 +144,7 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
 
         if (thread->select.selectState == SS_FINISHED)
         {
-            int result = finishSelect(thread, rfds, wfds);
+            int result = select_finish(thread, rfds, wfds);
 
             return result;
         }

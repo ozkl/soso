@@ -9,21 +9,21 @@
 
 #define PORT 0x3f8   //COM1
 
-static FifoBuffer* gBufferCom1 = NULL;
-static List* gAccessingThreads = NULL;
+static FifoBuffer* g_buffer_com1 = NULL;
+static List* g_accessing_threads = NULL;
 
-static void handleSerialInterrupt(Registers *regs);
+static void handle_serial_interrupt(Registers *regs);
 
 static BOOL serial_open(File *file, uint32 flags);
 static void serial_close(File *file);
-static BOOL serial_readTestReady(File *file);
+static BOOL serial_read_test_ready(File *file);
 static int32 serial_read(File *file, uint32 size, uint8 *buffer);
-static BOOL serial_writeTestReady(File *file);
+static BOOL serial_write_test_ready(File *file);
 static int32 serial_write(File *file, uint32 size, uint8 *buffer);
 
 //TODO: support more than one serial devices
 
-void initialize_serial()
+void serial_initialize()
 {
     outb(PORT + 1, 0x00);    // Disable all interrupts
     outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
@@ -34,10 +34,10 @@ void initialize_serial()
     outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
     outb(PORT + 1, 0x01);    // Enable interrupts
 
-    interrupt_register(IRQ4, handleSerialInterrupt);
+    interrupt_register(IRQ4, handle_serial_interrupt);
 
-    gBufferCom1 = FifoBuffer_create(4096);
-    gAccessingThreads = List_Create();
+    g_buffer_com1 = FifoBuffer_create(4096);
+    g_accessing_threads = List_Create();
 
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
@@ -47,52 +47,52 @@ void initialize_serial()
     device.close = serial_close;
     device.read = serial_read;
     device.write = serial_write;
-    device.read_test_ready = serial_readTestReady;
-    device.write_test_ready = serial_writeTestReady;
+    device.read_test_ready = serial_read_test_ready;
+    device.write_test_ready = serial_write_test_ready;
 
     devfs_register_device(&device);
 }
 
-int serialReceived()
+static int port_received()
 {
    return inb(PORT + 5) & 1;
 }
 
-char readSerial()
+static char port_read()
 {
-   while (serialReceived() == 0);
+   while (port_received() == 0);
 
    return inb(PORT);
 }
 
-int isTransmitEmpty()
+static int port_is_transmit_empty()
 {
    return inb(PORT + 5) & 0x20;
 }
 
-void writeSerial(char a)
+static void port_write(char a)
 {
-   while (isTransmitEmpty() == 0);
+   while (port_is_transmit_empty() == 0);
 
    outb(PORT,a);
 }
 
-void Serial_Write(const char *buffer, int n)
+static void port_write_buffer(const char *buffer, int n)
 {
     for (int i = 0; i < n; ++i)
     {
-        writeSerial(buffer[i]);
+        port_write(buffer[i]);
     }
 }
 
-static void handleSerialInterrupt(Registers *regs)
+static void handle_serial_interrupt(Registers *regs)
 {
-    uint8 c = (uint8)readSerial();
+    uint8 c = (uint8)port_read();
 
     //if buffer is full, we miss the data
-    FifoBuffer_enqueue(gBufferCom1, &c, 1);
+    FifoBuffer_enqueue(g_buffer_com1, &c, 1);
 
-    List_Foreach (n, gAccessingThreads)
+    List_Foreach (n, g_accessing_threads)
     {
         Thread* reader = n->data;
 
@@ -106,7 +106,7 @@ static void handleSerialInterrupt(Registers *regs)
     }
 }
 
-void Serial_PrintF(const char *format, ...)
+void serial_printf(const char *format, ...)
 {
   char **arg = (char **) &format;
   char c;
@@ -119,7 +119,7 @@ void Serial_PrintF(const char *format, ...)
   while ((c = *format++) != 0)
     {
       if (c != '%')
-        writeSerial(c);
+        port_write(c);
       else
         {
           char *p;
@@ -151,12 +151,12 @@ void Serial_PrintF(const char *format, ...)
 
             string:
               while (*p)
-                writeSerial(*p++);
+                port_write(*p++);
               break;
 
             default:
-              //writeSerial(*((int *) arg++));
-              writeSerial(__builtin_va_arg(vl, int));
+              //port_write(*((int *) arg++));
+              port_write(__builtin_va_arg(vl, int));
               break;
             }
         }
@@ -166,19 +166,19 @@ void Serial_PrintF(const char *format, ...)
 
 static BOOL serial_open(File *file, uint32 flags)
 {
-    List_Append(gAccessingThreads, file->thread);
+    List_Append(g_accessing_threads, file->thread);
 
     return TRUE;
 }
 
 static void serial_close(File *file)
 {
-    List_RemoveFirstOccurrence(gAccessingThreads, file->thread);
+    List_RemoveFirstOccurrence(g_accessing_threads, file->thread);
 }
 
-static BOOL serial_readTestReady(File *file)
+static BOOL serial_read_test_ready(File *file)
 {
-    if (FifoBuffer_getSize(gBufferCom1) > 0)
+    if (FifoBuffer_getSize(g_buffer_com1) > 0)
     {
         return TRUE;
     }
@@ -193,7 +193,7 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    while (serial_readTestReady(file) == FALSE)
+    while (serial_read_test_ready(file) == FALSE)
     {
         changeThreadState(file->thread, TS_WAITIO, serial_read);
         enableInterrupts();
@@ -204,19 +204,19 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
 
     resumeThread(file->thread);
 
-    int32 readBytes = FifoBuffer_dequeue(gBufferCom1, buffer, size);
+    int32 read_bytes = FifoBuffer_dequeue(g_buffer_com1, buffer, size);
 
-    return readBytes;
+    return read_bytes;
 }
 
-static BOOL serial_writeTestReady(File *file)
+static BOOL serial_write_test_ready(File *file)
 {
     return TRUE;
 }
 
 static int32 serial_write(File *file, uint32 size, uint8 *buffer)
 {
-    Serial_Write((char*)buffer, (int)size);
+    port_write_buffer((char*)buffer, (int)size);
     
     return size;
 }

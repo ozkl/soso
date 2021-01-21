@@ -110,7 +110,7 @@ static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
         physicalPagesArray[i] = (uint32)(gFrameBufferPhysical) + i * PAGESIZE_4K;
     }
 
-    void* result = mapMemory(file->thread->owner, USER_MMAP_START, physicalPagesArray, pageCount, FALSE);
+    void* result = vmm_map_memory(file->thread->owner, USER_MMAP_START, physicalPagesArray, pageCount, FALSE);
 
     kfree(physicalPagesArray);
 
@@ -119,5 +119,5 @@ static void* fb_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
 
 static BOOL fb_munmap(File* file, void* address, uint32 size)
 {
-    return unmapMemory(file->thread->owner, (uint32)address, PAGE_COUNT(size));
+    return vmm_unmap_memory(file->thread->owner, (uint32)address, PAGE_COUNT(size));
 }

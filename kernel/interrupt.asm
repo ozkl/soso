@@ -59,7 +59,7 @@ ISR_NO_ERROR_CODE  30
 ISR_NO_ERROR_CODE  31
 ISR_NO_ERROR_CODE  128
 
-; IRQ0 is handled by irqTimer below
+; IRQ0 is handled by irq_timer below
 
 IRQ   1,    33
 IRQ   2,    34
@@ -120,11 +120,11 @@ handle_irq_common:
     add esp, 8     ; deallocate the error code and the interrupt number
     iret           ; pops CS, EIP, EFLAGS and also SS, and ESP if privilege change occurs
 
-extern handleTimerIRQ
-global irqTimer
-irqTimer:           ; this does not have int no and error code in the stack, so there is no "add esp, 8"
+extern handle_timer_irq
+global irq_timer
+irq_timer:           ; this does not have int no and error code in the stack, so there is no "add esp, 8"
         SAVE_REGS
-        call handleTimerIRQ
+        call handle_timer_irq
         mov al,0x20
         out 0x20,al
         RESTORE_REGS

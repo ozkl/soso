@@ -34,7 +34,7 @@ void console_initialize(BOOL graphicMode)
     for (int i = 0; i < 10; ++i)
     {
         Terminal* terminal = NULL;
-        FileSystemNode* ttyNode = createTTYDev();
+        FileSystemNode* ttyNode = ttydev_create();
         if (ttyNode)
         {
             TtyDev* ttyDev = (TtyDev*)ttyNode->privateNodeData;
@@ -98,14 +98,14 @@ static void set_active_terminal(uint32 index)
 
         Gfx_Fill(0xFFFFFFFF);
 
-        if (g_active_terminal->refreshFunction)
+        if (g_active_terminal->refresh_function)
         {
-            g_active_terminal->refreshFunction(g_active_terminal);
+            g_active_terminal->refresh_function(g_active_terminal);
         }
 
-        if (g_active_terminal->moveCursorFunction)
+        if (g_active_terminal->move_cursor_function)
         {
-            g_active_terminal->moveCursorFunction(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
+            g_active_terminal->move_cursor_function(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
         }
     }
 }

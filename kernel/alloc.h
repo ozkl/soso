@@ -4,15 +4,15 @@
 #include "common.h"
 #include "process.h"
 
-void initializeKernelHeap();
-void *ksbrkPage(int n);
+void initialize_kernel_heap();
+void *ksbrk_page(int n);
 void *kmalloc(uint32 size);
 void kfree(void *v_addr);
 
-void initializeProgramBreak(Process* process, uint32 size);
-void *sbrk(Process* process, int nBytes);
+void initialize_program_break(Process* process, uint32 size);
+void *sbrk(Process* process, int n_bytes);
 
-uint32 getKernelHeapUsed();
+uint32 get_kernel_heap_used();
 
 struct MallocHeader
 {

@@ -617,7 +617,7 @@ int syscall_ioctl(int fd, int32 request, void *arg)
     Process* process = get_current_thread()->owner;
     if (process)
     {
-        //Serial_PrintF("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
+        //serial_printf("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
 
         if (fd < MAX_OPENED_FILES)
         {
@@ -1315,7 +1315,7 @@ int syscall_sleepMilliseconds(int ms)
 {
     Thread* thread = get_current_thread();
 
-    sleepMilliseconds(thread, (uint32)ms);
+    sleep_ms(thread, (uint32)ms);
 
     return 0;
 }
@@ -1378,7 +1378,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
         if (fd < 0)
         {
             int neededPages = PAGE_COUNT(length);
-            uint32 freePages = getFreePageCount();
+            uint32 freePages = vmm_get_free_page_count();
             //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
             if ((uint32)neededPages + 1 > freePages)
             {
@@ -1387,11 +1387,11 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
             uint32* physicalArray = (uint32*)kmalloc(neededPages * sizeof(uint32));
             for (int i = 0; i < neededPages; ++i)
             {
-                uint32 pageFrame = acquirePageFrame4K();
+                uint32 pageFrame = vmm_acquire_page_frame_4k();
                 physicalArray[i] = pageFrame;
             }
 
-            void* mem = mapMemory(process, vAddressHint, physicalArray, neededPages, TRUE);
+            void* mem = vmm_map_memory(process, vAddressHint, physicalArray, neededPages, TRUE);
             if (mem != NULL)
             {
                 memset((uint8*)mem, 0, length);
@@ -1400,7 +1400,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
             {
                 for (int i = 0; i < neededPages; ++i)
                 {
-                    releasePageFrame4K(physicalArray[i]);
+                    vmm_release_page_frame_4k(physicalArray[i]);
                 }
 
                 mem = (void*)-1;
@@ -1462,7 +1462,7 @@ int syscall_munmap(void *addr, int length)
                 return -1;
             }
 
-            if (TRUE == unmapMemory(process, (uint32)addr, PAGE_COUNT(length)))
+            if (TRUE == vmm_unmap_memory(process, (uint32)addr, PAGE_COUNT(length)))
             {
                 return 0;
             }
@@ -1601,11 +1601,11 @@ int syscall_shm_open(const char *name, int oflag, int mode)
 
     if ((oflag & O_CREAT) == O_CREAT)
     {
-        node = createSharedMemory(name);
+        node = sharedmemory_create(name);
     }
     else
     {
-        node = getSharedMemoryNode(name);
+        node = sharedmemory_get_node(name);
     }
 
     if (node)
@@ -1667,12 +1667,12 @@ int syscall_posix_openpt(int flags)
     Process* process = get_current_thread()->owner;
     if (process)
     {
-        FileSystemNode* node = createTTYDev();
+        FileSystemNode* node = ttydev_create();
         if (node)
         {
             TtyDev* ttyDev = (TtyDev*)node->privateNodeData;
-            ttyDev->controllingProcess = process->pid;
-            ttyDev->foregroundProcess = process->pid;
+            ttyDev->controlling_process = process->pid;
+            ttyDev->foreground_process = process->pid;
 
             File* file = fs_open(node, flags);
 

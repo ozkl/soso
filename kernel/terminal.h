@@ -20,15 +20,15 @@ typedef struct Terminal
     uint16 current_line;
     uint16 current_column;
     uint8 color;
-    File* openedMaster;
-    TerminalRefresh refreshFunction;
-    TerminalAddCharacter addCharacterFunction;
-    TerminalMoveCursor moveCursorFunction;
+    File* opened_master;
+    TerminalRefresh refresh_function;
+    TerminalAddCharacter add_character_function;
+    TerminalMoveCursor move_cursor_function;
 } Terminal;
 
 
 
-Terminal* terminal_create(TtyDev* tty, BOOL graphicMode);
+Terminal* terminal_create(TtyDev* tty, BOOL graphic_mode);
 void terminal_destroy(Terminal* terminal);
 
 void terminal_print(Terminal* terminal, int row, int column, const char* text);

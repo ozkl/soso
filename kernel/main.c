@@ -108,7 +108,7 @@ int kmain(struct Multiboot *mboot_ptr)
     initialize_descriptor_tables();
 
     uint32 memory_kb = mboot_ptr->mem_upper;//96*1024;
-    initialize_memory(memory_kb);
+    vmm_initialize(memory_kb);
 
     fs_initialize();
     devfs_initialize();
@@ -135,7 +135,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     initialize_systemfs();
     pipe_initialize();
-    initialize_sharedmemory();
+    sharedmemory_initialize();
 
     initialize_tasking();
 
@@ -151,7 +151,7 @@ int kmain(struct Multiboot *mboot_ptr)
         printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
     }
 
-    initialize_serial();
+    serial_initialize();
 
     //log_initialize("/dev/com1");
     log_initialize("/dev/ptty9");

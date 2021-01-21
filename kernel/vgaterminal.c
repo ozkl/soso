@@ -15,9 +15,9 @@ void vgaterminal_setup(Terminal* terminal)
 {
     terminal->tty->winsize.ws_row = SCREEN_LINE_COUNT;
     terminal->tty->winsize.ws_col = SCREEN_COLUMN_COUNT;
-    terminal->refreshFunction = vgaterminal_refresh_terminal;
-    terminal->addCharacterFunction = vgaterminal_add_character;
-    terminal->moveCursorFunction = vgaterminal_move_cursor;
+    terminal->refresh_function = vgaterminal_refresh_terminal;
+    terminal->add_character_function = vgaterminal_add_character;
+    terminal->move_cursor_function = vgaterminal_move_cursor;
 }
 
 static void vgaterminal_set_cursor_visible(BOOL visible)

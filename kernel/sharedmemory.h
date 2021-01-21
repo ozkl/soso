@@ -4,9 +4,9 @@
 #include "common.h"
 #include "fs.h"
 
-void initialize_sharedmemory();
-FileSystemNode* createSharedMemory(const char* name);
-void destroySharedMemory(const char* name);
-FileSystemNode* getSharedMemoryNode(const char* name);
+void sharedmemory_initialize();
+FileSystemNode* sharedmemory_create(const char* name);
+void sharedmemory_destroy(const char* name);
+FileSystemNode* sharedmemory_get_node(const char* name);
 
 #endif // SHAREDMEMORY_H

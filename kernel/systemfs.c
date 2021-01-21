@@ -184,7 +184,7 @@ static int32 systemfs_read_meminfo_totalpages(File *file, uint32 size, uint8 *bu
     {
         if (file->offset == 0)
         {
-            int totalPages = getTotalPageCount();
+            int totalPages = vmm_get_total_page_count();
 
             sprintf((char*)buffer, "%d", totalPages);
 
@@ -208,7 +208,7 @@ static int32 systemfs_read_meminfo_usedpages(File *file, uint32 size, uint8 *buf
     {
         if (file->offset == 0)
         {
-            int usedPages = getUsedPageCount();
+            int usedPages = vmm_get_used_page_count();
 
             sprintf((char*)buffer, "%d", usedPages);
 

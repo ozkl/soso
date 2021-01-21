@@ -6,36 +6,36 @@
 typedef struct Process Process;
 typedef struct List List;
 
-extern uint32 *gKernelPageDirectory;
+extern uint32 *g_kernel_page_directory;
 
 
-#define SET_PAGEFRAME_USED(bitmap, pageIndex)	bitmap[((uint32) pageIndex)/8] |= (1 << (((uint32) pageIndex)%8))
+#define SET_PAGEFRAME_USED(bitmap, page_index)	bitmap[((uint32) page_index)/8] |= (1 << (((uint32) page_index)%8))
 #define SET_PAGEFRAME_UNUSED(bitmap, p_addr)	bitmap[((uint32) p_addr/PAGESIZE_4K)/8] &= ~(1 << (((uint32) p_addr/PAGESIZE_4K)%8))
-#define IS_PAGEFRAME_USED(bitmap, pageIndex)	(bitmap[((uint32) pageIndex)/8] & (1 << (((uint32) pageIndex)%8)))
+#define IS_PAGEFRAME_USED(bitmap, page_index)	(bitmap[((uint32) page_index)/8] & (1 << (((uint32) page_index)%8)))
 
 #define CHANGE_PD(pd) asm("mov %0, %%eax ;mov %%eax, %%cr3":: "m"(pd))
 #define INVALIDATE(v_addr) asm("invlpg %0"::"m"(v_addr))
 
-uint32 acquirePageFrame4K();
-void releasePageFrame4K(uint32 p_addr);
+uint32 vmm_acquire_page_frame_4k();
+void vmm_release_page_frame_4k(uint32 p_addr);
 
-void initialize_memory(uint32 high_mem);
+void vmm_initialize(uint32 high_mem);
 
-uint32 *acquirePageDirectory();
-void destroyPageDirectoryWithMemory(uint32 physicalPd);
+uint32 *vmm_acquire_page_directory();
+void vmm_destroy_page_directory_with_memory(uint32 physical_pd);
 
-BOOL addPageToPd(char *v_addr, uint32 p_addr, int flags);
-BOOL removePageFromPd(char *v_addr);
+BOOL vmm_add_page_to_pd(char *v_addr, uint32 p_addr, int flags);
+BOOL vmm_remove_page_from_pd(char *v_addr);
 
-void enablePaging();
-void disablePaging();
+void enable_paging();
+void disable_paging();
 
-uint32 getTotalPageCount();
-uint32 getUsedPageCount();
-uint32 getFreePageCount();
+uint32 vmm_get_total_page_count();
+uint32 vmm_get_used_page_count();
+uint32 vmm_get_free_page_count();
 
-void initializeProcessPages(Process* process);
-void* mapMemory(Process* process, uint32 vAddressSearchStart, uint32* pAddressArray, uint32 pageCount, BOOL own);
-BOOL unmapMemory(Process* process, uint32 vAddress, uint32 pageCount);
+void vmm_initialize_process_pages(Process* process);
+void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_address_array, uint32 page_count, BOOL own);
+BOOL vmm_unmap_memory(Process* process, uint32 v_address, uint32 page_count);
 
 #endif // VMM_H

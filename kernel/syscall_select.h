@@ -17,7 +17,7 @@ typedef struct {
 #define FD_CLR(d, s)   ((s)->fds_bits[(d)/(8*sizeof(long))] &= ~(1UL<<((d)%(8*sizeof(long)))))
 #define FD_ISSET(d, s) !!((s)->fds_bits[(d)/(8*sizeof(long))] & (1UL<<((d)%(8*sizeof(long)))))
 
-void updateSelect(Thread* thread);
+void select_update(Thread* thread);
 
 int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timeval* tv);
 
