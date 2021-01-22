@@ -1,4 +1,4 @@
-#include "debugprint.h"
+#include "log.h"
 #include "common.h"
 #include "fs.h"
 

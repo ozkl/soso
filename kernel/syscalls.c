@@ -5,7 +5,7 @@
 #include "process.h"
 #include "alloc.h"
 #include "pipe.h"
-#include "debugprint.h"
+#include "log.h"
 #include "timer.h"
 #include "sleep.h"
 #include "spinlock.h"

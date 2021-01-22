@@ -16,7 +16,7 @@
 #include "random.h"
 #include "null.h"
 #include "elf.h"
-#include "debugprint.h"
+#include "log.h"
 #include "ramdisk.h"
 #include "fatfilesystem.h"
 #include "vbe.h"

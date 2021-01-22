@@ -2,7 +2,7 @@
 #include "alloc.h"
 #include "vmm.h"
 #include "process.h"
-#include "debugprint.h"
+#include "log.h"
 #include "serial.h"
 
 #define KMALLOC_MINSIZE		16

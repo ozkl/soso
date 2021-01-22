@@ -4,7 +4,7 @@
 #include "isr.h"
 #include "process.h"
 #include "list.h"
-#include "debugprint.h"
+#include "log.h"
 #include "serial.h"
 
 uint32_t *g_kernel_page_directory = (uint32_t *)KERN_PAGE_DIRECTORY;

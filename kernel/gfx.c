@@ -2,7 +2,7 @@
 #include "vmm.h"
 #include "serial.h"
 #include "framebuffer.h"
-#include "debugprint.h"
+#include "log.h"
 
 static uint32_t g_width = 0;
 static uint32_t g_height = 0;

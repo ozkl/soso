@@ -4,7 +4,7 @@
 #include "vmm.h"
 #include "descriptortables.h"
 #include "elf.h"
-#include "debugprint.h"
+#include "log.h"
 #include "isr.h"
 #include "timer.h"
 #include "message.h"

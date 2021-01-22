@@ -7,7 +7,7 @@
 #include "list.h"
 #include "fifobuffer.h"
 #include "gfx.h"
-#include "debugprint.h"
+#include "log.h"
 #include "commonuser.h"
 #include "termios.h"
 #include "keymap.h"

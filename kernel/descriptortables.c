@@ -2,7 +2,7 @@
 #include "descriptortables.h"
 #include "isr.h"
 #include "process.h"
-#include "debugprint.h"
+#include "log.h"
 
 extern void flush_gdt(uint32_t);
 extern void flush_idt(uint32_t);

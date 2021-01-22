@@ -1,6 +1,6 @@
 #include "common.h"
 #include "serial.h"
-#include "debugprint.h"
+#include "log.h"
 
 static BOOL g_interrupts_were_enabled = FALSE;
 
