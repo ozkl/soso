@@ -36,8 +36,8 @@ void serial_initialize()
 
     interrupt_register(IRQ4, handle_serial_interrupt);
 
-    g_buffer_com1 = FifoBuffer_create(4096);
-    g_accessing_threads = List_Create();
+    g_buffer_com1 = fifobuffer_create(4096);
+    g_accessing_threads = list_create();
 
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
@@ -90,9 +90,9 @@ static void handle_serial_interrupt(Registers *regs)
     uint8 c = (uint8)port_read();
 
     //if buffer is full, we miss the data
-    FifoBuffer_enqueue(g_buffer_com1, &c, 1);
+    fifobuffer_enqueue(g_buffer_com1, &c, 1);
 
-    List_Foreach (n, g_accessing_threads)
+    list_foreach (n, g_accessing_threads)
     {
         Thread* reader = n->data;
 
@@ -166,19 +166,19 @@ void serial_printf(const char *format, ...)
 
 static BOOL serial_open(File *file, uint32 flags)
 {
-    List_Append(g_accessing_threads, file->thread);
+    list_append(g_accessing_threads, file->thread);
 
     return TRUE;
 }
 
 static void serial_close(File *file)
 {
-    List_RemoveFirstOccurrence(g_accessing_threads, file->thread);
+    list_remove_first_occurrence(g_accessing_threads, file->thread);
 }
 
 static BOOL serial_read_test_ready(File *file)
 {
-    if (FifoBuffer_getSize(g_buffer_com1) > 0)
+    if (fifobuffer_get_size(g_buffer_com1) > 0)
     {
         return TRUE;
     }
@@ -196,15 +196,15 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
     while (serial_read_test_ready(file) == FALSE)
     {
         thread_change_state(file->thread, TS_WAITIO, serial_read);
-        enableInterrupts();
+        enable_interrupts();
         halt();
     }
 
-    disableInterrupts();
+    disable_interrupts();
 
     thread_resume(file->thread);
 
-    int32 read_bytes = FifoBuffer_dequeue(g_buffer_com1, buffer, size);
+    int32 read_bytes = fifobuffer_dequeue(g_buffer_com1, buffer, size);
 
     return read_bytes;
 }

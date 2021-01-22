@@ -42,7 +42,7 @@ void initialize_mouse()
 
     memset(g_mouse_packet, 0, MOUSE_PACKET_SIZE);
 
-    g_readers = List_Create();
+    g_readers = list_create();
 
     Spinlock_Init(&g_readers_lock);
 
@@ -63,13 +63,13 @@ void initialize_mouse()
 
 static BOOL mouse_open(File *file, uint32 flags)
 {
-    FifoBuffer* fifo = FifoBuffer_create(60);
+    FifoBuffer* fifo = fifobuffer_create(60);
 
     file->private_data = (void*)fifo;
 
     Spinlock_Lock(&g_readers_lock);
 
-    List_Append(g_readers, file);
+    list_append(g_readers, file);
 
     Spinlock_Unlock(&g_readers_lock);
 
@@ -80,34 +80,34 @@ static void mouse_close(File *file)
 {
     Spinlock_Lock(&g_readers_lock);
 
-    List_RemoveFirstOccurrence(g_readers, file);
+    list_remove_first_occurrence(g_readers, file);
 
     Spinlock_Unlock(&g_readers_lock);
 
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-    FifoBuffer_destroy(fifo);
+    fifobuffer_destroy(fifo);
 }
 
 static int32 mouse_read(File *file, uint32 size, uint8 *buffer)
 {
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-    while (FifoBuffer_getSize(fifo) < MOUSE_PACKET_SIZE)
+    while (fifobuffer_get_size(fifo) < MOUSE_PACKET_SIZE)
     {
         thread_change_state(file->thread, TS_WAITIO, mouse_read);
 
-        enableInterrupts();
+        enable_interrupts();
         halt();
     }
 
-    disableInterrupts();
+    disable_interrupts();
 
 
-    uint32 available = FifoBuffer_getSize(fifo);
+    uint32 available = fifobuffer_get_size(fifo);
     uint32 smaller = MIN(available, size);
 
-    FifoBuffer_dequeue(fifo, buffer, smaller);
+    fifobuffer_dequeue(fifo, buffer, smaller);
 
     return smaller;
 }
@@ -176,13 +176,13 @@ static void handle_mouse_interrupt(Registers *regs)
         Spinlock_Lock(&g_readers_lock);
 
         //Wake readers
-        List_Foreach(n, g_readers)
+        list_foreach(n, g_readers)
         {
             File* file = n->data;
 
             FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-            FifoBuffer_enqueue(fifo, g_mouse_packet, MOUSE_PACKET_SIZE);
+            fifobuffer_enqueue(fifo, g_mouse_packet, MOUSE_PACKET_SIZE);
 
             if (file->thread->state == TS_WAITIO)
             {

@@ -29,7 +29,7 @@ void sharedmemory_initialize()
 {
     Spinlock_Init(&g_shm_list_lock);
 
-    g_shm_list = List_Create();
+    g_shm_list = list_create();
 
     g_shm_root = fs_get_node("/system/shm");
 
@@ -58,7 +58,7 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 in
 
     Spinlock_Lock(&g_shm_list_lock);
 
-    List_Foreach (n, g_shm_list)
+    list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
@@ -85,7 +85,7 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
 
     Spinlock_Lock(&g_shm_list_lock);
 
-    List_Foreach (n, g_shm_list)
+    list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
@@ -135,7 +135,7 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
         //TODO: where should this be released? maybe on destroy?
         uint32 p_address = vmm_acquire_page_frame_4k();
 
-        List_Append(shared_mem->physical_address_list, (void*)p_address);
+        list_append(shared_mem->physical_address_list, (void*)p_address);
     }
 
     file->node->length = length;
@@ -153,12 +153,12 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
 
     Spinlock_Lock(&shared_mem->physical_address_list_lock);
 
-    int count = List_GetCount(shared_mem->physical_address_list);
+    int count = list_get_count(shared_mem->physical_address_list);
     if (count > 0)
     {
         uint32* physical_address_array = (uint32*)kmalloc(count * sizeof(uint32));
         int i = 0;
-        List_Foreach(n, shared_mem->physical_address_list)
+        list_foreach(n, shared_mem->physical_address_list)
         {
             physical_address_array[i] = (uint32)n->data;
 
@@ -180,7 +180,7 @@ FileSystemNode* sharedmemory_get_node(const char* name)
 
     Spinlock_Lock(&g_shm_list_lock);
 
-    List_Foreach (n, g_shm_list)
+    list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
@@ -218,11 +218,11 @@ FileSystemNode* sharedmemory_create(const char* name)
     node->private_node_data = shared_mem;
 
     shared_mem->node = node;
-    shared_mem->physical_address_list = List_Create();
+    shared_mem->physical_address_list = list_create();
     Spinlock_Init(&shared_mem->physical_address_list_lock);
 
     Spinlock_Lock(&g_shm_list_lock);
-    List_Append(g_shm_list, shared_mem);
+    list_append(g_shm_list, shared_mem);
     Spinlock_Unlock(&g_shm_list_lock);
 
     return node;
@@ -234,7 +234,7 @@ void sharedmemory_destroy(const char* name)
 
     Spinlock_Lock(&g_shm_list_lock);
 
-    List_Foreach (n, g_shm_list)
+    list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
@@ -251,9 +251,9 @@ void sharedmemory_destroy(const char* name)
 
         kfree(shared_mem->node);
 
-        List_Destroy(shared_mem->physical_address_list);
+        list_destroy(shared_mem->physical_address_list);
 
-        List_RemoveFirstOccurrence(g_shm_list, shared_mem);
+        list_remove_first_occurrence(g_shm_list, shared_mem);
 
         Spinlock_Unlock(&shared_mem->physical_address_list_lock);
 

@@ -49,7 +49,7 @@ void keyboard_initialize()
     g_key_buffer = kmalloc(KEYBUFFER_SIZE);
     memset((uint8*)g_key_buffer, 0, KEYBUFFER_SIZE);
 
-    g_readers = List_Create();
+    g_readers = list_create();
 
     devfs_register_device(&device);
 
@@ -68,7 +68,7 @@ static BOOL keyboard_open(File *file, uint32 flags)
     }
     file->private_data = (void*)reader;
 
-    List_Append(g_readers, file);
+    list_append(g_readers, file);
 
     return TRUE;
 }
@@ -81,7 +81,7 @@ static void keyboard_close(File *file)
 
     kfree(reader);
 
-    List_RemoveFirstOccurrence(g_readers, file);
+    list_remove_first_occurrence(g_readers, file);
 }
 
 static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
@@ -96,12 +96,12 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
         {
             thread_change_state(file->thread, TS_WAITIO, keyboard_read);
             
-            enableInterrupts();
+            enable_interrupts();
             halt();
         }
     }
 
-    disableInterrupts();
+    disable_interrupts();
 
     if (read_index == g_key_buffer_write_index)
     {
@@ -165,7 +165,7 @@ static void handle_keyboard_interrupt(Registers *regs)
     g_key_buffer_write_index %= KEYBUFFER_SIZE;
 
     //Wake readers
-    List_Foreach(n, g_readers)
+    list_foreach(n, g_readers)
     {
         File* file = n->data;
 

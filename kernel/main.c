@@ -207,7 +207,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     scheduler_enable();
 
-    enableInterrupts();
+    enable_interrupts();
 
     while(TRUE)
     {

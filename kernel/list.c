@@ -2,7 +2,7 @@
 #include "common.h"
 #include "list.h"
 
-List* List_Create()
+List* list_create()
 {
     List* list = (List*)kmalloc(sizeof(List));
 
@@ -11,49 +11,49 @@ List* List_Create()
     return list;
 }
 
-void List_Clear(List* list)
+void list_clear(List* list)
 {
-    ListNode* listNode = list->head;
+    ListNode* list_node = list->head;
 
-    while (NULL != listNode)
+    while (NULL != list_node)
     {
-        ListNode* next = listNode->next;
+        ListNode* next = list_node->next;
 
-        kfree(listNode);
+        kfree(list_node);
 
-        listNode = next;
+        list_node = next;
     }
 
     list->head = NULL;
     list->tail = NULL;
 }
 
-void List_Destroy(List* list)
+void list_destroy(List* list)
 {
-    List_Clear(list);
+    list_clear(list);
 
     kfree(list);
 }
 
-List* List_CreateClone(List* list)
+List* list_create_clone(List* list)
 {
-    List* newList = List_Create();
+    List* newList = list_create();
 
-    List_Foreach(n, list)
+    list_foreach(n, list)
     {
-        List_Append(newList, n->data);
+        list_append(newList, n->data);
     }
 
     return newList;
 }
 
-BOOL List_IsEmpty(List* list)
+BOOL list_is_empty(List* list)
 {
     //At empty state, both head and tail are null!
     return list->head == NULL;
 }
 
-void List_Append(List* list, void* data)
+void list_append(List* list, void* data)
 {
     ListNode* node = (ListNode*)kmalloc(sizeof(ListNode));
 
@@ -75,7 +75,7 @@ void List_Append(List* list, void* data)
     list->tail = node;
 }
 
-void List_Prepend(List* list, void* data)
+void list_prepend(List* list, void* data)
 {
     ListNode* node = (ListNode*)kmalloc(sizeof(ListNode));
 
@@ -97,19 +97,19 @@ void List_Prepend(List* list, void* data)
     list->head = node;
 }
 
-ListNode* List_GetFirstNode(List* list)
+ListNode* list_get_first_node(List* list)
 {
     return list->head;
 }
 
-ListNode* List_GetLastNode(List* list)
+ListNode* list_get_last_node(List* list)
 {
     return list->tail;
 }
 
-ListNode* List_FindFirstOccurrence(List* list, void* data)
+ListNode* list_find_first_occurrence(List* list, void* data)
 {
-    List_Foreach(n, list)
+    list_foreach(n, list)
     {
         if (n->data == data)
         {
@@ -120,11 +120,11 @@ ListNode* List_FindFirstOccurrence(List* list, void* data)
     return NULL;
 }
 
-int List_FindFirstOccurrenceIndex(List* list, void* data)
+int list_find_first_occurrence_index(List* list, void* data)
 {
     int result = 0;
 
-    List_Foreach(n, list)
+    list_foreach(n, list)
     {
         if (n->data == data)
         {
@@ -137,11 +137,11 @@ int List_FindFirstOccurrenceIndex(List* list, void* data)
     return -1;
 }
 
-int List_GetCount(List* list)
+int list_get_count(List* list)
 {
     int result = 0;
 
-    List_Foreach(n, list)
+    list_foreach(n, list)
     {
         ++result;
     }
@@ -149,7 +149,7 @@ int List_GetCount(List* list)
     return result;
 }
 
-void List_RemoveNode(List* list, ListNode* node)
+void list_remove_node(List* list, ListNode* node)
 {
     if (NULL == node)
     {
@@ -179,125 +179,125 @@ void List_RemoveNode(List* list, ListNode* node)
     kfree(node);
 }
 
-void List_RemoveFirstNode(List* list)
+void list_remove_first_node(List* list)
 {
     if (NULL != list->head)
     {
-        List_RemoveNode(list, list->head);
+        list_remove_node(list, list->head);
     }
 }
 
-void List_RemoveLastNode(List* list)
+void list_remove_last_node(List* list)
 {
     if (NULL != list->tail)
     {
-        List_RemoveNode(list, list->tail);
+        list_remove_node(list, list->tail);
     }
 }
 
-void List_RemoveFirstOccurrence(List* list, void* data)
+void list_remove_first_occurrence(List* list, void* data)
 {
-    ListNode* node = List_FindFirstOccurrence(list, data);
+    ListNode* node = list_find_first_occurrence(list, data);
 
     if (NULL != node)
     {
-        List_RemoveNode(list, node);
+        list_remove_node(list, node);
     }
 }
 
-Stack* Stack_Create()
+Stack* stack_create()
 {
     Stack* stack = (Stack*)kmalloc(sizeof(Stack));
 
     memset((uint8*)stack, 0, sizeof(Stack));
 
-    stack->list = List_Create();
+    stack->list = list_create();
 
     return stack;
 }
 
-void Stack_Clear(Stack* stack)
+void stack_clear(Stack* stack)
 {
-    List_Clear(stack->list);
+    list_clear(stack->list);
 }
 
-void Stack_Destroy(Stack* stack)
+void stack_destroy(Stack* stack)
 {
-    List_Destroy(stack->list);
+    list_destroy(stack->list);
 
     kfree(stack);
 }
 
-BOOL Stack_IsEmpty(Stack* stack)
+BOOL stack_is_empty(Stack* stack)
 {
-    return List_IsEmpty(stack->list);
+    return list_is_empty(stack->list);
 }
 
-void Stack_Push(Stack* stack, void* data)
+void stack_push(Stack* stack, void* data)
 {
-    List_Prepend(stack->list, data);
+    list_prepend(stack->list, data);
 }
 
-void* Stack_Pop(Stack* stack)
+void* stack_pop(Stack* stack)
 {
     void* result = NULL;
 
-    ListNode* node = List_GetFirstNode(stack->list);
+    ListNode* node = list_get_first_node(stack->list);
 
     if (NULL != node)
     {
         result = node->data;
 
-        List_RemoveNode(stack->list, node);
+        list_remove_node(stack->list, node);
     }
 
     return result;
 }
 
-Queue* Queue_Create()
+Queue* queue_create()
 {
     Queue* queue = (Queue*)kmalloc(sizeof(Queue));
 
     memset((uint8*)queue, 0, sizeof(Queue));
 
-    queue->list = List_Create();
+    queue->list = list_create();
 
     return queue;
 }
 
-void Queue_Clear(Queue* queue)
+void queue_clear(Queue* queue)
 {
-    List_Clear(queue->list);
+    list_clear(queue->list);
 }
 
-void Queue_Destroy(Queue* queue)
+void queue_destroy(Queue* queue)
 {
-    List_Destroy(queue->list);
+    list_destroy(queue->list);
 
     kfree(queue);
 }
 
-BOOL Queue_IsEmpty(Queue* queue)
+BOOL queue_is_empty(Queue* queue)
 {
-    return List_IsEmpty(queue->list);
+    return list_is_empty(queue->list);
 }
 
-void Queue_Enqueue(Queue* queue, void* data)
+void queue_enqueue(Queue* queue, void* data)
 {
-    List_Append(queue->list, data);
+    list_append(queue->list, data);
 }
 
-void* Queue_Dequeue(Queue* stack)
+void* queue_dequeue(Queue* queue)
 {
     void* result = NULL;
 
-    ListNode* node = List_GetFirstNode(stack->list);
+    ListNode* node = list_get_first_node(queue->list);
 
     if (NULL != node)
     {
         result = node->data;
 
-        List_RemoveNode(stack->list, node);
+        list_remove_node(queue->list, node);
     }
 
     return result;

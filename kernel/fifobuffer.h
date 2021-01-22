@@ -6,21 +6,21 @@
 typedef struct FifoBuffer
 {
     uint8* data;
-    uint32 writeIndex;
-    uint32 readIndex;
+    uint32 write_index;
+    uint32 read_index;
     uint32 capacity;
-    uint32 usedBytes;
+    uint32 used_bytes;
 } FifoBuffer;
 
-FifoBuffer* FifoBuffer_create(uint32 capacity);
-void FifoBuffer_destroy(FifoBuffer* fifoBuffer);
-void FifoBuffer_clear(FifoBuffer* fifoBuffer);
-BOOL FifoBuffer_isEmpty(FifoBuffer* fifoBuffer);
-uint32 FifoBuffer_getSize(FifoBuffer* fifoBuffer);
-uint32 FifoBuffer_getCapacity(FifoBuffer* fifoBuffer);
-uint32 FifoBuffer_getFree(FifoBuffer* fifoBuffer);
-int32 FifoBuffer_enqueue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
-int32 FifoBuffer_dequeue(FifoBuffer* fifoBuffer, uint8* data, uint32 size);
-int32 FifoBuffer_enqueueFromOther(FifoBuffer* fifoBuffer, FifoBuffer* other);
+FifoBuffer* fifobuffer_create(uint32 capacity);
+void fifobuffer_destroy(FifoBuffer* fifo_buffer);
+void fifobuffer_clear(FifoBuffer* fifo_buffer);
+BOOL fifobuffer_is_empty(FifoBuffer* fifo_buffer);
+uint32 fifobuffer_get_size(FifoBuffer* fifo_buffer);
+uint32 fifobuffer_get_capacity(FifoBuffer* fifo_buffer);
+uint32 fifobuffer_get_free(FifoBuffer* fifo_buffer);
+int32 fifobuffer_enqueue(FifoBuffer* fifo_buffer, uint8* data, uint32 size);
+int32 fifobuffer_dequeue(FifoBuffer* fifo_buffer, uint8* data, uint32 size);
+int32 fifobuffer_enqueue_from_other(FifoBuffer* fifo_buffer, FifoBuffer* other);
 
 #endif // FIFOBUFFER_H

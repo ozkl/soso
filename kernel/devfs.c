@@ -44,7 +44,7 @@ void devfs_initialize()
     g_dev_root->finddir = devfs_finddir;
     g_dev_root->readdir = devfs_readdir;
 
-    g_device_list = List_Create();
+    g_device_list = list_create();
     Spinlock_Init(&g_device_list_lock);
 }
 
@@ -61,7 +61,7 @@ static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index)
 
     Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, g_device_list)
+    list_foreach(n, g_device_list)
     {
         if (index == counter)
         {
@@ -87,7 +87,7 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
 
     Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, g_device_list)
+    list_foreach(n, g_device_list)
     {
         FileSystemNode* deviceNode = (FileSystemNode*)n->data;
 
@@ -107,7 +107,7 @@ FileSystemNode* devfs_register_device(Device* device)
 {
     Spinlock_Lock(&g_device_list_lock);
 
-    List_Foreach(n, g_device_list)
+    list_foreach(n, g_device_list)
     {
         FileSystemNode* device_node = (FileSystemNode*)n->data;
 
@@ -138,7 +138,7 @@ FileSystemNode* devfs_register_device(Device* device)
     device_node->private_node_data = device->private_data;
     device_node->parent = g_dev_root;
 
-    List_Append(g_device_list, device_node);
+    list_append(g_device_list, device_node);
 
     Spinlock_Unlock(&g_device_list_lock);
 

@@ -1,8 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#define enableInterrupts() asm volatile("sti")
-#define disableInterrupts() asm volatile("cli")
+#define enable_interrupts() asm volatile("sti")
+#define disable_interrupts() asm volatile("cli")
 #define halt() asm volatile("hlt")
 
 typedef unsigned long long 	uint64;

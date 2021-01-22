@@ -401,7 +401,7 @@ void printkf(const char *format, ...)
 
 void panic(const char *message, const char *file, uint32 line)
 {
-    disableInterrupts();
+    disable_interrupts();
 
     printkf("PANIC:%s:%d:%s\n", file, line, message);
 
@@ -417,7 +417,7 @@ void warning(const char *message, const char *file, uint32 line)
 
 void panic_assert(const char *file, uint32 line, const char *desc)
 {
-    disableInterrupts();
+    disable_interrupts();
 
     printkf("ASSERTION-FAILED:%s:%d:%s\n", file, line, desc);
 
@@ -462,14 +462,14 @@ void begin_critical_section()
 {
     g_interrupts_were_enabled = is_interrupts_enabled();
 
-    disableInterrupts();
+    disable_interrupts();
 }
 
 void end_critical_section()
 {
     if (g_interrupts_were_enabled)
     {
-        enableInterrupts();
+        enable_interrupts();
     }
 }
 

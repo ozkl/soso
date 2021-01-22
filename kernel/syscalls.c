@@ -323,7 +323,7 @@ int syscall_read(int fd, void *buf, int nbytes)
             {
                 //log_printf("syscall_read(%d): %s\n", process->pid, buf);
 
-                //enableInterrupts();
+                //enable_interrupts();
 
                 //Each handler is free to enable interrupts.
                 //We don't enable them here.
@@ -861,7 +861,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
             if (fs_read(f, node->length, image) > 0)
             {
-                disableInterrupts(); //just in case if a file operation left interrupts enabled.
+                disable_interrupts(); //just in case if a file operation left interrupts enabled.
 
                 Process* new_process = process_create_ex("fromExecve", calling_process->pid, 0, NULL, image, argv, envp, NULL, calling_process->tty);
 
@@ -913,7 +913,7 @@ int syscall_wait(int *wstatus)
 
                 thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
-                enableInterrupts();
+                enable_interrupts();
                 while (current_thread->state == TS_WAITCHILD);
 
                 break;
@@ -956,7 +956,7 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
                 {
                     thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
-                    enableInterrupts();
+                    enable_interrupts();
                     while (current_thread->state == TS_WAITCHILD);
 
                     break;

@@ -72,10 +72,10 @@ void tasking_initialize()
     thread_resume(thread);
     thread->birth_time = get_uptime_milliseconds();
 
-    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->message_queue_lock));
 
-    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
+    thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
     thread->regs.cr3 = (uint32) process->pd;
 
@@ -115,10 +115,10 @@ void thread_create_kthread(Function0 func)
 
     thread->birth_time = get_uptime_milliseconds();
 
-    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->message_queue_lock));
 
-    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
+    thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
     thread->regs.cr3 = (uint32) thread->owner->pd;
 
@@ -375,10 +375,10 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
 
     thread->birth_time = get_uptime_milliseconds();
 
-    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
     Spinlock_Init(&(thread->message_queue_lock));
 
-    thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
+    thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
     thread->regs.cr3 = (uint32) process->pd;
 
@@ -527,9 +527,9 @@ void thread_destroy(Thread* thread)
         kfree((void*)thread->kstack.stack_start);
 
         Spinlock_Lock(&(thread->message_queue_lock));
-        FifoBuffer_destroy(thread->message_queue);
+        fifobuffer_destroy(thread->message_queue);
 
-        FifoBuffer_destroy(thread->signals);
+        fifobuffer_destroy(thread->signals);
 
         log_printf("destroying thread %d\n", thread->threadId);
 
@@ -563,9 +563,9 @@ void process_destroy(Process* process)
                 kfree((void*)thread->kstack.stack_start);
 
                 Spinlock_Lock(&(thread->message_queue_lock));
-                FifoBuffer_destroy(thread->message_queue);
+                fifobuffer_destroy(thread->message_queue);
 
-                FifoBuffer_destroy(thread->signals);
+                fifobuffer_destroy(thread->signals);
 
                 log_printf("destroying thread id:%d (owner process %d)\n", thread->threadId, process->pid);
 
@@ -664,10 +664,10 @@ BOOL thread_signal(Thread* thread, uint8 signal)
             }
         }
 
-        if (FifoBuffer_getFree(thread->signals) > 0)
+        if (fifobuffer_get_free(thread->signals) > 0)
         {
-            FifoBuffer_enqueue(thread->signals, &signal, 1);
-            thread->pending_signal_count = FifoBuffer_getSize(thread->signals);
+            fifobuffer_enqueue(thread->signals, &signal, 1);
+            thread->pending_signal_count = fifobuffer_get_size(thread->signals);
 
             if (thread->state == TS_WAITIO)
             {
@@ -749,12 +749,12 @@ void wait_for_schedule()
 {
     //Screen_PrintF("Waiting for a schedule()\n");
 
-    enableInterrupts();
+    enable_interrupts();
     while (TRUE)
     {
         halt();
     }
-    disableInterrupts();
+    disable_interrupts();
     PANIC("wait_for_schedule(): Should not be reached here!!!\n");
 }
 
@@ -1089,11 +1089,11 @@ void schedule(TimerInt_Registers* registers)
 
     if (ready_thread != g_first_thread)
     {
-        if (FifoBuffer_getSize(ready_thread->signals) > 0)
+        if (fifobuffer_get_size(ready_thread->signals) > 0)
         {
             uint8 signal = 0;
-            FifoBuffer_dequeue(ready_thread->signals, &signal, 1);
-            ready_thread->pending_signal_count = FifoBuffer_getSize(ready_thread->signals);
+            fifobuffer_dequeue(ready_thread->signals, &signal, 1);
+            ready_thread->pending_signal_count = fifobuffer_get_size(ready_thread->signals);
 
             printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32)signal, ready_thread->owner->pid);
 

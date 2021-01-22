@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-#define List_Foreach(listNode, list) for (ListNode* listNode = list->head; NULL != listNode ; listNode = listNode->next)
+#define list_foreach(list_node, list) for (ListNode* list_node = list->head; NULL != list_node ; list_node = list_node->next)
 
 typedef struct ListNode
 {
@@ -18,45 +18,45 @@ typedef struct List
     struct ListNode* tail;
 } List;
 
-List* List_Create();
-void List_Clear(List* list);
-void List_Destroy(List* list);
-List* List_CreateClone(List* list);
-BOOL List_IsEmpty(List* list);
-void List_Append(List* list, void* data);
-void List_Prepend(List* list, void* data);
-ListNode* List_GetFirstNode(List* list);
-ListNode* List_GetLastNode(List* list);
-ListNode* List_FindFirstOccurrence(List* list, void* data);
-int List_FindFirstOccurrenceIndex(List* list, void* data);
-int List_GetCount(List* list);
-void List_RemoveNode(List* list, ListNode* node);
-void List_RemoveFirstNode(List* list);
-void List_RemoveLastNode(List* list);
-void List_RemoveFirstOccurrence(List* list, void* data);
+List* list_create();
+void list_clear(List* list);
+void list_destroy(List* list);
+List* list_create_clone(List* list);
+BOOL list_is_empty(List* list);
+void list_append(List* list, void* data);
+void list_prepend(List* list, void* data);
+ListNode* list_get_first_node(List* list);
+ListNode* list_get_last_node(List* list);
+ListNode* list_find_first_occurrence(List* list, void* data);
+int list_find_first_occurrence_index(List* list, void* data);
+int list_get_count(List* list);
+void list_remove_node(List* list, ListNode* node);
+void list_remove_first_node(List* list);
+void list_remove_last_node(List* list);
+void list_remove_first_occurrence(List* list, void* data);
 
 typedef struct Stack
 {
     List* list;
 } Stack;
 
-Stack* Stack_Create();
-void Stack_Clear(Stack* stack);
-void Stack_Destroy(Stack* stack);
-BOOL Stack_IsEmpty(Stack* stack);
-void Stack_Push(Stack* stack, void* data);
-void* Stack_Pop(Stack* stack);
+Stack* stack_create();
+void stack_clear(Stack* stack);
+void stack_destroy(Stack* stack);
+BOOL stack_is_empty(Stack* stack);
+void stack_push(Stack* stack, void* data);
+void* stack_pop(Stack* stack);
 
 typedef struct Queue
 {
     List* list;
 } Queue;
 
-Queue* Queue_Create();
-void Queue_Clear(Queue* queue);
-void Queue_Destroy(Queue* queue);
-BOOL Queue_IsEmpty(Queue* queue);
-void Queue_Enqueue(Queue* queue, void* data);
-void* Queue_Dequeue(Queue* stack);
+Queue* queue_create();
+void queue_clear(Queue* queue);
+void queue_destroy(Queue* queue);
+BOOL queue_is_empty(Queue* queue);
+void queue_enqueue(Queue* queue, void* data);
+void* queue_dequeue(Queue* queue);
 
 #endif // LIST_H

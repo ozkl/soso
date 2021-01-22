@@ -139,7 +139,7 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
         }
 
         thread_change_state(thread, TS_SELECT, NULL);
-        enableInterrupts();
+        enable_interrupts();
         halt();
 
         if (thread->select.select_state == SS_FINISHED)
