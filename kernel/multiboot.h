@@ -9,37 +9,37 @@
 
 struct Multiboot
 {
-    uint32 flags;
-    uint32 mem_lower;
-    uint32 mem_upper;
-    uint32 boot_device;
-    uint32 cmdline;
-    uint32 mods_count;
-    uint32 mods_addr;
-    uint32 num;
-    uint32 size;
-    uint32 addr;
-    uint32 shndx;
-    uint32 mmap_length;
-    uint32 mmap_addr;
-    uint32 drives_length;
-    uint32 drives_addr;
-    uint32 config_table;
-    uint32 boot_loader_name;
-    uint32 apm_table;
-    uint32 vbe_control_info;
-    uint32 vbe_mode_info;
-    uint16 vbe_mode;
-    uint16 vbe_interface_seg;
-    uint16 vbe_interface_off;
-    uint16 vbe_interface_len;
+    uint32_t flags;
+    uint32_t mem_lower;
+    uint32_t mem_upper;
+    uint32_t boot_device;
+    uint32_t cmdline;
+    uint32_t mods_count;
+    uint32_t mods_addr;
+    uint32_t num;
+    uint32_t size;
+    uint32_t addr;
+    uint32_t shndx;
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+    uint32_t drives_length;
+    uint32_t drives_addr;
+    uint32_t config_table;
+    uint32_t boot_loader_name;
+    uint32_t apm_table;
+    uint32_t vbe_control_info;
+    uint32_t vbe_mode_info;
+    uint16_t vbe_mode;
+    uint16_t vbe_interface_seg;
+    uint16_t vbe_interface_off;
+    uint16_t vbe_interface_len;
 
-    uint64 framebuffer_addr;
-    uint32 framebuffer_pitch;
-    uint32 framebuffer_width;
-    uint32 framebuffer_height;
-    uint8 framebuffer_bpp;
-    uint8 framebuffer_type;
+    uint64_t framebuffer_addr;
+    uint32_t framebuffer_pitch;
+    uint32_t framebuffer_width;
+    uint32_t framebuffer_height;
+    uint8_t framebuffer_bpp;
+    uint8_t framebuffer_type;
 }  __attribute__((packed));
 
 #endif

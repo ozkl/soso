@@ -8,24 +8,24 @@
 #include "errno.h"
 #include "ttydev.h"
 
-static BOOL master_open(File *file, uint32 flags);
+static BOOL master_open(File *file, uint32_t flags);
 static void master_close(File *file);
-static int32 master_read(File *file, uint32 size, uint8 *buffer);
-static int32 master_write(File *file, uint32 size, uint8 *buffer);
+static int32_t master_read(File *file, uint32_t size, uint8_t *buffer);
+static int32_t master_write(File *file, uint32_t size, uint8_t *buffer);
 static BOOL master_readTestReady(File *file);
 static BOOL master_writeTestReady(File *file);
 
-static BOOL slave_open(File *file, uint32 flags);
+static BOOL slave_open(File *file, uint32_t flags);
 static void slave_close(File *file);
-static int32 slave_read(File *file, uint32 size, uint8 *buffer);
-static int32 slave_write(File *file, uint32 size, uint8 *buffer);
+static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer);
+static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer);
 static BOOL slave_read_test_ready(File *file);
 static BOOL slave_write_test_ready(File *file);
-static int32 slave_ioctl(File *file, int32 request, void * argp);
+static int32_t slave_ioctl(File *file, int32_t request, void * argp);
 
-static uint32 g_name_generator = 0;
+static uint32_t g_name_generator = 0;
 
-static BOOL is_erase_character(TtyDev* tty, uint8 character)
+static BOOL is_erase_character(TtyDev* tty, uint8_t character)
 {
     if (character == tty->term.c_cc[VERASE])
     {
@@ -38,7 +38,7 @@ static BOOL is_erase_character(TtyDev* tty, uint8 character)
 FileSystemNode* ttydev_create()
 {
     TtyDev* tty_dev = kmalloc(sizeof(TtyDev));
-    memset((uint8*)tty_dev, 0, sizeof(TtyDev));
+    memset((uint8_t*)tty_dev, 0, sizeof(TtyDev));
 
     tty_dev->controlling_process = -1;
     tty_dev->foreground_process = -1;
@@ -76,7 +76,7 @@ FileSystemNode* ttydev_create()
     ++g_name_generator;
 
     Device master;
-    memset((uint8*)&master, 0, sizeof(Device));
+    memset((uint8_t*)&master, 0, sizeof(Device));
     sprintf(master.name, "ptty%d-m", g_name_generator);
     master.device_type = FT_CHARACTER_DEVICE;
     master.open = master_open;
@@ -88,7 +88,7 @@ FileSystemNode* ttydev_create()
     master.private_data = tty_dev;
 
     Device slave;
-    memset((uint8*)&slave, 0, sizeof(Device));
+    memset((uint8_t*)&slave, 0, sizeof(Device));
     sprintf(slave.name, "ptty%d", g_name_generator);
     slave.device_type = FT_CHARACTER_DEVICE;
     slave.open = slave_open;
@@ -123,7 +123,7 @@ static void wake_slave_readers(TtyDev* tty)
     Spinlock_Unlock(&tty->slave_readers_lock);
 }
 
-static BOOL master_open(File *file, uint32 flags)
+static BOOL master_open(File *file, uint32_t flags)
 {
     return TRUE;
 }
@@ -139,8 +139,8 @@ static BOOL master_readTestReady(File *file)
 
     if (Spinlock_TryLock(&tty->buffer_master_read_lock))
     {
-        uint32 needed_size = 1;
-        uint32 buffer_len = fifobuffer_get_size(tty->buffer_master_read);
+        uint32_t needed_size = 1;
+        uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
         Spinlock_Unlock(&tty->buffer_master_read_lock);
 
         if (buffer_len >= needed_size)
@@ -152,7 +152,7 @@ static BOOL master_readTestReady(File *file)
     return FALSE;
 }
 
-static int32 master_read(File *file, uint32 size, uint8 *buffer)
+static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
 {
     enable_interrupts();
 
@@ -165,8 +165,8 @@ static int32 master_read(File *file, uint32 size, uint8 *buffer)
         {
             Spinlock_Lock(&tty->buffer_master_read_lock);
 
-            uint32 needed_size = 1;
-            uint32 buffer_len = fifobuffer_get_size(tty->buffer_master_read);
+            uint32_t needed_size = 1;
+            uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
 
             int read_size = -1;
 
@@ -191,7 +191,7 @@ static int32 master_read(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-int32 ttydev_master_read_nonblock(File *file, uint32 size, uint8 *buffer)
+int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer)
 {
     if (size > 0)
     {
@@ -200,8 +200,8 @@ int32 ttydev_master_read_nonblock(File *file, uint32 size, uint8 *buffer)
         int read_size = 0;
         if (Spinlock_TryLock(&tty->buffer_master_read_lock))
         {
-            uint32 needed_size = 1;
-            uint32 buffer_len = fifobuffer_get_size(tty->buffer_master_read);
+            uint32_t needed_size = 1;
+            uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
 
             if (buffer_len >= needed_size)
             {
@@ -221,7 +221,7 @@ static BOOL master_writeTestReady(File *file)
     return TRUE;
 }
 
-static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8* character)
+static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8_t* character)
 {
     BOOL result = TRUE;
 
@@ -257,7 +257,7 @@ static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8* character)
     return result;
 }
 
-static int32 master_write(File *file, uint32 size, uint8 *buffer)
+static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
 {
     if (size == 0)
     {
@@ -272,15 +272,15 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
 
     Spinlock_Lock(&tty->buffer_master_write_lock);
 
-    uint32 free = fifobuffer_get_free(tty->buffer_master_write);
+    uint32_t free = fifobuffer_get_free(tty->buffer_master_write);
 
-    uint32 to_write = MIN(size, free);
+    uint32_t to_write = MIN(size, free);
 
-    uint32 written = 0;
+    uint32_t written = 0;
 
-    for (uint32 k = 0; k < to_write; ++k)
+    for (uint32_t k = 0; k < to_write; ++k)
     {
-        uint8 character = buffer[k];
+        uint8_t character = buffer[k];
 
         BOOL use_character = overrideCharacterMasterWrite(tty, &character);
 
@@ -289,7 +289,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
             continue;
         }
 
-        uint8 escaped[2];
+        uint8_t escaped[2];
         escaped[0] = 0;
         escaped[1] = 0;
 
@@ -339,7 +339,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                 {
                     tty->line_buffer[--tty->line_buffer_index] = '\0';
 
-                    uint8 c2 = '\b';
+                    uint8_t c2 = '\b';
                     fifobuffer_enqueue(tty->buffer_echo, &c2, 1);
                     c2 = ' ';
                     fifobuffer_enqueue(tty->buffer_echo, &c2, 1);
@@ -355,12 +355,12 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
                 {
                     tty->line_buffer_index = 0;
                     written = fifobuffer_enqueue(tty->buffer_master_write, tty->line_buffer, bytesToCopy);
-                    written += fifobuffer_enqueue(tty->buffer_master_write, (uint8*)"\n", 1);
+                    written += fifobuffer_enqueue(tty->buffer_master_write, (uint8_t*)"\n", 1);
 
                     if ((tty->term.c_lflag & ECHO))
                     {
                         char c2 = '\r';
-                        fifobuffer_enqueue(tty->buffer_echo, (uint8*)&c2, 1);
+                        fifobuffer_enqueue(tty->buffer_echo, (uint8_t*)&c2, 1);
                     }
                 }
             }
@@ -400,9 +400,9 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
     {
         Spinlock_Lock(&tty->buffer_master_read_lock);
 
-        int32 w = fifobuffer_enqueue_from_other(tty->buffer_master_read, tty->buffer_echo);
+        int32_t w = fifobuffer_enqueue_from_other(tty->buffer_master_read, tty->buffer_echo);
 
-        uint32 bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
+        uint32_t bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
 
         Spinlock_Unlock(&tty->buffer_master_read_lock);
 
@@ -424,10 +424,10 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
     }
 
 
-    return (int32)written;
+    return (int32_t)written;
 }
 
-static BOOL slave_open(File *file, uint32 flags)
+static BOOL slave_open(File *file, uint32_t flags)
 {
     return TRUE;
 }
@@ -437,7 +437,7 @@ static void slave_close(File *file)
     
 }
 
-static int32 slave_ioctl(File *file, int32 request, void * argp)
+static int32_t slave_ioctl(File *file, int32_t request, void * argp)
 {
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
@@ -455,7 +455,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         {
             return -EFAULT;
         }
-        *(int32*)argp = tty->foreground_process;
+        *(int32_t*)argp = tty->foreground_process;
         return 0;
         break;
     case TIOCSPGRP:
@@ -463,7 +463,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
         {
             return -EFAULT;
         }
-        tty->foreground_process = *(int32*)argp;
+        tty->foreground_process = *(int32_t*)argp;
         return 0;
         break;
     case TIOCGWINSZ:
@@ -534,13 +534,13 @@ static BOOL slave_read_test_ready(File *file)
 
     if (Spinlock_TryLock(&tty->buffer_master_write_lock))
     {
-        uint32 needed_size = 1;
+        uint32_t needed_size = 1;
         if ((tty->term.c_lflag & ICANON) != ICANON) //if noncanonical
         {
             needed_size = tty->term.c_cc[VMIN];
         }
 
-        uint32 buffer_len = fifobuffer_get_size(tty->buffer_master_write);
+        uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_write);
 
         Spinlock_Unlock(&tty->buffer_master_write_lock);
 
@@ -553,12 +553,12 @@ static BOOL slave_read_test_ready(File *file)
     return FALSE;
 }
 
-static int32 slave_read(File *file, uint32 size, uint8 *buffer)
+static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
 {
     enable_interrupts();
 
     //TODO: implement VTIME
-    //uint32 timer = get_uptime_milliseconds();
+    //uint32_t timer = get_uptime_milliseconds();
 
     if (size > 0)
     {
@@ -569,7 +569,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer)
         {
             Spinlock_Lock(&tty->buffer_master_write_lock);
 
-            uint32 needed_size = 1;
+            uint32_t needed_size = 1;
             if ((tty->term.c_lflag & ICANON) != ICANON) //if noncanonical
             {
                 needed_size = tty->term.c_cc[VMIN];
@@ -579,7 +579,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer)
                     needed_size = size;
                 }
             }
-            uint32 buffer_len = fifobuffer_get_size(tty->buffer_master_write);
+            uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_write);
 
             int read_size = -1;
 
@@ -622,19 +622,19 @@ static BOOL slave_write_test_ready(File *file)
     return TRUE;
 }
 
-static uint32 process_slave_write(TtyDev* tty, uint32 size, uint8 *buffer)
+static uint32_t process_slave_write(TtyDev* tty, uint32_t size, uint8_t *buffer)
 {
-    uint32 written = 0;
+    uint32_t written = 0;
 
     tcflag_t c_oflag = tty->term.c_oflag;
 
     FifoBuffer* fifo = tty->buffer_master_read;
 
-    uint8 w = 0;
+    uint8_t w = 0;
 
     for (size_t i = 0; i < size; i++)
     {
-        uint8 c = buffer[i];
+        uint8_t c = buffer[i];
 
         if (c == '\r' && (c_oflag & OCRNL))
         {
@@ -671,7 +671,7 @@ static uint32 process_slave_write(TtyDev* tty, uint32 size, uint8 *buffer)
     return written;
 }
 
-static int32 slave_write(File *file, uint32 size, uint8 *buffer)
+static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer)
 {
     if (size == 0)
     {
@@ -684,7 +684,7 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
 
     Spinlock_Lock(&tty->buffer_master_read_lock);
 
-    uint32 free = fifobuffer_get_free(tty->buffer_master_read);
+    uint32_t free = fifobuffer_get_free(tty->buffer_master_read);
 
     int written = 0;
 
@@ -693,7 +693,7 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
         written = process_slave_write(tty, MIN(size, free), buffer);
     }
 
-    uint32 bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
+    uint32_t bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
 
     Spinlock_Unlock(&tty->buffer_master_read_lock);
 

@@ -1,6 +1,6 @@
 #include "keymap.h"
 
-uint8 g_key_map[256] =
+uint8_t g_key_map[256] =
 {
   NO,   0x1B, '1',  '2',  '3',  '4',  '5',  '6',  // 0x00
   '7',  '8',  '9',  '0',  '-',  '=',  '\b', '\t',
@@ -37,7 +37,7 @@ uint8 g_key_map[256] =
   [0xD3] = KEY_DELETE
 };
 
-uint8 g_key_shift_map[256] =
+uint8_t g_key_shift_map[256] =
 {
   NO,   033,  '!',  '@',  '#',  '$',  '%',  '^',  // 0x00
   '&',  '*',  '(',  ')',  '_',  '+',  '\b', '\t',

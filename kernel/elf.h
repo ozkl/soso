@@ -8,22 +8,22 @@
  */
 typedef struct {
     unsigned char e_ident[16];	/* ELF identification */
-    uint16 e_type;		/* 2 (exec file) */
-    uint16 e_machine;		/* 3 (intel architecture) */
-    uint32 e_version;		/* 1 */
-    uint32 e_entry;		/* starting point */
-    uint32 e_phoff;		/* program header table offset */
-    uint32 e_shoff;		/* section header table offset */
-    uint32 e_flags;		/* various flags */
-    uint16 e_ehsize;		/* ELF header (this) size */
+    uint16_t e_type;		/* 2 (exec file) */
+    uint16_t e_machine;		/* 3 (intel architecture) */
+    uint32_t e_version;		/* 1 */
+    uint32_t e_entry;		/* starting point */
+    uint32_t e_phoff;		/* program header table offset */
+    uint32_t e_shoff;		/* section header table offset */
+    uint32_t e_flags;		/* various flags */
+    uint16_t e_ehsize;		/* ELF header (this) size */
 
-    uint16 e_phentsize;	/* program header table entry size */
-    uint16 e_phnum;		/* number of entries */
+    uint16_t e_phentsize;	/* program header table entry size */
+    uint16_t e_phnum;		/* number of entries */
 
-    uint16 e_shentsize;	/* section header table entry size */
-    uint16 e_shnum;		/* number of entries */
+    uint16_t e_shentsize;	/* section header table entry size */
+    uint16_t e_shnum;		/* number of entries */
 
-    uint16 e_shstrndx;		/* index of the section name string table */
+    uint16_t e_shstrndx;		/* index of the section name string table */
 } Elf32_Ehdr;
 
 /*
@@ -62,14 +62,14 @@ typedef struct {
  * PROGRAM HEADER
  */
 typedef struct {
-    uint32 p_type;		/* type of segment */
-    uint32 p_offset;
-    uint32 p_vaddr;
-    uint32 p_paddr;
-    uint32 p_filesz;
-    uint32 p_memsz;
-    uint32 p_flags;
-    uint32 p_align;
+    uint32_t p_type;		/* type of segment */
+    uint32_t p_offset;
+    uint32_t p_vaddr;
+    uint32_t p_paddr;
+    uint32_t p_filesz;
+    uint32_t p_memsz;
+    uint32_t p_flags;
+    uint32_t p_align;
 } Elf32_Phdr;
 
 /* p_type */
@@ -112,16 +112,16 @@ enum eElfSectionTypes {
 
 
 typedef struct {
-    uint32		name;
-    uint32	type;
-    uint32	flags;
-    uint32	address;
-    uint32	offset;
-    uint32	size;
-    uint32	link;
-    uint32	info;
-    uint32	addralign;
-    uint32	entsize;
+    uint32_t		name;
+    uint32_t	type;
+    uint32_t	flags;
+    uint32_t	address;
+    uint32_t	offset;
+    uint32_t	size;
+    uint32_t	link;
+    uint32_t	info;
+    uint32_t	addralign;
+    uint32_t	entsize;
 } Elf32_Scdr;
 
 
@@ -144,8 +144,8 @@ enum {
 };
 
 typedef struct {
-    uint16	d_tag;
-    uint32	d_val;	//Also d_ptr
+    uint16_t	d_tag;
+    uint32_t	d_val;	//Also d_ptr
 } Elf32_dyn;
 
 
@@ -180,9 +180,9 @@ enum {
 
 //Auxiliary Vector entry
 typedef struct {
-  uint32 a_type;
+  uint32_t a_type;
   union {
-      uint32 a_val;
+      uint32_t a_val;
   } a_un;
 } Elf32_auxv_t;
 
@@ -247,7 +247,7 @@ typedef struct {
 #define AUX_CNT 38
 
 BOOL elf_is_valid(const char *elfData);
-uint32 elf_load(const char *elfData);
-uint32 elf_get_end_in_memory(const char *elfData);
+uint32_t elf_load(const char *elfData);
+uint32_t elf_get_end_in_memory(const char *elfData);
 
 #endif // ELF_H

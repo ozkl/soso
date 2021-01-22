@@ -15,22 +15,22 @@ typedef struct Thread Thread;
 
 typedef struct winsize_t
 {
-    uint16 ws_row;	/* rows, in characters */
-    uint16 ws_col;	/* columns, in characters */
-    uint16 ws_xpixel;	/* horizontal size, pixels */
-    uint16 ws_ypixel;	/* vertical size, pixels */
+    uint16_t ws_row;	/* rows, in characters */
+    uint16_t ws_col;	/* columns, in characters */
+    uint16_t ws_xpixel;	/* horizontal size, pixels */
+    uint16_t ws_ypixel;	/* vertical size, pixels */
 } winsize_t;
 
 typedef struct TtyDev TtyDev;
 
-typedef void (*TtyIOReady)(TtyDev* tty, uint32 size);
+typedef void (*TtyIOReady)(TtyDev* tty, uint32_t size);
 typedef struct TtyDev
 {
     FileSystemNode* master_node;
     FileSystemNode* slave_node;
     void* private_data;
-    int32 controlling_process;
-    int32 foreground_process;
+    int32_t controlling_process;
+    int32_t foreground_process;
     winsize_t winsize;
     FifoBuffer* buffer_master_write;
     Spinlock buffer_master_write_lock;
@@ -41,14 +41,14 @@ typedef struct TtyDev
     Spinlock slave_readers_lock;
     Thread* master_reader;
     TtyIOReady master_read_ready; //used for kernel terminal, because it does not read like a user process
-    uint8 line_buffer[TTYDEV_LINEBUFFER_SIZE];
-    uint32 line_buffer_index;
+    uint8_t line_buffer[TTYDEV_LINEBUFFER_SIZE];
+    uint32_t line_buffer_index;
     struct termios term;
 
 } TtyDev;
 
 FileSystemNode* ttydev_create();
 
-int32 ttydev_master_read_nonblock(File *file, uint32 size, uint8 *buffer);
+int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer);
 
 #endif //TTYDEV_H

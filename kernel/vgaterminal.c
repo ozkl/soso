@@ -3,13 +3,13 @@
 #define SCREEN_LINE_COUNT 25
 #define SCREEN_COLUMN_COUNT 80
 
-static uint8 * g_video_start = (uint8*)0xB8000;
+static uint8_t * g_video_start = (uint8_t*)0xB8000;
 
-static uint8 g_color = 0x0A;
+static uint8_t g_color = 0x0A;
 
 static void vgaterminal_refresh_terminal(Terminal* terminal);
-static void vgaterminal_add_character(Terminal* terminal, uint8 character);
-static void vgaterminal_move_cursor(Terminal* terminal, uint16 oldLine, uint16 oldColumn, uint16 line, uint16 column);
+static void vgaterminal_add_character(Terminal* terminal, uint8_t character);
+static void vgaterminal_move_cursor(Terminal* terminal, uint16_t oldLine, uint16_t oldColumn, uint16_t line, uint16_t column);
 
 void vgaterminal_setup(Terminal* terminal)
 {
@@ -22,7 +22,7 @@ void vgaterminal_setup(Terminal* terminal)
 
 static void vgaterminal_set_cursor_visible(BOOL visible)
 {
-    uint8 cursor = inb(0x3d5);
+    uint8_t cursor = inb(0x3d5);
 
     if (visible)
     {
@@ -40,17 +40,17 @@ static void vgaterminal_refresh_terminal(Terminal* terminal)
     memcpy(g_video_start, terminal->buffer, SCREEN_LINE_COUNT * SCREEN_COLUMN_COUNT * 2);
 }
 
-static void vgaterminal_add_character(Terminal* terminal, uint8 character)
+static void vgaterminal_add_character(Terminal* terminal, uint8_t character)
 {
-    uint8 * video = g_video_start + (terminal->current_line * SCREEN_COLUMN_COUNT + terminal->current_column) * 2;
+    uint8_t * video = g_video_start + (terminal->current_line * SCREEN_COLUMN_COUNT + terminal->current_column) * 2;
     
     *video++ = character;
     *video++ = g_color;
 }
 
-static void vgaterminal_move_cursor(Terminal* terminal, uint16 oldLine, uint16 oldColumn, uint16 line, uint16 column)
+static void vgaterminal_move_cursor(Terminal* terminal, uint16_t oldLine, uint16_t oldColumn, uint16_t line, uint16_t column)
 {
-    uint16 cursorLocation = line * SCREEN_COLUMN_COUNT + column;
+    uint16_t cursorLocation = line * SCREEN_COLUMN_COUNT + column;
     outb(0x3D4, 14);                  // Tell the VGA board we are setting the high cursor byte.
     outb(0x3D5, cursorLocation >> 8); // Send the high cursor byte.
     outb(0x3D4, 15);                  // Tell the VGA board we are setting the low cursor byte.

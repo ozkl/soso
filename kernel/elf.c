@@ -15,9 +15,9 @@ BOOL elf_is_valid(const char *elf_data)
     return FALSE;
 }
 
-uint32 elf_load(const char *elf_data)
+uint32_t elf_load(const char *elf_data)
 {
-    uint32 v_begin, v_end;
+    uint32_t v_begin, v_end;
     Elf32_Ehdr *hdr;
     Elf32_Phdr *p_entry;
     Elf32_Scdr *s_entry;
@@ -60,7 +60,7 @@ uint32 elf_load(const char *elf_data)
             //printkf("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);
 
 
-            memcpy((uint8 *) v_begin, (uint8 *) (elf_data + p_entry->p_offset), p_entry->p_filesz);
+            memcpy((uint8_t *) v_begin, (uint8_t *) (elf_data + p_entry->p_offset), p_entry->p_filesz);
             if (p_entry->p_memsz > p_entry->p_filesz)
             {
                 char* p = (char *) p_entry->p_vaddr;
@@ -76,9 +76,9 @@ uint32 elf_load(const char *elf_data)
     return hdr->e_entry;
 }
 
-uint32 elf_get_end_in_memory(const char *elf_data)
+uint32_t elf_get_end_in_memory(const char *elf_data)
 {
-    uint32 v_end;
+    uint32_t v_end;
     Elf32_Ehdr *hdr;
     Elf32_Phdr *p_entry;
 
@@ -90,7 +90,7 @@ uint32 elf_get_end_in_memory(const char *elf_data)
         return 0;
     }
 
-    uint32 result = 0;
+    uint32_t result = 0;
 
     for (int pe = 0; pe < hdr->e_phnum; pe++, p_entry++)
     {

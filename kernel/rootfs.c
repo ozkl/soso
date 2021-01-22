@@ -1,16 +1,16 @@
 #include "rootfs.h"
 #include "alloc.h"
 
-static BOOL rootfs_open(File *node, uint32 flags);
+static BOOL rootfs_open(File *node, uint32_t flags);
 static void rootfs_close(File *file);
 static FileSystemNode *rootfs_finddir(FileSystemNode *node, char *name);
-static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32 index);
-static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags);
+static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32_t index);
+static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32_t flags);
 
 FileSystemNode* rootfs_initialize()
 {
     FileSystemNode* root = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)root, 0, sizeof(FileSystemNode));
+    memset((uint8_t*)root, 0, sizeof(FileSystemNode));
     root->node_type = FT_DIRECTORY;
     root->open = rootfs_open;
     root->close = rootfs_close;
@@ -23,7 +23,7 @@ FileSystemNode* rootfs_initialize()
 
 static FileSystemDirent g_dirent;
 
-static BOOL rootfs_open(File *node, uint32 flags)
+static BOOL rootfs_open(File *node, uint32_t flags)
 {
     return TRUE;
 }
@@ -33,10 +33,10 @@ static void rootfs_close(File *file)
 
 }
 
-static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32 index)
+static struct FileSystemDirent *rootfs_readdir(FileSystemNode *node, uint32_t index)
 {
     FileSystemNode *n = node->first_child;
-    uint32 i = 0;
+    uint32_t i = 0;
     while (NULL != n)
     {
         if (index == i)
@@ -69,7 +69,7 @@ static FileSystemNode *rootfs_finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
+static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32_t flags)
 {
     FileSystemNode *n = node->first_child;
     while (NULL != n)
@@ -82,7 +82,7 @@ static BOOL rootfs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
     }
 
     FileSystemNode* new_node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)new_node, 0, sizeof(FileSystemNode));
+    memset((uint8_t*)new_node, 0, sizeof(FileSystemNode));
     strcpy(new_node->name, name);
     new_node->node_type = FT_DIRECTORY;
     new_node->open = rootfs_open;

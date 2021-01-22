@@ -7,12 +7,12 @@ void message_send(Thread* thread, SosoMessage* message)
 {
     Spinlock_Lock(&(thread->message_queue_lock));
 
-    fifobuffer_enqueue(thread->message_queue, (uint8*)message, sizeof(SosoMessage));
+    fifobuffer_enqueue(thread->message_queue, (uint8_t*)message, sizeof(SosoMessage));
 
     Spinlock_Unlock(&(thread->message_queue_lock));
 }
 
-uint32 message_get_queue_count(Thread* thread)
+uint32_t message_get_queue_count(Thread* thread)
 {
     int result = 0;
 
@@ -26,9 +26,9 @@ uint32 message_get_queue_count(Thread* thread)
 }
 
 //returns remaining message count
-int32 message_get_next(Thread* thread, SosoMessage* message)
+int32_t message_get_next(Thread* thread, SosoMessage* message)
 {
-    uint32 result = -1;
+    uint32_t result = -1;
 
     Spinlock_Lock(&(thread->message_queue_lock));
 
@@ -36,7 +36,7 @@ int32 message_get_next(Thread* thread, SosoMessage* message)
 
     if (result > 0)
     {
-        fifobuffer_dequeue(thread->message_queue, (uint8*)message, sizeof(SosoMessage));
+        fifobuffer_dequeue(thread->message_queue, (uint8_t*)message, sizeof(SosoMessage));
 
         --result;
     }

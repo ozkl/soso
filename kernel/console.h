@@ -11,6 +11,6 @@ extern Terminal* g_active_terminal;
 
 void console_initialize(BOOL graphicMode);
 
-void console_send_key(uint8 scancode);
+void console_send_key(uint8_t scancode);
 
 #endif // CONSOLE_H

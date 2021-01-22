@@ -4,6 +4,6 @@
 #include "common.h"
 #include "process.h"
 
-void sleep_ms(Thread* thread, uint32 ms);
+void sleep_ms(Thread* thread, uint32_t ms);
 
 #endif // SLEEP_H

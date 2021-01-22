@@ -24,27 +24,27 @@ Thread* g_current_thread = NULL;
 
 Thread* g_destroyed_thread = NULL;
 
-uint32 g_process_id_generator = 0;
-uint32 g_thread_id_generator = 0;
+uint32_t g_process_id_generator = 0;
+uint32_t g_thread_id_generator = 0;
 
-uint32 g_system_context_switch_count = 0;
-uint32 g_usage_mark_point = 0;
+uint32_t g_system_context_switch_count = 0;
+uint32_t g_usage_mark_point = 0;
 
 extern Tss g_tss;
 
-static void fill_auxilary_vector(uint32 location, void* elfData);
+static void fill_auxilary_vector(uint32_t location, void* elfData);
 
-uint32 generate_process_id()
+uint32_t generate_process_id()
 {
     return g_process_id_generator++;
 }
 
-uint32 generate_thread_id()
+uint32_t generate_thread_id()
 {
     return g_thread_id_generator++;
 }
 
-uint32 get_system_context_switch_count()
+uint32_t get_system_context_switch_count()
 {
     return g_system_context_switch_count;
 }
@@ -52,17 +52,17 @@ uint32 get_system_context_switch_count()
 void tasking_initialize()
 {
     Process* process = (Process*)kmalloc(sizeof(Process));
-    memset((uint8*)process, 0, sizeof(Process));
+    memset((uint8_t*)process, 0, sizeof(Process));
     strcpy(process->name, "[kernel]");
     process->pid = generate_process_id();
-    process->pd = (uint32*) KERN_PAGE_DIRECTORY;
+    process->pd = (uint32_t*) KERN_PAGE_DIRECTORY;
     process->working_directory = fs_get_root_node();
 
     g_kernel_process = process;
 
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
-    memset((uint8*)thread, 0, sizeof(Thread));
+    memset((uint8_t*)thread, 0, sizeof(Thread));
 
     thread->owner = g_kernel_process;
 
@@ -77,9 +77,9 @@ void tasking_initialize()
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32) process->pd;
+    thread->regs.cr3 = (uint32_t) process->pd;
 
-    uint32 selector = 0x10;
+    uint32_t selector = 0x10;
 
     thread->regs.ss = selector;
     thread->regs.eflags = 0x0;
@@ -103,7 +103,7 @@ void tasking_initialize()
 void thread_create_kthread(Function0 func)
 {
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
-    memset((uint8*)thread, 0, sizeof(Thread));
+    memset((uint8_t*)thread, 0, sizeof(Thread));
 
     thread->owner = g_kernel_process;
 
@@ -120,27 +120,27 @@ void thread_create_kthread(Function0 func)
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32) thread->owner->pd;
+    thread->regs.cr3 = (uint32_t) thread->owner->pd;
 
 
-    uint32 selector = 0x10;
+    uint32_t selector = 0x10;
 
     thread->regs.ss = selector;
     thread->regs.eflags = 0x0;
     thread->regs.cs = 0x08;
-    thread->regs.eip = (uint32)func;
+    thread->regs.eip = (uint32_t)func;
     thread->regs.ds = selector;
     thread->regs.es = selector;
     thread->regs.fs = selector;
     thread->regs.gs = selector;
 
-    uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
+    uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
 
-    thread->regs.esp = (uint32)(stack + KERN_STACK_SIZE - 4);
+    thread->regs.esp = (uint32_t)(stack + KERN_STACK_SIZE - 4);
 
     thread->kstack.ss0 = 0x10;
     thread->kstack.esp0 = 0;//For kernel threads, this is not required
-    thread->kstack.stack_start = (uint32)stack;
+    thread->kstack.stack_start = (uint32_t)stack;
 
     Thread* p = g_current_thread;
 
@@ -208,7 +208,7 @@ static void destroy_string_array(char** array)
 }
 
 //This function must be called within the correct page directory for target process
-static void copy_argv_env_to_process(uint32 location, void* elfData, char *const argv[], char *const envp[])
+static void copy_argv_env_to_process(uint32_t location, void* elfData, char *const argv[], char *const envp[])
 {
     char** destination = (char**)location;
     int destination_index = 0;
@@ -222,7 +222,7 @@ static void copy_argv_env_to_process(uint32 location, void* elfData, char *const
 
     char* string_table = (char*)location + sizeof(char*) * (argv_count + envp_count + 3) + AUX_VECTOR_SIZE_BYTES;
 
-    uint32 aux_vector_location = location + sizeof(char*) * (argv_count + envp_count + 2);
+    uint32_t aux_vector_location = location + sizeof(char*) * (argv_count + envp_count + 2);
 
     //printkf("ARGVENV: string_table:%x\n", string_table);
 
@@ -255,13 +255,13 @@ static void copy_argv_env_to_process(uint32 location, void* elfData, char *const
     fill_auxilary_vector(aux_vector_location, elfData);
 }
 
-static void fill_auxilary_vector(uint32 location, void* elf_data)
+static void fill_auxilary_vector(uint32_t location, void* elf_data)
 {
     Elf32_auxv_t* auxv = (Elf32_auxv_t*)location;
 
     //printkf("auxv:%x\n", auxv);
 
-    memset((uint8*)auxv, 0, AUX_VECTOR_SIZE_BYTES);
+    memset((uint8_t*)auxv, 0, AUX_VECTOR_SIZE_BYTES);
 
     Elf32_Ehdr *hdr = (Elf32_Ehdr *) elf_data;
     Elf32_Phdr *p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
@@ -276,10 +276,10 @@ static void fill_auxilary_vector(uint32 location, void* elf_data)
     auxv[2].a_un.a_val = 0;
 
     auxv[3].a_type = AT_PHDR;
-    auxv[3].a_un.a_val = 0;//(uint32)p_entry;
+    auxv[3].a_un.a_val = 0;//(uint32_t)p_entry;
 
     auxv[4].a_type = AT_PHENT;
-    auxv[4].a_un.a_val = 0;//(uint32)p_entry->p_memsz;
+    auxv[4].a_un.a_val = 0;//(uint32_t)p_entry->p_memsz;
 
     auxv[5].a_type = AT_PHNUM;
     auxv[5].a_un.a_val = 0;//hdr->e_phnum;
@@ -294,7 +294,7 @@ static void fill_auxilary_vector(uint32 location, void* elf_data)
     auxv[8].a_un.a_val = 0;
 
     auxv[9].a_type = AT_ENTRY;
-    auxv[9].a_un.a_val = (uint32)hdr->e_entry;
+    auxv[9].a_un.a_val = (uint32_t)hdr->e_entry;
 
     auxv[10].a_type = AT_NOTELF;
     auxv[10].a_un.a_val = 0;
@@ -324,7 +324,7 @@ static void fill_auxilary_vector(uint32 location, void* elf_data)
     auxv[17].a_un.a_val = 0;
 }
 
-Process* process_create_from_elf_data(const char* name, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
+Process* process_create_from_elf_data(const char* name, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
     return process_create_ex(name, generate_process_id(), generate_thread_id(), NULL, elf_data, argv, envp, parent, tty);
 }
@@ -334,9 +334,9 @@ Process* process_create_from_function(const char* name, Function0 func, char *co
     return process_create_ex(name, generate_process_id(), generate_thread_id(), func, NULL, argv, envp, parent, tty);
 }
 
-Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id, Function0 func, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
+Process* process_create_ex(const char* name, uint32_t process_id, uint32_t thread_id, Function0 func, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
-    uint32 image_data_end_in_memory = elf_get_end_in_memory((char*)elf_data);
+    uint32_t image_data_end_in_memory = elf_get_end_in_memory((char*)elf_data);
 
     if (image_data_end_in_memory <= USER_OFFSET)
     {
@@ -355,7 +355,7 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
     }
 
     Process* process = (Process*)kmalloc(sizeof(Process));
-    memset((uint8*)process, 0, sizeof(Process));
+    memset((uint8_t*)process, 0, sizeof(Process));
     strncpy(process->name, name, PROCESS_NAME_MAX);
     process->name[PROCESS_NAME_MAX - 1] = 0;
     process->pid = process_id;
@@ -363,7 +363,7 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
     process->working_directory = fs_get_root_node();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
-    memset((uint8*)thread, 0, sizeof(Thread));
+    memset((uint8_t*)thread, 0, sizeof(Thread));
 
     thread->owner = process;
 
@@ -380,7 +380,7 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32) process->pd;
+    thread->regs.cr3 = (uint32_t) process->pd;
 
     if (parent)
     {
@@ -423,33 +423,33 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
 
     vmm_initialize_process_pages(process);
 
-    uint32 size_in_memory = image_data_end_in_memory - USER_OFFSET;
+    uint32_t size_in_memory = image_data_end_in_memory - USER_OFFSET;
 
     //printkf("image size_in_memory:%d\n", size_in_memory);
 
     initialize_program_break(process, size_in_memory);
 
 
-    const uint32 stack_page_count = 50;
+    const uint32_t stack_page_count = 50;
     char* v_address_stack_page = (char *) (USER_STACK - PAGESIZE_4K * stack_page_count);
-    uint32 stack_frames[stack_page_count];
-    for (uint32 i = 0; i < stack_page_count; ++i)
+    uint32_t stack_frames[stack_page_count];
+    for (uint32_t i = 0; i < stack_page_count; ++i)
     {
         stack_frames[i] = vmm_acquire_page_frame_4k();
     }
-    void* stack_v_mem = vmm_map_memory(process, (uint32)v_address_stack_page, stack_frames, stack_page_count, TRUE);
+    void* stack_v_mem = vmm_map_memory(process, (uint32_t)v_address_stack_page, stack_frames, stack_page_count, TRUE);
     if (NULL == stack_v_mem)
     {
-        for (uint32 i = 0; i < stack_page_count; ++i)
+        for (uint32_t i = 0; i < stack_page_count; ++i)
         {
             vmm_release_page_frame_4k(stack_frames[i]);
         }
     }
 
-    uint32 p_address_args_env_aux[1];
+    uint32_t p_address_args_env_aux[1];
     p_address_args_env_aux[0] = vmm_acquire_page_frame_4k();
     char* v_address_args_env_aux = (char *) (USER_STACK);
-    void* mapped = vmm_map_memory(process, (uint32)v_address_args_env_aux, p_address_args_env_aux, 1, TRUE);
+    void* mapped = vmm_map_memory(process, (uint32_t)v_address_args_env_aux, p_address_args_env_aux, 1, TRUE);
     if (NULL == mapped)
     {
         vmm_release_page_frame_4k(p_address_args_env_aux[0]);
@@ -462,27 +462,27 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
     destroy_string_array(new_argv);
     destroy_string_array(new_envp);
 
-    uint32 selector = 0x23;
+    uint32_t selector = 0x23;
 
     thread->regs.ss = selector;
     thread->regs.eflags = 0x0;
     thread->regs.cs = 0x1B;
-    thread->regs.eip = (uint32)func;
+    thread->regs.eip = (uint32_t)func;
     thread->regs.ds = selector;
     thread->regs.es = selector;
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    uint32 stack_pointer = USER_STACK - 4;
+    uint32_t stack_pointer = USER_STACK - 4;
 
     thread->regs.esp = stack_pointer;
 
 
 
     thread->kstack.ss0 = 0x10;
-    uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
-    thread->kstack.esp0 = (uint32)(stack + KERN_STACK_SIZE - 4);
-    thread->kstack.stack_start = (uint32)stack;
+    uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
+    thread->kstack.esp0 = (uint32_t)(stack + KERN_STACK_SIZE - 4);
+    thread->kstack.stack_start = (uint32_t)stack;
 
     Thread* p = g_current_thread;
 
@@ -495,7 +495,7 @@ Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id
 
     if (elf_data)
     {
-        uint32 start_location = elf_load((char*)elf_data);
+        uint32_t start_location = elf_load((char*)elf_data);
 
         //printkf("process start location:%x\n", start_location);
 
@@ -613,7 +613,7 @@ void process_destroy(Process* process)
 
     log_printf("destroying process %d\n", process->pid);
 
-    uint32 physical_pd = (uint32)process->pd;
+    uint32_t physical_pd = (uint32_t)process->pd;
 
     kfree(process);
 
@@ -648,7 +648,7 @@ void thread_resume(Thread* thread)
 }
 
 //must be called in interrupts disabled
-BOOL thread_signal(Thread* thread, uint8 signal)
+BOOL thread_signal(Thread* thread, uint8_t signal)
 {
     //TODO: check for ignore mask
 
@@ -682,7 +682,7 @@ BOOL thread_signal(Thread* thread, uint8 signal)
     return result;
 }
 
-BOOL process_signal(uint32 pid, uint8 signal)
+BOOL process_signal(uint32_t pid, uint8_t signal)
 {
     Thread* t = thread_get_first();
 
@@ -702,7 +702,7 @@ BOOL process_signal(uint32 pid, uint8 signal)
     return FALSE;
 }
 
-void thread_state_to_string(ThreadState state, uint8* buffer, uint32 buffer_size)
+void thread_state_to_string(ThreadState state, uint8_t* buffer, uint32_t buffer_size)
 {
     if (buffer_size < 1)
     {
@@ -758,9 +758,9 @@ void wait_for_schedule()
     PANIC("wait_for_schedule(): Should not be reached here!!!\n");
 }
 
-int32 process_get_empty_fd(Process* process)
+int32_t process_get_empty_fd(Process* process)
 {
-    int32 result = -1;
+    int32_t result = -1;
 
     begin_critical_section();
 
@@ -778,9 +778,9 @@ int32 process_get_empty_fd(Process* process)
     return result;
 }
 
-int32 process_add_file(Process* process, File* file)
+int32_t process_add_file(Process* process, File* file)
 {
-    int32 result = -1;
+    int32_t result = -1;
 
     begin_critical_section();
 
@@ -803,9 +803,9 @@ int32 process_add_file(Process* process, File* file)
     return result;
 }
 
-int32 process_remove_file(Process* process, File* file)
+int32_t process_remove_file(Process* process, File* file)
 {
-    int32 result = -1;
+    int32_t result = -1;
 
     begin_critical_section();
 
@@ -824,7 +824,7 @@ int32 process_remove_file(Process* process, File* file)
     return result;
 }
 
-Thread* thread_get_by_id(uint32 threadId)
+Thread* thread_get_by_id(uint32_t threadId)
 {
     Thread* p = g_first_thread;
 
@@ -902,18 +902,18 @@ static void thread_switch_to(Thread* thread, int mode);
 
 static void thread_update_usage_metrics()
 {
-    uint32 seconds = get_uptime_seconds();
+    uint32_t seconds = get_uptime_seconds();
 
     if (seconds > g_usage_mark_point)
     {
         g_usage_mark_point = seconds;
 
-        const uint32 milliseconds_passed = 1000;
+        const uint32_t milliseconds_passed = 1000;
 
         Thread* t = g_first_thread;
         while (NULL != t)
         {
-            uint32 consumed_from_mark = t->consumed_cpu_time_ms - t->consumed_cpu_time_ms_at_prev_mark;
+            uint32_t consumed_from_mark = t->consumed_cpu_time_ms - t->consumed_cpu_time_ms_at_prev_mark;
 
             t->usage_cpu = (100 * consumed_from_mark) / milliseconds_passed;
 
@@ -928,8 +928,8 @@ static void thread_update_state(Thread* t)
 {
     if (t->state == TS_SLEEP)
     {
-        uint32 uptime = get_uptime_milliseconds();
-        uint32 target = (uint32)t->state_privateData;
+        uint32_t uptime = get_uptime_milliseconds();
+        uint32_t target = (uint32_t)t->state_privateData;
 
         if (uptime >= target)
         {
@@ -1091,11 +1091,11 @@ void schedule(TimerInt_Registers* registers)
     {
         if (fifobuffer_get_size(ready_thread->signals) > 0)
         {
-            uint8 signal = 0;
+            uint8_t signal = 0;
             fifobuffer_dequeue(ready_thread->signals, &signal, 1);
             ready_thread->pending_signal_count = fifobuffer_get_size(ready_thread->signals);
 
-            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32)signal, ready_thread->owner->pid);
+            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32_t)signal, ready_thread->owner->pid);
 
             //TODO: call signal handlers
 
@@ -1137,8 +1137,8 @@ void schedule(TimerInt_Registers* registers)
 //When it was previously interrupted by the scheduler.
 static void thread_switch_to(Thread* thread, int mode)
 {
-    uint32 kesp, eflags;
-    uint16 kss, ss, cs;
+    uint32_t kesp, eflags;
+    uint16_t kss, ss, cs;
 
     //Set TSS values
     g_tss.ss0 = thread->kstack.ss0;

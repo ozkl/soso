@@ -14,12 +14,12 @@ static List* g_accessing_threads = NULL;
 
 static void handle_serial_interrupt(Registers *regs);
 
-static BOOL serial_open(File *file, uint32 flags);
+static BOOL serial_open(File *file, uint32_t flags);
 static void serial_close(File *file);
 static BOOL serial_read_test_ready(File *file);
-static int32 serial_read(File *file, uint32 size, uint8 *buffer);
+static int32_t serial_read(File *file, uint32_t size, uint8_t *buffer);
 static BOOL serial_write_test_ready(File *file);
-static int32 serial_write(File *file, uint32 size, uint8 *buffer);
+static int32_t serial_write(File *file, uint32_t size, uint8_t *buffer);
 
 //TODO: support more than one serial devices
 
@@ -40,7 +40,7 @@ void serial_initialize()
     g_accessing_threads = list_create();
 
     Device device;
-    memset((uint8*)&device, 0, sizeof(Device));
+    memset((uint8_t*)&device, 0, sizeof(Device));
     strcpy(device.name, "com1");
     device.device_type = FT_CHARACTER_DEVICE;
     device.open = serial_open;
@@ -87,7 +87,7 @@ static void port_write_buffer(const char *buffer, int n)
 
 static void handle_serial_interrupt(Registers *regs)
 {
-    uint8 c = (uint8)port_read();
+    uint8_t c = (uint8_t)port_read();
 
     //if buffer is full, we miss the data
     fifobuffer_enqueue(g_buffer_com1, &c, 1);
@@ -164,7 +164,7 @@ void serial_printf(const char *format, ...)
   __builtin_va_end(vl);
 }
 
-static BOOL serial_open(File *file, uint32 flags)
+static BOOL serial_open(File *file, uint32_t flags)
 {
     list_append(g_accessing_threads, file->thread);
 
@@ -186,7 +186,7 @@ static BOOL serial_read_test_ready(File *file)
     return FALSE;
 }
 
-static int32 serial_read(File *file, uint32 size, uint8 *buffer)
+static int32_t serial_read(File *file, uint32_t size, uint8_t *buffer)
 {
     if (0 == size || NULL == buffer)
     {
@@ -204,7 +204,7 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
 
     thread_resume(file->thread);
 
-    int32 read_bytes = fifobuffer_dequeue(g_buffer_com1, buffer, size);
+    int32_t read_bytes = fifobuffer_dequeue(g_buffer_com1, buffer, size);
 
     return read_bytes;
 }
@@ -214,7 +214,7 @@ static BOOL serial_write_test_ready(File *file)
     return TRUE;
 }
 
-static int32 serial_write(File *file, uint32 size, uint8 *buffer)
+static int32_t serial_write(File *file, uint32_t size, uint8_t *buffer)
 {
     port_write_buffer((char*)buffer, (int)size);
     

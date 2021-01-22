@@ -3,26 +3,26 @@
 
 typedef struct DataItem
 {
-   uint32 data;
-   uint32 key;
-   uint8 used;
+   uint32_t data;
+   uint32_t key;
+   uint8_t used;
 } DataItem;
 
 typedef struct HashTable
 {
    DataItem* items;
-   uint32 capacity;
+   uint32_t capacity;
 } HashTable;
 
-static uint32 hash_code(HashTable* hashtable, uint32 key)
+static uint32_t hash_code(HashTable* hashtable, uint32_t key)
 {
    return key % hashtable->capacity;
 }
 
-HashTable* hashtable_create(uint32 capacity)
+HashTable* hashtable_create(uint32_t capacity)
 {
     HashTable* hashtable = kmalloc(sizeof(HashTable));
-    memset((uint8*)hashtable, 0, sizeof(HashTable));
+    memset((uint8_t*)hashtable, 0, sizeof(HashTable));
     hashtable->capacity = capacity;
     hashtable->items = kmalloc(sizeof(DataItem) * capacity);
 
@@ -35,12 +35,12 @@ void hashtable_destroy(HashTable* hashtable)
     kfree(hashtable);
 }
 
-DataItem* HashTable_search_internal(HashTable* hashtable, uint32 key)
+DataItem* HashTable_search_internal(HashTable* hashtable, uint32_t key)
 {
    //get the hash
-   uint32 hash_index = hash_code(hashtable, key);
+   uint32_t hash_index = hash_code(hashtable, key);
 
-   uint32 counter = 0;
+   uint32_t counter = 0;
    while(counter < hashtable->capacity)
    {
       if(hashtable->items[hash_index].key == key)
@@ -63,7 +63,7 @@ DataItem* HashTable_search_internal(HashTable* hashtable, uint32 key)
    return NULL;
 }
 
-BOOL hashtable_search(HashTable* hashtable, uint32 key, uint32* value)
+BOOL hashtable_search(HashTable* hashtable, uint32_t key, uint32_t* value)
 {
     DataItem* existing = HashTable_search_internal(hashtable, key);
 
@@ -77,7 +77,7 @@ BOOL hashtable_search(HashTable* hashtable, uint32 key, uint32* value)
     return FALSE;
 }
 
-BOOL hashtable_insert(HashTable* hashtable, uint32 key, uint32 data)
+BOOL hashtable_insert(HashTable* hashtable, uint32_t key, uint32_t data)
 {
     DataItem* existing = HashTable_search_internal(hashtable, key);
 
@@ -89,9 +89,9 @@ BOOL hashtable_insert(HashTable* hashtable, uint32 key, uint32 data)
     }
 
     //get the hash
-    uint32 hash_index = hash_code(hashtable, key);
+    uint32_t hash_index = hash_code(hashtable, key);
 
-    uint32 counter = 0;
+    uint32_t counter = 0;
     //move in array until an empty or deleted cell
     while(counter < hashtable->capacity)
     {
@@ -117,7 +117,7 @@ BOOL hashtable_insert(HashTable* hashtable, uint32 key, uint32 data)
     return FALSE;
 }
 
-BOOL hashtable_remove(HashTable* hashtable, uint32 key)
+BOOL hashtable_remove(HashTable* hashtable, uint32_t key)
 {
     DataItem* existing = HashTable_search_internal(hashtable, key);
 

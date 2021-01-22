@@ -27,28 +27,28 @@ struct iovec {
            };
 
 struct statx {
-    uint32 stx_mask;
-    uint32 stx_blksize;
-    uint64 stx_attributes;
-    uint32 stx_nlink;
-    uint32 stx_uid;
-    uint32 stx_gid;
-    uint16 stx_mode;
-    uint16 pad1;
-    uint64 stx_ino;
-    uint64 stx_size;
-    uint64 stx_blocks;
-    uint64 stx_attributes_mask;
+    uint32_t stx_mask;
+    uint32_t stx_blksize;
+    uint64_t stx_attributes;
+    uint32_t stx_nlink;
+    uint32_t stx_uid;
+    uint32_t stx_gid;
+    uint16_t stx_mode;
+    uint16_t pad1;
+    uint64_t stx_ino;
+    uint64_t stx_size;
+    uint64_t stx_blocks;
+    uint64_t stx_attributes_mask;
     struct {
-        int64 tv_sec;
-        uint32 tv_nsec;
-        int32 pad;
+        int64_t tv_sec;
+        uint32_t tv_nsec;
+        int32_t pad;
     } stx_atime, stx_btime, stx_ctime, stx_mtime;
-    uint32 stx_rdev_major;
-    uint32 stx_rdev_minor;
-    uint32 stx_dev_major;
-    uint32 stx_dev_minor;
-    uint64 spare[14];
+    uint32_t stx_rdev_major;
+    uint32_t stx_rdev_minor;
+    uint32_t stx_dev_major;
+    uint32_t stx_dev_minor;
+    uint64_t spare[14];
 };
 
 struct k_sigaction {
@@ -78,9 +78,9 @@ int syscall_write(int fd, void *buf, int nbytes);
 int syscall_lseek(int fd, int offset, int whence);
 int syscall_stat(const char *path, struct stat *buf);
 int syscall_fstat(int fd, struct stat *buf);
-int syscall_ioctl(int fd, int32 request, void *arg);
+int syscall_ioctl(int fd, int32_t request, void *arg);
 int syscall_exit();
-void* syscall_sbrk(uint32 increment);
+void* syscall_sbrk(uint32_t increment);
 int syscall_fork();
 int syscall_getpid();
 int syscall_execute(const char *path, char *const argv[], char *const envp[]);
@@ -89,7 +89,7 @@ int syscall_wait(int *wstatus);
 int syscall_kill(int pid, int sig);
 int syscall_mount(const char *source, const char *target, const char *fs_type, unsigned long flags, void *data);
 int syscall_unmount(const char *target);
-int syscall_mkdir(const char *path, uint32 mode);
+int syscall_mkdir(const char *path, uint32_t mode);
 int syscall_rmdir(const char *path);
 int syscall_getdents(int fd, char *buf, int nbytes);
 int syscall_get_working_directory(char *buf, int size);
@@ -100,7 +100,7 @@ int syscall_get_uptime_ms();
 int syscall_sleep_ms(int ms);
 int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
 int syscall_manage_message(int command, void* message);
-int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32 sigsetsize);
+int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
@@ -115,18 +115,18 @@ int syscall_set_thread_area(void *p);
 int syscall_set_tid_address(void* p);
 int syscall_exit_group(int status);
 int syscall_llseek(unsigned int fd, unsigned int offset_high,
-            unsigned int offset_low, int64 *result,
+            unsigned int offset_low, int64_t *result,
             unsigned int whence);
 
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
-int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp);
-int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp);
-int32 syscall_clock_getres64(int32 clockid, struct timespec *res);
+int32_t syscall_clock_gettime64(int32_t clockid, struct timespec *tp);
+int32_t syscall_clock_settime64(int32_t clockid, const struct timespec *tp);
+int32_t syscall_clock_getres64(int32_t clockid, struct timespec *res);
 
 void syscalls_initialize()
 {
-    memset((uint8*)g_syscall_table, 0, sizeof(void*) * SYSCALL_COUNT);
+    memset((uint8_t*)g_syscall_table, 0, sizeof(void*) * SYSCALL_COUNT);
 
     g_syscall_table[SYS_open] = syscall_open;
     g_syscall_table[SYS_close] = syscall_close;
@@ -375,7 +375,7 @@ int syscall_write(int fd, void *buf, int nbytes)
                 }
                 */
 
-                uint32 writeResult = fs_write(file, nbytes, buf);
+                uint32_t writeResult = fs_write(file, nbytes, buf);
 
                 return writeResult;
             }
@@ -512,7 +512,7 @@ int syscall_lseek(int fd, int offset, int whence)
 }
 
 int syscall_llseek(unsigned int fd, unsigned int offset_high,
-            unsigned int offset_low, int64 *result,
+            unsigned int offset_low, int64_t *result,
             unsigned int whence)
 {
     if (!check_user_access(result))
@@ -608,7 +608,7 @@ int syscall_fstat(int fd, struct stat *buf)
     return -1;
 }
 
-int syscall_ioctl(int fd, int32 request, void *arg)
+int syscall_ioctl(int fd, int32_t request, void *arg)
 {
     //Important!!
     //We don't check_user_access() for arg here. Because it is not always a pointer.
@@ -656,7 +656,7 @@ int syscall_exit()
     return -1;
 }
 
-void* syscall_sbrk(uint32 increment)
+void* syscall_sbrk(uint32_t increment)
 {
     //Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
 
@@ -728,7 +728,7 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
                 //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
 
-                int32 bytes_read = fs_read(f, node->length, image);
+                int32_t bytes_read = fs_read(f, node->length, image);
 
                 //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytes_read);
 
@@ -799,7 +799,7 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
 
                 //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
 
-                int32 bytesRead = fs_read(f, node->length, image);
+                int32_t bytesRead = fs_read(f, node->length, image);
 
                 //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytesRead);
 
@@ -974,7 +974,7 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
     return -1;
 }
 
-int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
+int32_t syscall_clock_gettime64(int32_t clockid, struct timespec *tp)
 {
     if (!check_user_access(tp))
     {
@@ -984,7 +984,7 @@ int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp)
     return clock_gettime64(clockid, tp);
 }
 
-int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
+int32_t syscall_clock_settime64(int32_t clockid, const struct timespec *tp)
 {
     if (!check_user_access((void*)tp))
     {
@@ -994,7 +994,7 @@ int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp)
     return clock_settime64(clockid, tp);
 }
 
-int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
+int32_t syscall_clock_getres64(int32_t clockid, struct timespec *res)
 {
     if (!check_user_access(res))
     {
@@ -1074,7 +1074,7 @@ int syscall_unmount(const char *target)//non-posix
     return -1;//on error
 }
 
-int syscall_mkdir(const char *path, uint32 mode)
+int syscall_mkdir(const char *path, uint32_t mode)
 {
     if (!check_user_access((char*)path))
     {
@@ -1160,7 +1160,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
 
                 while (NULL != dirent && (byte_counter + sizeof(FileSystemDirent) <= nbytes))
                 {
-                    memcpy((uint8*)buf + byte_counter, (uint8*)dirent, sizeof(FileSystemDirent));
+                    memcpy((uint8_t*)buf + byte_counter, (uint8_t*)dirent, sizeof(FileSystemDirent));
 
                     byte_counter += sizeof(FileSystemDirent);
 
@@ -1208,7 +1208,7 @@ int syscall_read_dir_(int fd, void *dirent, int index)
 
                 if (dirent_fs)
                 {
-                    memcpy((uint8*)dirent, (uint8*)dirent_fs, sizeof(FileSystemDirent));
+                    memcpy((uint8_t*)dirent, (uint8_t*)dirent_fs, sizeof(FileSystemDirent));
 
                     return 1;
                 }
@@ -1315,7 +1315,7 @@ int syscall_sleep_ms(int ms)
 {
     Thread* thread = thread_get_current();
 
-    sleep_ms(thread, (uint32)ms);
+    sleep_ms(thread, (uint32_t)ms);
 
     return 0;
 }
@@ -1351,7 +1351,7 @@ int syscall_manage_message(int command, void* message)
     return result;
 }
 
-int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32 sigsetsize)
+int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize)
 {
     //TODO
     return -1;
@@ -1359,7 +1359,7 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset)
 {
-    uint32 v_address_hint = (uint32)addr;
+    uint32_t v_address_hint = (uint32_t)addr;
 
     if (v_address_hint < USER_OFFSET)
     {
@@ -1378,23 +1378,23 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
         if (fd < 0)
         {
             int needed_pages = PAGE_COUNT(length);
-            uint32 free_pages = vmm_get_free_page_count();
+            uint32_t free_pages = vmm_get_free_page_count();
             //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
-            if ((uint32)needed_pages + 1 > free_pages)
+            if ((uint32_t)needed_pages + 1 > free_pages)
             {
                 return (void*)-1;
             }
-            uint32* physical_array = (uint32*)kmalloc(needed_pages * sizeof(uint32));
+            uint32_t* physical_array = (uint32_t*)kmalloc(needed_pages * sizeof(uint32_t));
             for (int i = 0; i < needed_pages; ++i)
             {
-                uint32 page_frame = vmm_acquire_page_frame_4k();
+                uint32_t page_frame = vmm_acquire_page_frame_4k();
                 physical_array[i] = page_frame;
             }
 
             void* mem = vmm_map_memory(process, v_address_hint, physical_array, needed_pages, TRUE);
             if (mem != NULL)
             {
-                memset((uint8*)mem, 0, length);
+                memset((uint8_t*)mem, 0, length);
             }
             else
             {
@@ -1457,12 +1457,12 @@ int syscall_munmap(void *addr, int length)
         int fd = -1;
         if (fd < 0)
         {
-            if ((uint32)addr < USER_OFFSET)
+            if ((uint32_t)addr < USER_OFFSET)
             {
                 return -1;
             }
 
-            if (TRUE == vmm_unmap_memory(process, (uint32)addr, PAGE_COUNT(length)))
+            if (TRUE == vmm_unmap_memory(process, (uint32_t)addr, PAGE_COUNT(length)))
             {
                 return 0;
             }
@@ -1568,7 +1568,7 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
         if (node)
         {
             struct stat st;
-            memset((uint8*)&st, 0, sizeof(st));
+            memset((uint8_t*)&st, 0, sizeof(st));
 
             int statResult = fs_stat(node, &st);
 

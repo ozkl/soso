@@ -14,20 +14,20 @@
 #include "console.h"
 
 static Terminal* g_terminals[TERMINAL_COUNT];
-static uint32 g_active_terminal_index = 0;
+static uint32_t g_active_terminal_index = 0;
 Terminal* g_active_terminal = NULL;
 
-static uint8 g_key_modifier = 0;
+static uint8_t g_key_modifier = 0;
 
 
-static BOOL console_open(File *file, uint32 flags);
+static BOOL console_open(File *file, uint32_t flags);
 static void console_close(File *file);
-static int32 console_ioctl(File *file, int32 request, void * argp);
+static int32_t console_ioctl(File *file, int32_t request, void * argp);
 
-static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode);
-static void process_scancode(uint8 scancode);
+static uint8_t get_character_for_scancode(KeyModifier modifier, uint8_t scancode);
+static void process_scancode(uint8_t scancode);
 
-static void set_active_terminal(uint32 index);
+static void set_active_terminal(uint32_t index);
 
 void console_initialize(BOOL graphicMode)
 {
@@ -48,7 +48,7 @@ void console_initialize(BOOL graphicMode)
     set_active_terminal(0);
 
     Device device;
-    memset((uint8*)&device, 0, sizeof(Device));
+    memset((uint8_t*)&device, 0, sizeof(Device));
     sprintf(device.name, "console");
     device.device_type = FT_CHARACTER_DEVICE;
     device.open = console_open;
@@ -58,13 +58,13 @@ void console_initialize(BOOL graphicMode)
 }
 
 
-void console_send_key(uint8 scancode)
+void console_send_key(uint8_t scancode)
 {
     process_scancode(scancode);
 
-    uint8 character = get_character_for_scancode(g_key_modifier, scancode);
+    uint8_t character = get_character_for_scancode(g_key_modifier, scancode);
 
-    uint8 keyRelease = (0x80 & scancode); //ignore release event
+    uint8_t keyRelease = (0x80 & scancode); //ignore release event
 
     if (character > 0 && keyRelease == 0)
     {
@@ -73,7 +73,7 @@ void console_send_key(uint8 scancode)
 
 }
 
-static BOOL console_open(File *file, uint32 flags)
+static BOOL console_open(File *file, uint32_t flags)
 {
     return TRUE;
 }
@@ -83,13 +83,13 @@ static void console_close(File *file)
     
 }
 
-static int32 console_ioctl(File *file, int32 request, void * argp)
+static int32_t console_ioctl(File *file, int32_t request, void * argp)
 {
     //we can use ioctl for chvt multiplexing
     return -1;
 }
 
-static void set_active_terminal(uint32 index)
+static void set_active_terminal(uint32_t index)
 {
     if (index >= 0 && index < TERMINAL_COUNT)
     {
@@ -110,7 +110,7 @@ static void set_active_terminal(uint32 index)
     }
 }
 
-static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode)
+static uint8_t get_character_for_scancode(KeyModifier modifier, uint8_t scancode)
 {
     if ((modifier & KM_LeftShift) || (modifier & KM_RightShift))
     {
@@ -120,9 +120,9 @@ static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode)
     return g_key_map[scancode];
 }
 
-static void process_scancode(uint8 scancode)
+static void process_scancode(uint8_t scancode)
 {
-    uint8 lastBit = scancode & 0x80;
+    uint8_t lastBit = scancode & 0x80;
 
     scancode &= 0x7F;
 

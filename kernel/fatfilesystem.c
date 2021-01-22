@@ -9,15 +9,15 @@
 #define SEEK_CUR	1	/* Seek from current position.  */
 #define SEEK_END	2
 
-static BOOL mount(const char* source_path, const char* target_path, uint32 flags, void *data);
-static BOOL checkMount(const char* sourcePath, const char* targetPath, uint32 flags, void *data);
-static FileSystemDirent* readdir(FileSystemNode *node, uint32 index);
+static BOOL mount(const char* source_path, const char* target_path, uint32_t flags, void *data);
+static BOOL checkMount(const char* sourcePath, const char* targetPath, uint32_t flags, void *data);
+static FileSystemDirent* readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode* finddir(FileSystemNode *node, char *name);
-static int32 read(File *file, uint32 size, uint8 *buffer);
-static int32 write(File *file, uint32 size, uint8 *buffer);
-static int32 lseek(File *file, int32 offset, int32 whence);
-static int32 stat(FileSystemNode *node, struct stat* buf);
-static BOOL open(File *file, uint32 flags);
+static int32_t read(File *file, uint32_t size, uint8_t *buffer);
+static int32_t write(File *file, uint32_t size, uint8_t *buffer);
+static int32_t lseek(File *file, int32_t offset, int32_t whence);
+static int32_t stat(FileSystemNode *node, struct stat* buf);
+static BOOL open(File *file, uint32_t flags);
 static void close(File *file);
 
 static FileSystemDirent g_fs_dirent;
@@ -28,7 +28,7 @@ static FileSystemNode* g_mounted_block_devices[FF_VOLUMES];
 void fatfs_initialize()
 {
     FileSystem fs;
-    memset((uint8*)&fs, 0, sizeof(fs));
+    memset((uint8_t*)&fs, 0, sizeof(fs));
     strcpy(fs.name, "fat");
     fs.mount = mount;
     fs.check_mount = checkMount;
@@ -41,7 +41,7 @@ void fatfs_initialize()
     }
 }
 
-static BOOL mount(const char* source_path, const char* target_path, uint32 flags, void *data)
+static BOOL mount(const char* source_path, const char* target_path, uint32_t flags, void *data)
 {
     printkf("fat mount source: %s\n", source_path);
 
@@ -55,8 +55,8 @@ static BOOL mount(const char* source_path, const char* target_path, uint32 flags
             {
                 printkf("fat mount target: %s\n", target_path);
 
-                int32 volume = -1;
-                for (int32 v = 0; v < FF_VOLUMES; ++v)
+                int32_t volume = -1;
+                for (int32_t v = 0; v < FF_VOLUMES; ++v)
                 {
                     if (NULL == g_mounted_block_devices[v])
                     {
@@ -72,7 +72,7 @@ static BOOL mount(const char* source_path, const char* target_path, uint32 flags
 
                 FileSystemNode* new_node = kmalloc(sizeof(FileSystemNode));
 
-                memset((uint8*)new_node, 0, sizeof(FileSystemNode));
+                memset((uint8_t*)new_node, 0, sizeof(FileSystemNode));
                 strcpy(new_node->name, target_node->name);
                 new_node->node_type = FT_DIRECTORY;
                 new_node->open = open;
@@ -85,7 +85,7 @@ static BOOL mount(const char* source_path, const char* target_path, uint32 flags
                 g_mounted_block_devices[volume] = node;
 
                 FATFS* fatFs = (FATFS*)kmalloc(sizeof(FATFS));
-                //uint8 work[512];
+                //uint8_t work[512];
                 //FRESULT fr = f_mkfs("", FM_FAT | FM_SFD, 512, work, 512);
                 //Screen_PrintF("f_mkfs: %d\n", fr);
                 char path[8];
@@ -115,7 +115,7 @@ static BOOL mount(const char* source_path, const char* target_path, uint32 flags
     return FALSE;
 }
 
-static BOOL checkMount(const char* source_path, const char* target_path, uint32 flags, void *data)
+static BOOL checkMount(const char* source_path, const char* target_path, uint32_t flags, void *data)
 {
     FileSystemNode* node = fs_get_node(source_path);
     if (node && node->node_type == FT_BLOCK_DEVICE)
@@ -133,14 +133,14 @@ static BOOL checkMount(const char* source_path, const char* target_path, uint32 
     return FALSE;
 }
 
-static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
+static FileSystemDirent* readdir(FileSystemNode *node, uint32_t index)
 {
     //when node is the root of mounted filesystem,
     //node->mount_source is the source node (eg. disk partition /dev/hd1p1)
 
     //Screen_PrintF("readdir1: node->name:%s\n", node->name);
 
-    uint8 target_path[128];
+    uint8_t target_path[128];
 
     FileSystemNode *n = node;
     int char_index = 126;
@@ -175,7 +175,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
     }
 
     strcpy_nonnull((char*)(target_path + char_index), number);
-    uint8* target = target_path + char_index;
+    uint8_t* target = target_path + char_index;
 
     //Screen_PrintF("readdir: targetpath:[%s]\n", target);
 
@@ -186,7 +186,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32 index)
         FILINFO fileInfo;
         for (int i = 0; i <= index; ++i)
         {
-            memset((uint8*)&fileInfo, 0, sizeof(FILINFO));
+            memset((uint8_t*)&fileInfo, 0, sizeof(FILINFO));
             fr = f_readdir(&dir, &fileInfo);
 
             if (strlen(fileInfo.fname) <= 0)
@@ -237,7 +237,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     //If we are here, this file is accesed first time in this session.
     //So we create its node...
 
-    uint8 target_path[128];
+    uint8_t target_path[128];
 
     FileSystemNode *n = node;
     int char_index = 126;
@@ -276,18 +276,18 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     }
 
     strcpy_nonnull((char*)(target_path + char_index), number);
-    uint8* target = target_path + char_index;
+    uint8_t* target = target_path + char_index;
 
     //Screen_PrintF("finddir: targetpath:[%s]\n", target);
 
     FILINFO file_info;
-    memset((uint8*)&file_info, 0, sizeof(FILINFO));
+    memset((uint8_t*)&file_info, 0, sizeof(FILINFO));
     FRESULT fr = f_stat((TCHAR*)target, &file_info);
     if (FR_OK == fr)
     {
         FileSystemNode* new_node = kmalloc(sizeof(FileSystemNode));
 
-        memset((uint8*)new_node, 0, sizeof(FileSystemNode));
+        memset((uint8_t*)new_node, 0, sizeof(FileSystemNode));
         strcpy(new_node->name, name);
         new_node->parent = node;
         new_node->readdir = readdir;
@@ -334,7 +334,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-static int32 read(File *file, uint32 size, uint8 *buffer)
+static int32_t read(File *file, uint32_t size, uint8_t *buffer)
 {
     if (file->private_data == NULL)
     {
@@ -355,7 +355,7 @@ static int32 read(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-static int32 write(File *file, uint32 size, uint8 *buffer)
+static int32_t write(File *file, uint32_t size, uint8_t *buffer)
 {
     if (file->private_data == NULL)
     {
@@ -375,7 +375,7 @@ static int32 write(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-static int32 lseek(File *file, int32 offset, int32 whence)
+static int32_t lseek(File *file, int32_t offset, int32_t whence)
 {
     if (file->private_data == NULL)
     {
@@ -412,11 +412,11 @@ static int32 lseek(File *file, int32 offset, int32 whence)
     return -1;
 }
 
-static int32 stat(FileSystemNode *node, struct stat* buf)
+static int32_t stat(FileSystemNode *node, struct stat* buf)
 {
     //Screen_PrintF("fat stat [%s]\n", node->name);
 
-    uint8 target_path[128];
+    uint8_t target_path[128];
 
     FileSystemNode *n = node;
     int char_index = 126;
@@ -450,12 +450,12 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
     }
 
     strcpy_nonnull((char*)(target_path + char_index), number);
-    uint8* target = target_path + char_index;
+    uint8_t* target = target_path + char_index;
 
     //Screen_PrintF("fat stat target:[%s]\n", target);
 
     FILINFO file_info;
-    memset((uint8*)&file_info, 0, sizeof(FILINFO));
+    memset((uint8_t*)&file_info, 0, sizeof(FILINFO));
     FRESULT fr = f_stat((TCHAR*)target, &file_info);
     if (FR_OK == fr)
     {
@@ -476,7 +476,7 @@ static int32 stat(FileSystemNode *node, struct stat* buf)
     return -1; //Error
 }
 
-static BOOL open(File *file, uint32 flags)
+static BOOL open(File *file, uint32_t flags)
 {
     //Screen_PrintF("fat open %s\n", file->node->name);
 
@@ -487,7 +487,7 @@ static BOOL open(File *file, uint32 flags)
         return TRUE;
     }
 
-    uint8 target_path[128];
+    uint8_t target_path[128];
 
     FileSystemNode *n = node;
     int char_index = 126;
@@ -521,7 +521,7 @@ static BOOL open(File *file, uint32 flags)
     }
 
     strcpy_nonnull((char*)(target_path + char_index), number);
-    uint8* target = target_path + char_index;
+    uint8_t* target = target_path + char_index;
 
     //Screen_PrintF("fat open %s\n", target);
 
@@ -598,7 +598,7 @@ DRESULT disk_read (
 
     //if (sector >= RamDiskSize) return RES_PARERR;
 
-    g_mounted_block_devices[pdrv]->read_block(g_mounted_block_devices[pdrv], (uint32)sector, count, buff);
+    g_mounted_block_devices[pdrv]->read_block(g_mounted_block_devices[pdrv], (uint32_t)sector, count, buff);
 
     return RES_OK;
 }
@@ -614,7 +614,7 @@ DRESULT disk_write (
 
     //if (sector >= RamDiskSize) return RES_PARERR;
 
-    g_mounted_block_devices[pdrv]->write_block(g_mounted_block_devices[pdrv], (uint32)sector, count, (uint8*)buff);
+    g_mounted_block_devices[pdrv]->write_block(g_mounted_block_devices[pdrv], (uint32_t)sector, count, (uint8_t*)buff);
 
     return RES_OK;
 }
@@ -631,7 +631,7 @@ DRESULT disk_ioctl (
 
     File* f = NULL;
 
-    uint32 value = 0;
+    uint32_t value = 0;
 
     switch (ctrl)
     {

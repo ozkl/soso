@@ -6,13 +6,13 @@
 
 void initialize_kernel_heap();
 void *ksbrk_page(int n);
-void *kmalloc(uint32 size);
+void *kmalloc(uint32_t size);
 void kfree(void *v_addr);
 
-void initialize_program_break(Process* process, uint32 size);
+void initialize_program_break(Process* process, uint32_t size);
 void *sbrk(Process* process, int n_bytes);
 
-uint32 get_kernel_heap_used();
+uint32_t get_kernel_heap_used();
 
 struct MallocHeader
 {

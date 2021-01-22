@@ -5,64 +5,64 @@
 static BOOL g_interrupts_were_enabled = FALSE;
 
 // Write a byte out to the specified port.
-void outb(uint16 port, uint8 value)
+void outb(uint16_t port, uint8_t value)
 {
     asm volatile ("outb %1, %0" : : "dN" (port), "a" (value));
 }
 
-void outw(uint16 port, uint16 value)
+void outw(uint16_t port, uint16_t value)
 {
     asm volatile ("outw %1, %0" : : "dN" (port), "a" (value));
 }
 
-uint8 inb(uint16 port)
+uint8_t inb(uint16_t port)
 {
-    uint8 ret;
+    uint8_t ret;
     asm volatile("inb %1, %0" : "=a" (ret) : "dN" (port));
     return ret;
 }
 
-uint16 inw(uint16 port)
+uint16_t inw(uint16_t port)
 {
-    uint16 ret;
+    uint16_t ret;
     asm volatile ("inw %1, %0" : "=a" (ret) : "dN" (port));
     return ret;
 }
 
 // Copy len bytes from src to dest.
-void* memcpy(uint8 *dest, const uint8 *src, uint32 len)
+void* memcpy(uint8_t *dest, const uint8_t *src, uint32_t len)
 {
-    const uint8 *sp = (const uint8 *)src;
-    uint8 *dp = (uint8 *)dest;
+    const uint8_t *sp = (const uint8_t *)src;
+    uint8_t *dp = (uint8_t *)dest;
     for(; len != 0; len--) *dp++ = *sp++;
 
     return dest;
 }
 
 // Write len copies of val into dest.
-void* memset(uint8 *dest, uint8 val, uint32 len)
+void* memset(uint8_t *dest, uint8_t val, uint32_t len)
 {
-    uint8 *temp = (uint8 *)dest;
+    uint8_t *temp = (uint8_t *)dest;
     for ( ; len != 0; len--) *temp++ = val;
 
     return dest;
 }
 
-void* memmove(void* dest, const void* src, uint32 n)
+void* memmove(void* dest, const void* src, uint32_t n)
 {
-    uint8* _dest;
-    uint8* _src;
+    uint8_t* _dest;
+    uint8_t* _src;
 
     if ( dest < src ) {
-        _dest = ( uint8* )dest;
-        _src = ( uint8* )src;
+        _dest = ( uint8_t* )dest;
+        _src = ( uint8_t* )src;
 
         while ( n-- ) {
             *_dest++ = *_src++;
         }
     } else {
-        _dest = ( uint8* )dest + n;
-        _src = ( uint8* )src + n;
+        _dest = ( uint8_t* )dest + n;
+        _src = ( uint8_t* )src + n;
 
         while ( n-- ) {
             *--_dest = *--_src;
@@ -72,10 +72,10 @@ void* memmove(void* dest, const void* src, uint32 n)
     return dest;
 }
 
-int memcmp( const void* p1, const void* p2, uint32 c )
+int memcmp( const void* p1, const void* p2, uint32_t c )
 {
-    const uint8* su1, *su2;
-    int8 res = 0;
+    const uint8_t* su1, *su2;
+    int8_t res = 0;
 
     for ( su1 = p1, su2 = p2; 0 < c; ++su1, ++su2, c-- ) {
         if ( ( res = *su1 - *su2 ) != 0 ) {
@@ -152,10 +152,10 @@ char *strcpy_nonnull(char *dest, const char *src)
 //destination is padded with zeros until a total of num characters have been written to it.
 //No null-character is implicitly appended at the end of destination if source is longer than num.
 //Thus, in this case, destination shall not be considered a null terminated C string.
-char *strncpy(char *dest, const char *src, uint32 num)
+char *strncpy(char *dest, const char *src, uint32_t num)
 {
     BOOL source_ended = FALSE;
-    for (uint32 i = 0; i < num; ++i)
+    for (uint32_t i = 0; i < num; ++i)
     {
         if (source_ended == FALSE && src[i] == '\0')
         {
@@ -175,10 +175,10 @@ char *strncpy(char *dest, const char *src, uint32 num)
     return dest;
 }
 
-char* strncpy_null(char *dest, const char *src, uint32 num)
+char* strncpy_null(char *dest, const char *src, uint32_t num)
 {
     BOOL source_ended = FALSE;
-    for (uint32 i = 0; i < num; ++i)
+    for (uint32_t i = 0; i < num; ++i)
     {
         if (source_ended == FALSE && src[i] == '\0')
         {
@@ -240,14 +240,14 @@ int str_first_index_of(const char *src, char c)
     return -1;
 }
 
-uint32 rand()
+uint32_t rand()
 {
-    static uint32 x = 123456789;
-    static uint32 y = 362436069;
-    static uint32 z = 521288629;
-    static uint32 w = 88675123;
+    static uint32_t x = 123456789;
+    static uint32_t y = 362436069;
+    static uint32_t z = 521288629;
+    static uint32_t w = 88675123;
 
-    uint32 t;
+    uint32_t t;
 
     t = x ^ (x << 11);
     x = y; y = z; z = w;
@@ -399,7 +399,7 @@ void printkf(const char *format, ...)
     //TODO: send printkf output to a terminal
 }
 
-void panic(const char *message, const char *file, uint32 line)
+void panic(const char *message, const char *file, uint32_t line)
 {
     disable_interrupts();
 
@@ -410,12 +410,12 @@ void panic(const char *message, const char *file, uint32 line)
     halt();
 }
 
-void warning(const char *message, const char *file, uint32 line)
+void warning(const char *message, const char *file, uint32_t line)
 {
     printkf("WARNING:%s:%d:%s\n", file, line, message);
 }
 
-void panic_assert(const char *file, uint32 line, const char *desc)
+void panic_assert(const char *file, uint32_t line, const char *desc)
 {
     disable_interrupts();
 
@@ -424,25 +424,25 @@ void panic_assert(const char *file, uint32 line, const char *desc)
     halt();
 }
 
-uint32 read_esp()
+uint32_t read_esp()
 {
-    uint32 stack_pointer;
+    uint32_t stack_pointer;
     asm volatile("mov %%esp, %0" : "=r" (stack_pointer));
 
     return stack_pointer;
 }
 
-uint32 read_cr3()
+uint32_t read_cr3()
 {
-    uint32 value;
+    uint32_t value;
     asm volatile("mov %%cr3, %0" : "=r" (value));
 
     return value;
 }
 
-uint32 get_cpu_flags()
+uint32_t get_cpu_flags()
 {
-    uint32 eflags = 0;
+    uint32_t eflags = 0;
 
     asm("pushfl; pop %%eax; mov %%eax, %0": "=m"(eflags):);
 
@@ -451,9 +451,9 @@ uint32 get_cpu_flags()
 
 BOOL is_interrupts_enabled()
 {
-    uint32 eflags = get_cpu_flags();
+    uint32_t eflags = get_cpu_flags();
 
-    uint32 interruptFlag = 0x200; //9th flag
+    uint32_t interruptFlag = 0x200; //9th flag
 
     return (eflags & interruptFlag) == interruptFlag;
 }
@@ -476,7 +476,7 @@ void end_critical_section()
 BOOL check_user_access(void* pointer)
 {
     //TODO: check MEMORY_END as well
-    if ((uint32)pointer >= USER_OFFSET || pointer == NULL)
+    if ((uint32_t)pointer >= USER_OFFSET || pointer == NULL)
     {
         return TRUE;
     }

@@ -1,31 +1,22 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include "stdint.h"
+
 #define enable_interrupts() asm volatile("sti")
 #define disable_interrupts() asm volatile("cli")
 #define halt() asm volatile("hlt")
 
-typedef unsigned long long 	uint64;
-typedef signed long long	int64;
-typedef unsigned int   uint32;
-typedef          int   int32;
-typedef unsigned short uint16;
-typedef          short int16;
-typedef unsigned char  uint8;
-typedef          char  int8;
-typedef unsigned int  size_t;
-typedef int64 suseconds_t;
-
-#define BOOL uint8
+#define BOOL uint8_t
 #define TRUE 1
 #define FALSE 0
 #define NULL 0
 #define CHECK_BIT(value, pos) ((value) & (1 << (pos)))
 
-#define BITMAP_DEFINE(bitmap, size)	uint8 bitmap[size/8]
-#define BITMAP_SET(bitmap, index)	bitmap[((uint32)index)/8] |=  (1 << (((uint32) index)%8))
-#define BITMAP_UNSET(bitmap, index)	bitmap[((uint32)index)/8] &= ~(1 << (((uint32) index)%8))
-#define BITMAP_CHECK(bitmap, index)	(bitmap[((uint32) index)/8] & (1 << (((uint32) index)%8)))
+#define BITMAP_DEFINE(bitmap, size)	uint8_t bitmap[size/8]
+#define BITMAP_SET(bitmap, index)	bitmap[((uint32_t)index)/8] |=  (1 << (((uint32_t) index)%8))
+#define BITMAP_UNSET(bitmap, index)	bitmap[((uint32_t)index)/8] &= ~(1 << (((uint32_t) index)%8))
+#define BITMAP_CHECK(bitmap, index)	(bitmap[((uint32_t) index)/8] & (1 << (((uint32_t) index)%8)))
 
 #define	KERN_PAGE_DIRECTORY			0x00001000
 
@@ -70,10 +61,10 @@ typedef int64 suseconds_t;
 
 #define	USER_STACK 			0xF0000000
 
-void outb(uint16 port, uint8 value);
-void outw(uint16 port, uint16 value);
-uint8 inb(uint16 port);
-uint16 inw(uint16 port);
+void outb(uint16_t port, uint8_t value);
+void outw(uint16_t port, uint16_t value);
+uint8_t inb(uint16_t port);
+uint16_t inw(uint16_t port);
 
 #define PANIC(msg) panic(msg, __FILE__, __LINE__);
 #define WARNING(msg) warning(msg, __FILE__, __LINE__);
@@ -82,21 +73,21 @@ uint16 inw(uint16 port);
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-void warning(const char *message, const char *file, uint32 line);
-void panic(const char *message, const char *file, uint32 line);
-void panic_assert(const char *file, uint32 line, const char *desc);
+void warning(const char *message, const char *file, uint32_t line);
+void panic(const char *message, const char *file, uint32_t line);
+void panic_assert(const char *file, uint32_t line, const char *desc);
 
-void* memset(uint8 *dest, uint8 val, uint32 len);
-void* memcpy(uint8 *dest, const uint8 *src, uint32 len);
-void* memmove(void* dest, const void* src, uint32 n);
-int memcmp(const void* p1, const void* p2, uint32 c);
+void* memset(uint8_t *dest, uint8_t val, uint32_t len);
+void* memcpy(uint8_t *dest, const uint8_t *src, uint32_t len);
+void* memmove(void* dest, const void* src, uint32_t n);
+int memcmp(const void* p1, const void* p2, uint32_t c);
 
 int strcmp(const char *str1, const char *str2);
 int strncmp(const char *str1, const char *str2, int length);
 char *strcpy(char *dest, const char *src);
 char *strcpy_nonnull(char *dest, const char *src);
-char *strncpy(char *dest, const char *src, uint32 num);
-char* strncpy_null(char *dest, const char *src, uint32 num);
+char *strncpy(char *dest, const char *src, uint32_t num);
+char* strncpy_null(char *dest, const char *src, uint32_t num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
 int str_first_index_of(const char *src, char c);
@@ -107,12 +98,12 @@ void printkf(const char *format, ...);
 int atoi(char *str);
 void itoa(char *buf, int base, int d);
 
-uint32 rand();
+uint32_t rand();
 
-uint32 read_eip();
-uint32 read_esp();
-uint32 read_cr3();
-uint32 get_cpu_flags();
+uint32_t read_eip();
+uint32_t read_esp();
+uint32_t read_cr3();
+uint32_t get_cpu_flags();
 BOOL is_interrupts_enabled();
 
 void begin_critical_section();

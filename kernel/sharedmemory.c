@@ -13,8 +13,8 @@ static FileSystemNode* g_shm_root = NULL;
 
 static FileSystemDirent g_dirent;
 
-static BOOL sharedmemorydir_open(File *file, uint32 flags);
-static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 index);
+static BOOL sharedmemorydir_open(File *file, uint32_t flags);
+static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name);
 
 typedef struct SharedMemory
@@ -45,12 +45,12 @@ void sharedmemory_initialize()
     }
 }
 
-static BOOL sharedmemorydir_open(File *file, uint32 flags)
+static BOOL sharedmemorydir_open(File *file, uint32_t flags)
 {
     return TRUE;
 }
 
-static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 index)
+static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t index)
 {
     FileSystemDirent* result = NULL;
 
@@ -101,7 +101,7 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
     return result;
 }
 
-static BOOL sharedmemory_open(File *file, uint32 flags)
+static BOOL sharedmemory_open(File *file, uint32_t flags)
 {
     return TRUE;
 }
@@ -111,7 +111,7 @@ static void sharedmemory_unlink(File *file)
     sharedmemory_destroy(file->node->name);
 }
 
-static int32 sharedmemory_ftruncate(File *file, int32 length)
+static int32_t sharedmemory_ftruncate(File *file, int32_t length)
 {
     if (length <= 0)
     {
@@ -133,7 +133,7 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
     for (int i = 0; i < page_count; ++i)
     {
         //TODO: where should this be released? maybe on destroy?
-        uint32 p_address = vmm_acquire_page_frame_4k();
+        uint32_t p_address = vmm_acquire_page_frame_4k();
 
         list_append(shared_mem->physical_address_list, (void*)p_address);
     }
@@ -145,7 +145,7 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
     return 0;
 }
 
-static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
+static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 {
     void* result = NULL;
 
@@ -156,11 +156,11 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
     int count = list_get_count(shared_mem->physical_address_list);
     if (count > 0)
     {
-        uint32* physical_address_array = (uint32*)kmalloc(count * sizeof(uint32));
+        uint32_t* physical_address_array = (uint32_t*)kmalloc(count * sizeof(uint32_t));
         int i = 0;
         list_foreach(n, shared_mem->physical_address_list)
         {
-            physical_address_array[i] = (uint32)n->data;
+            physical_address_array[i] = (uint32_t)n->data;
 
             ++i;
         }
@@ -204,10 +204,10 @@ FileSystemNode* sharedmemory_create(const char* name)
     }
 
     SharedMemory* shared_mem = (SharedMemory*)kmalloc(sizeof(SharedMemory));
-    memset((uint8*)shared_mem, 0, sizeof(SharedMemory));
+    memset((uint8_t*)shared_mem, 0, sizeof(SharedMemory));
 
     FileSystemNode* node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)node, 0, sizeof(FileSystemNode));
+    memset((uint8_t*)node, 0, sizeof(FileSystemNode));
 
     strcpy(node->name, name);
     node->node_type = FT_CHARACTER_DEVICE;

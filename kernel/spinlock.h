@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-typedef int32 Spinlock;
+typedef int32_t Spinlock;
 
 void Spinlock_Init(Spinlock* spinlock);
 void Spinlock_Lock(Spinlock* spinlock);

@@ -82,7 +82,7 @@ void log_printf(const char *format, ...)
 
     if (g_file)
     {
-        fs_write(g_file, strlen(buffer), (uint8*)buffer);
+        fs_write(g_file, strlen(buffer), (uint8_t*)buffer);
     }
 
     __builtin_va_end(vl);

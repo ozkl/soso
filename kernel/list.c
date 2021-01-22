@@ -6,7 +6,7 @@ List* list_create()
 {
     List* list = (List*)kmalloc(sizeof(List));
 
-    memset((uint8*)list, 0, sizeof(List));
+    memset((uint8_t*)list, 0, sizeof(List));
 
     return list;
 }
@@ -57,7 +57,7 @@ void list_append(List* list, void* data)
 {
     ListNode* node = (ListNode*)kmalloc(sizeof(ListNode));
 
-    memset((uint8*)node, 0, sizeof(ListNode));
+    memset((uint8_t*)node, 0, sizeof(ListNode));
     node->data = data;
 
     //At empty state, both head and tail are null!
@@ -79,7 +79,7 @@ void list_prepend(List* list, void* data)
 {
     ListNode* node = (ListNode*)kmalloc(sizeof(ListNode));
 
-    memset((uint8*)node, 0, sizeof(ListNode));
+    memset((uint8_t*)node, 0, sizeof(ListNode));
     node->data = data;
 
     //At empty state, both head and tail are null!
@@ -209,7 +209,7 @@ Stack* stack_create()
 {
     Stack* stack = (Stack*)kmalloc(sizeof(Stack));
 
-    memset((uint8*)stack, 0, sizeof(Stack));
+    memset((uint8_t*)stack, 0, sizeof(Stack));
 
     stack->list = list_create();
 
@@ -258,7 +258,7 @@ Queue* queue_create()
 {
     Queue* queue = (Queue*)kmalloc(sizeof(Queue));
 
-    memset((uint8*)queue, 0, sizeof(Queue));
+    memset((uint8_t*)queue, 0, sizeof(Queue));
 
     queue->list = list_create();
 

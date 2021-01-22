@@ -7,15 +7,15 @@
 #include "debugprint.h"
 #include "serial.h"
 
-uint32 *g_kernel_page_directory = (uint32 *)KERN_PAGE_DIRECTORY;
-uint8 g_physical_page_frame_bitmap[RAM_AS_4K_PAGES / 8];
+uint32_t *g_kernel_page_directory = (uint32_t *)KERN_PAGE_DIRECTORY;
+uint8_t g_physical_page_frame_bitmap[RAM_AS_4K_PAGES / 8];
 
 static int g_total_page_count = 0;
 
 static void handle_page_fault(Registers *regs);
 static void vmm_sync_all_from_kernel();
 
-void vmm_initialize(uint32 high_mem)
+void vmm_initialize(uint32_t high_mem)
 {
     int pg;
     unsigned long i;
@@ -55,10 +55,10 @@ void vmm_initialize(uint32 high_mem)
     }
 
     //Recursive page directory strategy
-    g_kernel_page_directory[1023] = (uint32)g_kernel_page_directory | PG_PRESENT | PG_WRITE;
+    g_kernel_page_directory[1023] = (uint32_t)g_kernel_page_directory | PG_PRESENT | PG_WRITE;
 
     //zero out PD area
-    memset((uint8*)KERN_PD_AREA_BEGIN, 0, KERN_PD_AREA_END - KERN_PD_AREA_BEGIN);
+    memset((uint8_t*)KERN_PD_AREA_BEGIN, 0, KERN_PD_AREA_END - KERN_PD_AREA_BEGIN);
 
     //Enable paging
     asm("	mov %0, %%eax \n \
@@ -73,10 +73,10 @@ void vmm_initialize(uint32 high_mem)
     initialize_kernel_heap();
 }
 
-uint32 vmm_acquire_page_frame_4k()
+uint32_t vmm_acquire_page_frame_4k()
 {
     int byte, bit;
-    uint32 page = -1;
+    uint32_t page = -1;
 
     int pid = -1;
     Thread* thread = thread_get_current();
@@ -110,10 +110,10 @@ uint32 vmm_acquire_page_frame_4k()
     }
 
     PANIC("Memory is full!");
-    return (uint32)-1;
+    return (uint32_t)-1;
 }
 
-void vmm_release_page_frame_4k(uint32 p_addr)
+void vmm_release_page_frame_4k(uint32_t p_addr)
 {
     //log_printf("DEBUG: Released 4K Physical %x\n", p_addr);
     //serial_printf("DEBUG: Released 4K Physical %x\n", p_addr);
@@ -121,12 +121,12 @@ void vmm_release_page_frame_4k(uint32 p_addr)
     SET_PAGEFRAME_UNUSED(g_physical_page_frame_bitmap, p_addr);
 }
 
-uint32* vmm_acquire_page_directory()
+uint32_t* vmm_acquire_page_directory()
 {
-    uint32 address = KERN_PD_AREA_BEGIN;
+    uint32_t address = KERN_PD_AREA_BEGIN;
     for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
     {
-        uint32* pd = (uint32*)address;
+        uint32_t* pd = (uint32_t*)address;
 
         if (*pd == NULL)
         {
@@ -153,13 +153,13 @@ uint32* vmm_acquire_page_directory()
     return NULL;
 }
 
-void vmm_destroy_page_directory_with_memory(uint32 physical_pd)
+void vmm_destroy_page_directory_with_memory(uint32_t physical_pd)
 {
     begin_critical_section();
 
-    uint32* pd = (uint32*)0xFFFFF000;
+    uint32_t* pd = (uint32_t*)0xFFFFF000;
 
-    uint32 cr3 = read_cr3();
+    uint32_t cr3 = read_cr3();
 
     CHANGE_PD(physical_pd);
 
@@ -169,7 +169,7 @@ void vmm_destroy_page_directory_with_memory(uint32 physical_pd)
     {
         if ((pd[pd_index] & PG_PRESENT) == PG_PRESENT)
         {
-            uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pd_index);
+            uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
 
             for (int pt_index = 0; pt_index < 1024; ++pt_index)
             {
@@ -177,7 +177,7 @@ void vmm_destroy_page_directory_with_memory(uint32 physical_pd)
                 {
                     if ((pt[pt_index] & PG_OWNED) == PG_OWNED)
                     {
-                        uint32 physicalFrame = pt[pt_index] & ~0xFFF;
+                        uint32_t physicalFrame = pt[pt_index] & ~0xFFF;
 
                         vmm_release_page_frame_4k(physicalFrame);
                     }
@@ -187,7 +187,7 @@ void vmm_destroy_page_directory_with_memory(uint32 physical_pd)
 
             if ((pd[pd_index] & PG_OWNED) == PG_OWNED)
             {
-                uint32 physicalFramePT = pd[pd_index] & ~0xFFF;
+                uint32_t physicalFramePT = pd[pd_index] & ~0xFFF;
                 vmm_release_page_frame_4k(physicalFramePT);
             }
         }
@@ -204,20 +204,20 @@ void vmm_destroy_page_directory_with_memory(uint32 physical_pd)
 //If it is intended to alloc kernel memory, v_addr must be < KERN_HEAP_END.
 //If it is intended to alloc user memory, v_addr must be > KERN_HEAP_END.
 //Works for active Page Directory!
-BOOL vmm_add_page_to_pd(char *v_addr, uint32 p_addr, int flags)
+BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 {
     // Both addresses are page-aligned.
 
     //serial_printf("vmm_add_page_to_pd v_addr:%x p_addr:%x\n", v_addr, p_addr);
 
-    int pd_index = (((uint32) v_addr) >> 22);
-    int pt_index = (((uint32) v_addr) >> 12) & 0x03FF;
+    int pd_index = (((uint32_t) v_addr) >> 22);
+    int pt_index = (((uint32_t) v_addr) >> 12) & 0x03FF;
 
-    uint32* pd = (uint32*)0xFFFFF000;
+    uint32_t* pd = (uint32_t*)0xFFFFF000;
 
-    uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pd_index);
+    uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
 
-    uint32 cr3 = 0;
+    uint32_t cr3 = 0;
 
     if (v_addr < (char*)(KERN_HEAP_END))
     {
@@ -230,7 +230,7 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32 p_addr, int flags)
     if ((pd[pd_index] & PG_PRESENT) != PG_PRESENT)
     {
         //serial_printf("vmm_add_page_to_pd 2");
-        uint32 tablePhysical = vmm_acquire_page_frame_4k();
+        uint32_t tablePhysical = vmm_acquire_page_frame_4k();
 
         //serial_printf("vmm_add_page_to_pd 3");
         pd[pd_index] = (tablePhysical) | (flags & 0xFFF) | (PG_PRESENT | PG_WRITE);
@@ -288,12 +288,12 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32 p_addr, int flags)
 //Works for active Page Directory!
 BOOL vmm_remove_page_from_pd(char *v_addr)
 {
-    int pd_index = (((uint32) v_addr) >> 22);
-    int pt_index = (((uint32) v_addr) >> 12) & 0x03FF;
+    int pd_index = (((uint32_t) v_addr) >> 22);
+    int pt_index = (((uint32_t) v_addr) >> 12) & 0x03FF;
 
-    uint32* pd = (uint32*)0xFFFFF000;
+    uint32_t* pd = (uint32_t*)0xFFFFF000;
 
-    uint32 cr3 = 0;
+    uint32_t cr3 = 0;
 
     if (v_addr < (char*)(KERN_HEAP_END))
     {
@@ -305,9 +305,9 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
 
     if ((pd[pd_index] & PG_PRESENT) == PG_PRESENT)
     {
-        uint32* pt = ((uint32*)0xFFC00000) + (0x400 * pd_index);
+        uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
 
-        uint32 physical_frame = pt[pt_index] & ~0xFFF;
+        uint32_t physical_frame = pt[pt_index] & ~0xFFF;
 
         if ((pt[pt_index] & PG_OWNED) == PG_OWNED)
         {
@@ -331,7 +331,7 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
             //All page table entries are unmapped.
             //Lets destroy this page table and remove it from PD
 
-            uint32 physical_frame_pt = pd[pd_index] & ~0xFFF;
+            uint32_t physical_frame_pt = pd[pd_index] & ~0xFFF;
 
             if ((pd[pd_index] & PG_OWNED) == PG_OWNED)
             {
@@ -372,10 +372,10 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
 
 static void vmm_sync_all_from_kernel()
 {
-    uint32 address = KERN_PD_AREA_BEGIN;
+    uint32_t address = KERN_PD_AREA_BEGIN;
     for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
     {
-        uint32* pd = (uint32*)address;
+        uint32_t* pd = (uint32_t*)address;
 
         if (*pd != NULL)
         {
@@ -389,12 +389,12 @@ static void vmm_sync_all_from_kernel()
     }
 }
 
-uint32 vmm_get_total_page_count()
+uint32_t vmm_get_total_page_count()
 {
     return g_total_page_count;
 }
 
-uint32 vmm_get_used_page_count()
+uint32_t vmm_get_used_page_count()
 {
     int count = 0;
     for (int i = 0; i < g_total_page_count; ++i)
@@ -408,12 +408,12 @@ uint32 vmm_get_used_page_count()
     return count;
 }
 
-uint32 vmm_get_free_page_count()
+uint32_t vmm_get_free_page_count()
 {
     return g_total_page_count - vmm_get_used_page_count();
 }
 
-static void print_page_fault_info(uint32 faulting_address, Registers *regs)
+static void print_page_fault_info(uint32_t faulting_address, Registers *regs)
 {
     int present = regs->errorCode & 0x1;
     int rw = regs->errorCode & 0x2;
@@ -443,7 +443,7 @@ static void handle_page_fault(Registers *regs)
     // A page fault has occurred.
 
     // The faulting address is stored in the CR2 register.
-    uint32 faulting_address;
+    uint32_t faulting_address;
     asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
     //log_printf("page_fault()\n");
@@ -526,7 +526,7 @@ void vmm_initialize_process_pages(Process* process)
 }
 
 //if this fails (return NULL), the caller should clean up physical page frames
-void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_address_array, uint32 page_count, BOOL own)
+void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own)
 {
     int page_index = 0;
 
@@ -535,9 +535,9 @@ void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_
         return NULL;
     }
 
-    uint32 found_adjacent = 0;
+    uint32_t found_adjacent = 0;
 
-    uint32 v_mem = 0;
+    uint32_t v_mem = 0;
 
     for (page_index = PAGE_INDEX_4K(v_address_search_start); page_index < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page_index)
     {
@@ -571,10 +571,10 @@ void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_
             own_flag = PG_OWNED;
         }
 
-        uint32 v = v_mem;
-        for (uint32 i = 0; i < page_count; ++i)
+        uint32_t v = v_mem;
+        for (uint32_t i = 0; i < page_count; ++i)
         {
-            uint32 p = p_address_array[i];
+            uint32_t p = p_address_array[i];
             p = p & 0xFFFFF000;
 
             vmm_add_page_to_pd((char*)v, p, PG_USER | own_flag);
@@ -592,24 +592,24 @@ void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_
     return NULL;
 }
 
-BOOL vmm_unmap_memory(Process* process, uint32 v_address, uint32 page_count)
+BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
 {
     if (page_count == 0)
     {
         return FALSE;
     }
 
-    uint32 page_index = 0;
+    uint32_t page_index = 0;
 
-    uint32 needed_pages = page_count;
+    uint32_t needed_pages = page_count;
 
-    uint32 old = v_address;
+    uint32_t old = v_address;
     v_address &= 0xFFFFF000;
 
     printkf("pageFrame dealloc from munmap:%x aligned:%x\n", old, v_address);
 
-    uint32 start_index = PAGE_INDEX_4K(v_address);
-    uint32 end_index = start_index + needed_pages;
+    uint32_t start_index = PAGE_INDEX_4K(v_address);
+    uint32_t end_index = start_index + needed_pages;
 
     BOOL result = FALSE;
 

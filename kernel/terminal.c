@@ -6,12 +6,12 @@
 #include "vgaterminal.h"
 #include "terminal.h"
 
-static void master_read_ready(TtyDev* tty, uint32 size);
+static void master_read_ready(TtyDev* tty, uint32_t size);
 
 Terminal* terminal_create(TtyDev* tty, BOOL graphic_mode)
 {
     Terminal* terminal = kmalloc(sizeof(Terminal));
-    memset((uint8*)terminal, 0, sizeof(Terminal));
+    memset((uint8_t*)terminal, 0, sizeof(Terminal));
 
     terminal->tty = tty;
     if (graphic_mode)
@@ -111,7 +111,7 @@ void terminal_clear(Terminal* terminal)
     terminal_move_cursor(terminal, 0, 0);
 }
 
-void terminal_put_character(Terminal* terminal, uint8 c)
+void terminal_put_character(Terminal* terminal, uint8_t c)
 {
     unsigned char * video = terminal->buffer;
 
@@ -185,10 +185,10 @@ void terminal_put_character(Terminal* terminal, uint8 c)
     terminal_move_cursor(terminal, terminal->current_line, terminal->current_column + 1);
 }
 
-void terminal_put_text(Terminal* terminal, const uint8* text, uint32 size)
+void terminal_put_text(Terminal* terminal, const uint8_t* text, uint32_t size)
 {
-    const uint8* c = text;
-    uint32 i = 0;
+    const uint8_t* c = text;
+    uint32_t i = 0;
     while (*c && i < size)
     {
         terminal_put_character(terminal, *c);
@@ -197,7 +197,7 @@ void terminal_put_text(Terminal* terminal, const uint8* text, uint32 size)
     }
 }
 
-void terminal_move_cursor(Terminal* terminal, uint16 line, uint16 column)
+void terminal_move_cursor(Terminal* terminal, uint16_t line, uint16_t column)
 {
     if (line >= terminal->tty->winsize.ws_row)
     {
@@ -218,11 +218,11 @@ void terminal_move_cursor(Terminal* terminal, uint16 line, uint16 column)
     terminal->current_column = column;
 }
 
-void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character)
+void terminal_send_key(Terminal* terminal, uint8_t modifier, uint8_t character)
 {
-    uint8 seq[8];
+    uint8_t seq[8];
     memset(seq, 0, 8);
-    uint32 size = 0;
+    uint32_t size = 0;
 
     switch (character) {
     case KEY_PAGEUP:
@@ -314,7 +314,7 @@ void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character)
         {
             if (isgraph(character))
             {
-                uint8 upper = toupper(character);
+                uint8_t upper = toupper(character);
                 character = C(upper);
             }
         }
@@ -328,12 +328,12 @@ void terminal_send_key(Terminal* terminal, uint8 modifier, uint8 character)
     fs_write(terminal->opened_master, size, seq);
 }
 
-static void master_read_ready(TtyDev* tty, uint32 size)
+static void master_read_ready(TtyDev* tty, uint32_t size)
 {
     Terminal* terminal = (Terminal*)tty->private_data;
 
-    uint8 characters[128];
-    int32 bytes = 0;
+    uint8_t characters[128];
+    int32_t bytes = 0;
     do
     {
         bytes = ttydev_master_read_nonblock(terminal->opened_master, 8, characters);

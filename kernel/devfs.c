@@ -11,8 +11,8 @@ static FileSystemNode* g_dev_root = NULL;
 static List* g_device_list = NULL;
 static Spinlock g_device_list_lock;
 
-static BOOL devfs_open(File *node, uint32 flags);
-static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index);
+static BOOL devfs_open(File *node, uint32_t flags);
+static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name);
 
 static FileSystemDirent g_dirent;
@@ -20,7 +20,7 @@ static FileSystemDirent g_dirent;
 void devfs_initialize()
 {
     g_dev_root = kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)g_dev_root, 0, sizeof(FileSystemNode));
+    memset((uint8_t*)g_dev_root, 0, sizeof(FileSystemNode));
 
     g_dev_root->node_type = FT_DIRECTORY;
 
@@ -48,16 +48,16 @@ void devfs_initialize()
     Spinlock_Init(&g_device_list_lock);
 }
 
-static BOOL devfs_open(File *node, uint32 flags)
+static BOOL devfs_open(File *node, uint32_t flags)
 {
     return TRUE;
 }
 
-static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32 index)
+static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32_t index)
 {
     FileSystemDirent * result = NULL;
 
-    uint32 counter = 0;
+    uint32_t counter = 0;
 
     Spinlock_Lock(&g_device_list_lock);
 
@@ -120,7 +120,7 @@ FileSystemNode* devfs_register_device(Device* device)
     }
 
     FileSystemNode* device_node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
-    memset((uint8*)device_node, 0, sizeof(FileSystemNode));
+    memset((uint8_t*)device_node, 0, sizeof(FileSystemNode));
     strcpy(device_node->name, device->name);
     device_node->node_type = device->device_type;
     device_node->open = device->open;

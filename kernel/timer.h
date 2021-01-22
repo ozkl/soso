@@ -5,17 +5,17 @@
 #include "time.h"
 
 void timer_initialize();
-uint32 get_system_tick_count();
-uint64 get_system_tick_count64();
-uint32 get_uptime_seconds();
-uint64 get_uptime_seconds64();
-uint32 get_uptime_milliseconds();
-uint64 get_uptime_milliseconds64();
+uint32_t get_system_tick_count();
+uint64_t get_system_tick_count64();
+uint32_t get_uptime_seconds();
+uint64_t get_uptime_seconds64();
+uint32_t get_uptime_milliseconds();
+uint64_t get_uptime_milliseconds64();
 void scheduler_enable();
 void scheduler_disable();
 
-int32 clock_getres64(int32 clockid, struct timespec *res);
-int32 clock_gettime64(int32 clockid, struct timespec *tp);
-int32 clock_settime64(int32 clockid, const struct timespec *tp);
+int32_t clock_getres64(int32_t clockid, struct timespec *res);
+int32_t clock_gettime64(int32_t clockid, struct timespec *tp);
+int32_t clock_settime64(int32_t clockid, const struct timespec *tp);
 
 #endif

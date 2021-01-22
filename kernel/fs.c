@@ -11,7 +11,7 @@ static int g_next_filesystem_index = 0;
 
 void fs_initialize()
 {
-    memset((uint8*)g_registered_filesystems, 0, sizeof(g_registered_filesystems));
+    memset((uint8_t*)g_registered_filesystems, 0, sizeof(g_registered_filesystems));
 
     g_fs_root = rootfs_initialize();
 
@@ -24,7 +24,7 @@ FileSystemNode* fs_get_root_node()
     return g_fs_root;
 }
 
-int fs_get_node_path(FileSystemNode *node, char* buffer, uint32 buffer_size)
+int fs_get_node_path(FileSystemNode *node, char* buffer, uint32_t buffer_size)
 {
     if (node == g_fs_root)
     {
@@ -172,7 +172,7 @@ BOOL fs_resolve_path(const char* path, char* buffer, int buffer_size)
     return TRUE;
 }
 
-uint32 fs_read(File *file, uint32 size, uint8 *buffer)
+uint32_t fs_read(File *file, uint32_t size, uint8_t *buffer)
 {
     if (file->node->read != 0)
     {
@@ -182,7 +182,7 @@ uint32 fs_read(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-uint32 fs_write(File *file, uint32 size, uint8 *buffer)
+uint32_t fs_write(File *file, uint32_t size, uint8_t *buffer)
 {
     if (file->node->write != 0)
     {
@@ -192,12 +192,12 @@ uint32 fs_write(File *file, uint32 size, uint8 *buffer)
     return -1;
 }
 
-File *fs_open(FileSystemNode *node, uint32 flags)
+File *fs_open(FileSystemNode *node, uint32_t flags)
 {
     return fs_open_for_process(thread_get_current(), node, flags);
 }
 
-File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
+File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
 {
     Process* process = NULL;
     if (thread)
@@ -213,7 +213,7 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
     if (node->open != NULL)
     {
         File* file = kmalloc(sizeof(File));
-        memset((uint8*)file, 0, sizeof(File));
+        memset((uint8_t*)file, 0, sizeof(File));
         file->node = node;
         file->process = process;
         file->thread = thread;
@@ -224,7 +224,7 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
         if (success)
         {
             //Screen_PrintF("Opened:%s\n", file->node->name);
-            int32 fd = process_add_file(file->process, file);
+            int32_t fd = process_add_file(file->process, file);
 
             if (fd < 0)
             {
@@ -259,7 +259,7 @@ void fs_close(File *file)
     kfree(file);
 }
 
-int32 fs_ioctl(File *file, int32 request, void * argp)
+int32_t fs_ioctl(File *file, int32_t request, void * argp)
 {
     if (file->node->ioctl != NULL)
     {
@@ -269,7 +269,7 @@ int32 fs_ioctl(File *file, int32 request, void * argp)
     return 0;
 }
 
-int32 fs_lseek(File *file, int32 offset, int32 whence)
+int32_t fs_lseek(File *file, int32_t offset, int32_t whence)
 {
     if (file->node->lseek != NULL)
     {
@@ -279,7 +279,7 @@ int32 fs_lseek(File *file, int32 offset, int32 whence)
     return 0;
 }
 
-int32 fs_ftruncate(File* file, int32 length)
+int32_t fs_ftruncate(File* file, int32_t length)
 {
     if (file->node->ftruncate != NULL)
     {
@@ -289,7 +289,7 @@ int32 fs_ftruncate(File* file, int32 length)
     return -1;
 }
 
-int32 fs_stat(FileSystemNode *node, struct stat *buf)
+int32_t fs_stat(FileSystemNode *node, struct stat *buf)
 {
 #define	__S_IFDIR	0040000	/* Directory.  */
 #define	__S_IFCHR	0020000	/* Character device.  */
@@ -301,7 +301,7 @@ int32 fs_stat(FileSystemNode *node, struct stat *buf)
 
     if (node->stat != NULL)
     {
-        int32 val = node->stat(node, buf);
+        int32_t val = node->stat(node, buf);
 
         if (val == 1)
         {
@@ -345,7 +345,7 @@ int32 fs_stat(FileSystemNode *node, struct stat *buf)
     return -1;
 }
 
-FileSystemDirent *fs_readdir(FileSystemNode *node, uint32 index)
+FileSystemDirent *fs_readdir(FileSystemNode *node, uint32_t index)
 {
     //Screen_PrintF("fs_readdir: node->name:%s index:%d\n", node->name, index);
 
@@ -391,7 +391,7 @@ FileSystemNode *fs_finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-BOOL fs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
+BOOL fs_mkdir(FileSystemNode *node, const char *name, uint32_t flags)
 {
     if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
@@ -408,7 +408,7 @@ BOOL fs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
     return FALSE;
 }
 
-void* fs_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
+void* fs_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 {
     if (file->node->mmap)
     {
@@ -418,7 +418,7 @@ void* fs_mmap(File* file, uint32 size, uint32 offset, uint32 flags)
     return NULL;
 }
 
-BOOL fs_munmap(File* file, void* address, uint32 size)
+BOOL fs_munmap(File* file, void* address, uint32_t size)
 {
     if (file->node->munmap)
     {
@@ -587,7 +587,7 @@ BOOL fs_register(FileSystem* fs)
     return TRUE;
 }
 
-BOOL fs_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
+BOOL fs_mount(const char *source, const char *target, const char *fsType, uint32_t flags, void *data)
 {
     FileSystem* fs = NULL;
 
@@ -608,7 +608,7 @@ BOOL fs_mount(const char *source, const char *target, const char *fsType, uint32
     return fs->mount(source, target, flags, data);
 }
 
-BOOL fs_check_mount(const char *source, const char *target, const char *fsType, uint32 flags, void *data)
+BOOL fs_check_mount(const char *source, const char *target, const char *fsType, uint32_t flags, void *data)
 {
     FileSystem* fs = NULL;
 

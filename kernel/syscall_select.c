@@ -9,10 +9,10 @@ void select_update(Thread* thread)
     Process* process = thread->owner;
 
     int total_ready = 0;
-    uint32 count = (uint32)thread->select.nfds;
+    uint32_t count = (uint32_t)thread->select.nfds;
     count = MIN(count, MAX_OPENED_FILES);
 
-    for (uint32 fd = 0; fd < count; ++fd)
+    for (uint32_t fd = 0; fd < count; ++fd)
     {
         File* file = process->fd[fd];
 
@@ -70,7 +70,7 @@ static int select_finish(Thread* thread, fd_set* rfds, fd_set* wfds)
     }
 
     int result = thread->select.result;
-    memset((uint8*)&thread->select, 0, sizeof(thread->select));
+    memset((uint8_t*)&thread->select, 0, sizeof(thread->select));
 
     return result;
 }

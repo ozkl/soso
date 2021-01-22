@@ -26,17 +26,17 @@
 #include "sleep.h"
 #include "console.h"
 
-extern uint32 _start;
-extern uint32 _end;
-uint32 g_physical_kernel_start_address = (uint32)&_start;
-uint32 g_physical_kernel_end_address = (uint32)&_end;
+extern uint32_t _start;
+extern uint32_t _end;
+uint32_t g_physical_kernel_start_address = (uint32_t)&_start;
+uint32_t g_physical_kernel_end_address = (uint32_t)&_end;
 
-static void* locate_initrd(struct Multiboot *mbi, uint32* size)
+static void* locate_initrd(struct Multiboot *mbi, uint32_t* size)
 {
     if (mbi->mods_count > 0)
     {
-        uint32 start_location = *((uint32*)mbi->mods_addr);
-        uint32 end_location = *(uint32*)(mbi->mods_addr + 4);
+        uint32_t start_location = *((uint32_t*)mbi->mods_addr);
+        uint32_t end_location = *(uint32_t*)(mbi->mods_addr + 4);
 
         *size = end_location - start_location;
 
@@ -61,7 +61,7 @@ int execute_file(const char *path, char *const argv[], char *const envp[], FileS
             {
                 void* image = kmalloc(node->length);
 
-                int32 bytes_read = fs_read(f, node->length, image);
+                int32_t bytes_read = fs_read(f, node->length, image);
 
                 if (bytes_read > 0)
                 {
@@ -107,7 +107,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     descriptor_tables_initialize();
 
-    uint32 memory_kb = mboot_ptr->mem_upper;//96*1024;
+    uint32_t memory_kb = mboot_ptr->mem_upper;//96*1024;
     vmm_initialize(memory_kb);
 
     fs_initialize();
@@ -117,7 +117,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     if (graphics_mode)
     {
-        gfx_initialize((uint32*)(uint32)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
+        gfx_initialize((uint32_t*)(uint32_t)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
     }
 
     console_initialize(graphics_mode);
@@ -130,7 +130,7 @@ int kmain(struct Multiboot *mboot_ptr)
     printkf("Memory initialized for %d MB\n", memory_kb / 1024);
     printkf("Kernel resides in %x - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address);
     //printkf("Initial stack: %x\n", &stack);
-    printkf("Video: %x\n", (uint32)mboot_ptr->framebuffer_addr);
+    printkf("Video: %x\n", (uint32_t)mboot_ptr->framebuffer_addr);
     printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
 
     systemfs_initialize();
@@ -170,9 +170,9 @@ int kmain(struct Multiboot *mboot_ptr)
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
 
-    uint32 initrd_size = 0;
-    uint8* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
-    uint8* initrd_end_location = initrd_location + initrd_size;
+    uint32_t initrd_size = 0;
+    uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
+    uint8_t* initrd_end_location = initrd_location + initrd_size;
     if (initrd_location == NULL)
     {
         PANIC("Initrd not found!\n");
@@ -180,12 +180,12 @@ int kmain(struct Multiboot *mboot_ptr)
     else
     {
         printkf("Initrd found at %x - %x (%d bytes)\n", initrd_location, initrd_end_location, initrd_size);
-        if ((uint32)KERN_PD_AREA_BEGIN < (uint32)initrd_end_location)
+        if ((uint32_t)KERN_PD_AREA_BEGIN < (uint32_t)initrd_end_location)
         {
             printkf("Initrd must reside below %x !!!\n", KERN_PD_AREA_BEGIN);
             PANIC("Initrd image is too big!");
         }
-        memcpy((uint8*)*(uint32*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
+        memcpy((uint8_t*)*(uint32_t*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
         BOOL mountSuccess = fs_mount("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 
         if (mountSuccess)

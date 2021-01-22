@@ -8,9 +8,9 @@ typedef struct Thread Thread;
 
 void message_send(Thread* thread, SosoMessage* message);
 
-uint32 message_get_queue_count(Thread* thread);
+uint32_t message_get_queue_count(Thread* thread);
 
 //returns remaining message count
-int32 message_get_next(Thread* thread, SosoMessage* message);
+int32_t message_get_next(Thread* thread, SosoMessage* message);
 
 #endif // MESSAGE_H

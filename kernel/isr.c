@@ -3,9 +3,9 @@
 
 IsrFunction g_interrupt_handlers[256];
 
-extern uint32 g_system_tick_count;
+extern uint32_t g_system_tick_count;
 
-void interrupt_register(uint8 n, IsrFunction handler)
+void interrupt_register(uint8_t n, IsrFunction handler)
 {
     g_interrupt_handlers[n] = handler;
 }
@@ -14,7 +14,7 @@ void handle_isr(Registers regs)
 {
     //Screen_PrintF("handle_isr interrupt no:%d\n", regs.int_no);
 
-    uint8 int_no = regs.interruptNumber & 0xFF;
+    uint8_t int_no = regs.interruptNumber & 0xFF;
 
     if (g_interrupt_handlers[int_no] != 0)
     {

@@ -3,18 +3,20 @@
 
 #include "common.h"
 
-typedef uint64 time_t;
+typedef uint64_t time_t;
+
+typedef int64_t suseconds_t;
 
 struct timespec
 {
     time_t tv_sec;        /* seconds */
-    uint32 tv_nsec;       /* nanoseconds */
+    uint32_t tv_nsec;       /* nanoseconds */
 };
 
 struct timeval
 {
-    uint32 tv_sec;         /* seconds */
-    uint32 tv_usec;        /* microseconds */
+    uint32_t tv_sec;         /* seconds */
+    uint32_t tv_usec;        /* microseconds */
 };
 
 #endif //TIME_H

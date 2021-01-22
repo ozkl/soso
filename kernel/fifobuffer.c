@@ -1,12 +1,12 @@
 #include "fifobuffer.h"
 #include "alloc.h"
 
-FifoBuffer* fifobuffer_create(uint32 capacity)
+FifoBuffer* fifobuffer_create(uint32_t capacity)
 {
     FifoBuffer* fifo = (FifoBuffer*)kmalloc(sizeof(FifoBuffer));
-    memset((uint8*)fifo, 0, sizeof(FifoBuffer));
-    fifo->data = (uint8*)kmalloc(capacity);
-    memset((uint8*)fifo->data, 0, capacity);
+    memset((uint8_t*)fifo, 0, sizeof(FifoBuffer));
+    fifo->data = (uint8_t*)kmalloc(capacity);
+    memset((uint8_t*)fifo->data, 0, capacity);
     fifo->capacity= capacity;
 
     return fifo;
@@ -35,31 +35,31 @@ BOOL fifobuffer_is_empty(FifoBuffer* fifo_buffer)
     return FALSE;
 }
 
-uint32 fifobuffer_get_size(FifoBuffer* fifo_buffer)
+uint32_t fifobuffer_get_size(FifoBuffer* fifo_buffer)
 {
     return fifo_buffer->used_bytes;
 }
 
-uint32 fifobuffer_get_capacity(FifoBuffer* fifo_buffer)
+uint32_t fifobuffer_get_capacity(FifoBuffer* fifo_buffer)
 {
     return fifo_buffer->capacity;
 }
 
-uint32 fifobuffer_get_free(FifoBuffer* fifo_buffer)
+uint32_t fifobuffer_get_free(FifoBuffer* fifo_buffer)
 {
     return fifo_buffer->capacity - fifo_buffer->used_bytes;
 }
 
-int32 fifobuffer_enqueue(FifoBuffer* fifo_buffer, uint8* data, uint32 size)
+int32_t fifobuffer_enqueue(FifoBuffer* fifo_buffer, uint8_t* data, uint32_t size)
 {
     if (size == 0)
     {
         return -1;
     }
 
-    uint32 bytes_available = fifo_buffer->capacity - fifo_buffer->used_bytes;
+    uint32_t bytes_available = fifo_buffer->capacity - fifo_buffer->used_bytes;
 
-    uint32 i = 0;
+    uint32_t i = 0;
     while (fifo_buffer->used_bytes < fifo_buffer->capacity && i < size)
     {
         fifo_buffer->data[fifo_buffer->write_index] = data[i++];
@@ -68,10 +68,10 @@ int32 fifobuffer_enqueue(FifoBuffer* fifo_buffer, uint8* data, uint32 size)
         fifo_buffer->write_index %= fifo_buffer->capacity;
     }
 
-    return (int32)i;
+    return (int32_t)i;
 }
 
-int32 fifobuffer_dequeue(FifoBuffer* fifo_buffer, uint8* data, uint32 size)
+int32_t fifobuffer_dequeue(FifoBuffer* fifo_buffer, uint8_t* data, uint32_t size)
 {
     if (size == 0)
     {
@@ -84,7 +84,7 @@ int32 fifobuffer_dequeue(FifoBuffer* fifo_buffer, uint8* data, uint32 size)
         return 0;
     }
 
-    uint32 i = 0;
+    uint32_t i = 0;
     while (fifo_buffer->used_bytes > 0 && i < size)
     {
         data[i++] = fifo_buffer->data[fifo_buffer->read_index];
@@ -96,18 +96,18 @@ int32 fifobuffer_dequeue(FifoBuffer* fifo_buffer, uint8* data, uint32 size)
     return i;
 }
 
-int32 fifobuffer_enqueue_from_other(FifoBuffer* fifo_buffer, FifoBuffer* other)
+int32_t fifobuffer_enqueue_from_other(FifoBuffer* fifo_buffer, FifoBuffer* other)
 {
-    uint32 otherSize = fifobuffer_get_size(other);
+    uint32_t otherSize = fifobuffer_get_size(other);
 
     if (otherSize == 0)
     {
         return 0;
     }
 
-    uint32 bytes_available = fifo_buffer->capacity - fifo_buffer->used_bytes;
+    uint32_t bytes_available = fifo_buffer->capacity - fifo_buffer->used_bytes;
 
-    uint32 i = 0;
+    uint32_t i = 0;
     while (fifo_buffer->used_bytes < fifo_buffer->capacity && other->used_bytes > 0)
     {
         fifo_buffer->data[fifo_buffer->write_index] = other->data[other->read_index];
@@ -122,5 +122,5 @@ int32 fifobuffer_enqueue_from_other(FifoBuffer* fifo_buffer, FifoBuffer* other)
         i++;
     }
 
-    return (int32)i;
+    return (int32_t)i;
 }

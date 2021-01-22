@@ -2,12 +2,12 @@
 #include "timer.h"
 #include "process.h"
 
-void sleep_ms(Thread* thread, uint32 ms)
+void sleep_ms(Thread* thread, uint32_t ms)
 {
-    uint32 uptime = get_uptime_milliseconds();
+    uint32_t uptime = get_uptime_milliseconds();
 
     //target uptime to wakeup
-    uint32 target = uptime + ms;
+    uint32_t target = uptime + ms;
 
     thread_change_state(thread, TS_SLEEP, (void*)target);
 

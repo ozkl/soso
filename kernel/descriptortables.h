@@ -8,12 +8,12 @@ void descriptor_tables_initialize();
 
 struct GdtEntry
 {
-    uint16 limit_low;
-    uint16 base_low;
-    uint8  base_middle;
-    uint8  access;
-    uint8  granularity;
-    uint8  base_high;
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t  base_middle;
+    uint8_t  access;
+    uint8_t  granularity;
+    uint8_t  base_high;
 } __attribute__((packed));
 
 typedef struct GdtEntry GdtEntry;
@@ -21,8 +21,8 @@ typedef struct GdtEntry GdtEntry;
 
 struct GdtPointer
 {
-    uint16 limit;
-    uint32 base;
+    uint16_t limit;
+    uint32_t base;
 } __attribute__((packed));
 
 typedef struct GdtPointer GdtPointer;
@@ -30,11 +30,11 @@ typedef struct GdtPointer GdtPointer;
 
 struct IdtEntry
 {
-    uint16 base_lo;
-    uint16 sel;
-    uint8  always0;
-    uint8  flags;
-    uint16 base_hi;
+    uint16_t base_lo;
+    uint16_t sel;
+    uint8_t  always0;
+    uint8_t  flags;
+    uint16_t base_hi;
 } __attribute__((packed));
 
 typedef struct IdtEntry IdtEntry;
@@ -42,30 +42,30 @@ typedef struct IdtEntry IdtEntry;
 
 struct IdtPointer
 {
-    uint16 limit;
-    uint32 base;
+    uint16_t limit;
+    uint32_t base;
 } __attribute__((packed));
 
 typedef struct IdtPointer IdtPointer;
 
 struct Tss {
-    uint16 previous_task, __previous_task_unused;
-    uint32 esp0;
-    uint16 ss0, __ss0_unused;
-    uint32 esp1;
-    uint16 ss1, __ss1_unused;
-    uint32 esp2;
-    uint16 ss2, __ss2_unused;
-    uint32 cr3;
-    uint32 eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
-    uint16 es, __es_unused;
-    uint16 cs, __cs_unused;
-    uint16 ss, __ss_unused;
-    uint16 ds, __ds_unused;
-    uint16 fs, __fs_unused;
-    uint16 gs, __gs_unused;
-    uint16 ldt_selector, __ldt_sel_unused;
-    uint16 debug_flag, io_map;
+    uint16_t previous_task, __previous_task_unused;
+    uint32_t esp0;
+    uint16_t ss0, __ss0_unused;
+    uint32_t esp1;
+    uint16_t ss1, __ss1_unused;
+    uint32_t esp2;
+    uint16_t ss2, __ss2_unused;
+    uint32_t cr3;
+    uint32_t eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+    uint16_t es, __es_unused;
+    uint16_t cs, __cs_unused;
+    uint16_t ss, __ss_unused;
+    uint16_t ds, __ds_unused;
+    uint16_t fs, __fs_unused;
+    uint16_t gs, __gs_unused;
+    uint16_t ldt_selector, __ldt_sel_unused;
+    uint16_t debug_flag, io_map;
 } __attribute__ ((packed));
 
 typedef struct Tss Tss;

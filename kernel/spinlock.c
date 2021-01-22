@@ -1,6 +1,6 @@
 #include "spinlock.h"
 
-static inline int32 exchangeAtomic(volatile int32* oldValueAddress, int32 newValue)
+static inline int32_t exchangeAtomic(volatile int32_t* oldValueAddress, int32_t newValue)
 {
     //no need to use lock instruction on xchg
 
@@ -18,7 +18,7 @@ void Spinlock_Init(Spinlock* spinlock)
 
 void Spinlock_Lock(Spinlock* spinlock)
 {
-    while (exchangeAtomic((int32*)spinlock, 1))
+    while (exchangeAtomic((int32_t*)spinlock, 1))
     {
         halt();
     }
@@ -26,7 +26,7 @@ void Spinlock_Lock(Spinlock* spinlock)
 
 BOOL Spinlock_TryLock(Spinlock* spinlock)
 {
-    if (exchangeAtomic((int32*)spinlock, 1))
+    if (exchangeAtomic((int32_t*)spinlock, 1))
     {
         return FALSE;
     }
