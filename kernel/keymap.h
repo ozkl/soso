@@ -56,7 +56,7 @@ enum
 // C('A') == Control-A
 #define C(x) (x - '@')
 
-extern uint8 gKeyMap[256];
-extern uint8 gKeyShiftMap[256];
+extern uint8 g_key_map[256];
+extern uint8 g_key_shift_map[256];
 
 #endif //KEYMAP_H

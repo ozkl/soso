@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-void initialize_descriptor_tables();
+void descriptor_tables_initialize();
 
 
 struct GdtEntry

@@ -32,7 +32,7 @@ void initialize_mouse()
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "psaux");
-    device.device_type = FT_CharacterDevice;
+    device.device_type = FT_CHARACTER_DEVICE;
     device.open = mouse_open;
     device.close = mouse_close;
     device.read = mouse_read;
@@ -95,7 +95,7 @@ static int32 mouse_read(File *file, uint32 size, uint8 *buffer)
 
     while (FifoBuffer_getSize(fifo) < MOUSE_PACKET_SIZE)
     {
-        changeThreadState(file->thread, TS_WAITIO, mouse_read);
+        thread_change_state(file->thread, TS_WAITIO, mouse_read);
 
         enableInterrupts();
         halt();
@@ -188,7 +188,7 @@ static void handle_mouse_interrupt(Registers *regs)
             {
                 if (file->thread->state_privateData == mouse_read)
                 {
-                    resumeThread(file->thread);
+                    thread_resume(file->thread);
                 }
             }
         }

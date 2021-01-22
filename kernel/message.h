@@ -6,11 +6,11 @@
 
 typedef struct Thread Thread;
 
-void sendMesage(Thread* thread, SosoMessage* message);
+void message_send(Thread* thread, SosoMessage* message);
 
-uint32 getMessageQueueCount(Thread* thread);
+uint32 message_get_queue_count(Thread* thread);
 
 //returns remaining message count
-int32 getNextMessage(Thread* thread, SosoMessage* message);
+int32 message_get_next(Thread* thread, SosoMessage* message);
 
 #endif // MESSAGE_H

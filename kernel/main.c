@@ -50,7 +50,7 @@ int execute_file(const char *path, char *const argv[], char *const envp[], FileS
 {
     int result = -1;
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
@@ -70,7 +70,7 @@ int execute_file(const char *path, char *const argv[], char *const envp[], FileS
                     {
                         name = argv[0];
                     }
-                    Process* new_process = create_user_process_from_elf_data(name, image, argv, envp, process, tty);
+                    Process* new_process = process_create_from_elf_data(name, image, argv, envp, process, tty);
 
                     if (new_process)
                     {
@@ -105,7 +105,7 @@ int kmain(struct Multiboot *mboot_ptr)
 {
     int stack = 5;
 
-    initialize_descriptor_tables();
+    descriptor_tables_initialize();
 
     uint32 memory_kb = mboot_ptr->mem_upper;//96*1024;
     vmm_initialize(memory_kb);
@@ -133,13 +133,13 @@ int kmain(struct Multiboot *mboot_ptr)
     printkf("Video: %x\n", (uint32)mboot_ptr->framebuffer_addr);
     printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
 
-    initialize_systemfs();
+    systemfs_initialize();
     pipe_initialize();
     sharedmemory_initialize();
 
-    initialize_tasking();
+    tasking_initialize();
 
-    initialize_syscalls();
+    syscalls_initialize();
 
     timer_initialize();
 
@@ -185,7 +185,7 @@ int kmain(struct Multiboot *mboot_ptr)
             printkf("Initrd must reside below %x !!!\n", KERN_PD_AREA_BEGIN);
             PANIC("Initrd image is too big!");
         }
-        memcpy((uint8*)*(uint32*)fs_get_node("/dev/ramdisk1")->privateNodeData, initrd_location, initrd_size);
+        memcpy((uint8*)*(uint32*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
         BOOL mountSuccess = fs_mount("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 
         if (mountSuccess)

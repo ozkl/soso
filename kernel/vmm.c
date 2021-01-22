@@ -79,7 +79,7 @@ uint32 vmm_acquire_page_frame_4k()
     uint32 page = -1;
 
     int pid = -1;
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
     if (thread)
     {
         Process* process = thread->owner;
@@ -449,10 +449,10 @@ static void handle_page_fault(Registers *regs)
     //log_printf("page_fault()\n");
     //log_printf("stack of handler is %x\n", &faulting_address);
 
-    Thread* faulting_thread = get_current_thread();
+    Thread* faulting_thread = thread_get_current();
     if (NULL != faulting_thread)
     {
-        Thread* main_thread = getMainKernelThread();
+        Thread* main_thread = thread_get_first();
 
         if (main_thread == faulting_thread)
         {
@@ -466,16 +466,16 @@ static void handle_page_fault(Registers *regs)
 
             log_printf("Faulting thread is %d and its state is %d\n", faulting_thread->threadId, faulting_thread->state);
 
-            if (faulting_thread->userMode)
+            if (faulting_thread->user_mode)
             {
                 if (faulting_thread->state == TS_CRITICAL ||
                     faulting_thread->state == TS_UNINTERRUPTIBLE)
                 {
                     log_printf("CRITICAL!! process %d\n", faulting_thread->owner->pid);
 
-                    changeProcessState(faulting_thread->owner, TS_SUSPEND);
+                    process_change_state(faulting_thread->owner, TS_SUSPEND);
 
-                    changeThreadState(faulting_thread, TS_DEAD, (void*)faulting_address);
+                    thread_change_state(faulting_thread, TS_DEAD, (void*)faulting_address);
                 }
                 else
                 {
@@ -487,17 +487,17 @@ static void handle_page_fault(Registers *regs)
 
                     log_printf("Segmentation fault pid:%d\n", faulting_thread->owner->pid);
 
-                    signalThread(faulting_thread, SIGSEGV);
+                    thread_signal(faulting_thread, SIGSEGV);
                 }
             }
             else
             {
                 log_printf("Destroying kernel thread %d\n", faulting_thread->threadId);
 
-                destroyThread(faulting_thread);
+                thread_destroy(faulting_thread);
             }
 
-            waitForSchedule();
+            wait_for_schedule();
         }
     }
     else
@@ -514,12 +514,12 @@ void vmm_initialize_process_pages(Process* process)
 
     for (page = 0; page < RAM_AS_4K_PAGES / 8; ++page)
     {
-        process->mmappedVirtualMemory[page] = 0xFF;
+        process->mmapped_virtual_memory[page] = 0xFF;
     }
 
     for (page = PAGE_INDEX_4K(USER_OFFSET); page < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page)
     {
-        SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, page * PAGESIZE_4K);
+        SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, page * PAGESIZE_4K);
     }
 
     //Page Tables position marked as used. It is after MEMORY_END.
@@ -541,7 +541,7 @@ void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_
 
     for (page_index = PAGE_INDEX_4K(v_address_search_start); page_index < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page_index)
     {
-        if (IS_PAGEFRAME_USED(process->mmappedVirtualMemory, page_index))
+        if (IS_PAGEFRAME_USED(process->mmapped_virtual_memory, page_index))
         {
             found_adjacent = 0;
             v_mem = 0;
@@ -581,7 +581,7 @@ void* vmm_map_memory(Process* process, uint32 v_address_search_start, uint32* p_
 
             //log_printf("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
-            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K(v));
+            SET_PAGEFRAME_USED(process->mmapped_virtual_memory, PAGE_INDEX_4K(v));
 
             v += PAGESIZE_4K;
         }
@@ -615,7 +615,7 @@ BOOL vmm_unmap_memory(Process* process, uint32 v_address, uint32 page_count)
 
     for (page_index = start_index; page_index < end_index; ++page_index)
     {
-        if (IS_PAGEFRAME_USED(process->mmappedVirtualMemory, page_index))
+        if (IS_PAGEFRAME_USED(process->mmapped_virtual_memory, page_index))
         {
             char* v_addr = (char*)(page_index * PAGESIZE_4K);
 
@@ -623,7 +623,7 @@ BOOL vmm_unmap_memory(Process* process, uint32 v_address, uint32 page_count)
 
             log_printf("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, v_addr);
 
-            SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, v_addr);
+            SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, v_addr);
 
             result = TRUE;
         }

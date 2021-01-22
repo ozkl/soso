@@ -17,63 +17,63 @@
 
 #define AUX_VECTOR_SIZE_BYTES (AUX_CNT * sizeof (Elf32_auxv_t))
 
-Process* gKernelProcess = NULL;
+Process* g_kernel_process = NULL;
 
-Thread* gFirstThread = NULL;
-Thread* gCurrentThread = NULL;
+Thread* g_first_thread = NULL;
+Thread* g_current_thread = NULL;
 
-Thread* gDestroyedThread = NULL;
+Thread* g_destroyed_thread = NULL;
 
-uint32 gProcessIdGenerator = 0;
-uint32 gThreadIdGenerator = 0;
+uint32 g_process_id_generator = 0;
+uint32 g_thread_id_generator = 0;
 
-uint32 gSystemContextSwitchCount = 0;
-uint32 gUsageMarkPoint = 0;
+uint32 g_system_context_switch_count = 0;
+uint32 g_usage_mark_point = 0;
 
 extern Tss g_tss;
 
-static void fillAuxilaryVector(uint32 location, void* elfData);
+static void fill_auxilary_vector(uint32 location, void* elfData);
 
-uint32 generateProcessId()
+uint32 generate_process_id()
 {
-    return gProcessIdGenerator++;
+    return g_process_id_generator++;
 }
 
-uint32 generateThreadId()
+uint32 generate_thread_id()
 {
-    return gThreadIdGenerator++;
+    return g_thread_id_generator++;
 }
 
-uint32 getSystemContextSwitchCount()
+uint32 get_system_context_switch_count()
 {
-    return gSystemContextSwitchCount;
+    return g_system_context_switch_count;
 }
 
-void initialize_tasking()
+void tasking_initialize()
 {
     Process* process = (Process*)kmalloc(sizeof(Process));
     memset((uint8*)process, 0, sizeof(Process));
     strcpy(process->name, "[kernel]");
-    process->pid = generateProcessId();
+    process->pid = generate_process_id();
     process->pd = (uint32*) KERN_PAGE_DIRECTORY;
-    process->workingDirectory = fs_get_root_node();
+    process->working_directory = fs_get_root_node();
 
-    gKernelProcess = process;
+    g_kernel_process = process;
 
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8*)thread, 0, sizeof(Thread));
 
-    thread->owner = gKernelProcess;
+    thread->owner = g_kernel_process;
 
-    thread->threadId = generateThreadId();
+    thread->threadId = generate_thread_id();
 
-    thread->userMode = 0;
-    resumeThread(thread);
-    thread->birthTime = get_uptime_milliseconds();
+    thread->user_mode = 0;
+    thread_resume(thread);
+    thread->birth_time = get_uptime_milliseconds();
 
-    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->messageQueueLock));
+    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->message_queue_lock));
 
     thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -96,27 +96,27 @@ void initialize_tasking()
     thread->kstack.esp0 = 0;//For kernel threads, this is not required
 
 
-    gFirstThread = thread;
-    gCurrentThread = thread;
+    g_first_thread = thread;
+    g_current_thread = thread;
 }
 
-void createKernelThread(Function0 func)
+void thread_create_kthread(Function0 func)
 {
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8*)thread, 0, sizeof(Thread));
 
-    thread->owner = gKernelProcess;
+    thread->owner = g_kernel_process;
 
-    thread->threadId = generateThreadId();
+    thread->threadId = generate_thread_id();
 
-    thread->userMode = 0;
+    thread->user_mode = 0;
 
-    resumeThread(thread);
+    thread_resume(thread);
 
-    thread->birthTime = get_uptime_milliseconds();
+    thread->birth_time = get_uptime_milliseconds();
 
-    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->messageQueueLock));
+    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->message_queue_lock));
 
     thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -140,9 +140,9 @@ void createKernelThread(Function0 func)
 
     thread->kstack.ss0 = 0x10;
     thread->kstack.esp0 = 0;//For kernel threads, this is not required
-    thread->kstack.stackStart = (uint32)stack;
+    thread->kstack.stack_start = (uint32)stack;
 
-    Thread* p = gCurrentThread;
+    Thread* p = g_current_thread;
 
     while (p->next != NULL)
     {
@@ -152,7 +152,7 @@ void createKernelThread(Function0 func)
     p->next = thread;
 }
 
-static int getStringArrayItemCount(char *const array[])
+static int get_string_array_item_count(char *const array[])
 {
     if (NULL == array)
     {
@@ -169,13 +169,13 @@ static int getStringArrayItemCount(char *const array[])
     return i;
 }
 
-static char** cloneStringArray(char *const array[])
+static char** clone_string_array(char *const array[])
 {
-    int itemCount = getStringArrayItemCount(array);
+    int item_count = get_string_array_item_count(array);
 
-    char** newArray = kmalloc(sizeof(char*) * (itemCount + 1));
+    char** new_array = kmalloc(sizeof(char*) * (item_count + 1));
 
-    for (int i = 0; i < itemCount; ++i)
+    for (int i = 0; i < item_count; ++i)
     {
         const char* str = array[i];
         int len = strlen(str);
@@ -183,15 +183,15 @@ static char** cloneStringArray(char *const array[])
         char* newStr = kmalloc(len + 1);
         strcpy(newStr, str);
 
-        newArray[i] = newStr;
+        new_array[i] = newStr;
     }
 
-    newArray[itemCount] = NULL;
+    new_array[item_count] = NULL;
 
-    return newArray;
+    return new_array;
 }
 
-static void destroyStringArray(char** array)
+static void destroy_string_array(char** array)
 {
     char* a = array[0];
 
@@ -208,54 +208,54 @@ static void destroyStringArray(char** array)
 }
 
 //This function must be called within the correct page directory for target process
-static void copyArgvEnvToProcess(uint32 location, void* elfData, char *const argv[], char *const envp[])
+static void copy_argv_env_to_process(uint32 location, void* elfData, char *const argv[], char *const envp[])
 {
     char** destination = (char**)location;
-    int destinationIndex = 0;
+    int destination_index = 0;
 
     //printkf("ARGVENV: destination:%x\n", destination);
 
-    int argvCount = getStringArrayItemCount(argv);
-    int envpCount = getStringArrayItemCount(envp);
+    int argv_count = get_string_array_item_count(argv);
+    int envp_count = get_string_array_item_count(envp);
 
-    //printkf("ARGVENV: argvCount:%d envpCount:%d\n", argvCount, envpCount);
+    //printkf("ARGVENV: argv_count:%d envp_count:%d\n", argv_count, envp_count);
 
-    char* stringTable = (char*)location + sizeof(char*) * (argvCount + envpCount + 3) + AUX_VECTOR_SIZE_BYTES;
+    char* string_table = (char*)location + sizeof(char*) * (argv_count + envp_count + 3) + AUX_VECTOR_SIZE_BYTES;
 
-    uint32 auxVectorLocation = location + sizeof(char*) * (argvCount + envpCount + 2);
+    uint32 aux_vector_location = location + sizeof(char*) * (argv_count + envp_count + 2);
 
-    //printkf("ARGVENV: stringTable:%x\n", stringTable);
+    //printkf("ARGVENV: string_table:%x\n", string_table);
 
-    for (int i = 0; i < argvCount; ++i)
+    for (int i = 0; i < argv_count; ++i)
     {
-        strcpy(stringTable, argv[i]);
+        strcpy(string_table, argv[i]);
 
-        destination[destinationIndex] = stringTable;
+        destination[destination_index] = string_table;
 
-        stringTable += strlen(argv[i]) + 2;
+        string_table += strlen(argv[i]) + 2;
 
-        destinationIndex++;
+        destination_index++;
     }
 
-    destination[destinationIndex++] = NULL;
+    destination[destination_index++] = NULL;
 
-    for (int i = 0; i < envpCount; ++i)
+    for (int i = 0; i < envp_count; ++i)
     {
-        strcpy(stringTable, envp[i]);
+        strcpy(string_table, envp[i]);
 
-        destination[destinationIndex] = stringTable;
+        destination[destination_index] = string_table;
 
-        stringTable += strlen(envp[i]) + 2;
+        string_table += strlen(envp[i]) + 2;
 
-        destinationIndex++;
+        destination_index++;
     }
 
-    destination[destinationIndex++] = NULL;
+    destination[destination_index++] = NULL;
 
-    fillAuxilaryVector(auxVectorLocation, elfData);
+    fill_auxilary_vector(aux_vector_location, elfData);
 }
 
-static void fillAuxilaryVector(uint32 location, void* elfData)
+static void fill_auxilary_vector(uint32 location, void* elf_data)
 {
     Elf32_auxv_t* auxv = (Elf32_auxv_t*)location;
 
@@ -263,8 +263,8 @@ static void fillAuxilaryVector(uint32 location, void* elfData)
 
     memset((uint8*)auxv, 0, AUX_VECTOR_SIZE_BYTES);
 
-    Elf32_Ehdr *hdr = (Elf32_Ehdr *) elfData;
-    Elf32_Phdr *p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
+    Elf32_Ehdr *hdr = (Elf32_Ehdr *) elf_data;
+    Elf32_Phdr *p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
 
     auxv[0].a_type = AT_HWCAP2;
     auxv[0].a_un.a_val = 0;
@@ -324,59 +324,59 @@ static void fillAuxilaryVector(uint32 location, void* elfData)
     auxv[17].a_un.a_val = 0;
 }
 
-Process* create_user_process_from_elf_data(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
+Process* process_create_from_elf_data(const char* name, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
-    return createUserProcessEx(name, generateProcessId(), generateThreadId(), NULL, elfData, argv, envp, parent, tty);
+    return process_create_ex(name, generate_process_id(), generate_thread_id(), NULL, elf_data, argv, envp, parent, tty);
 }
 
-Process* createUserProcessFromFunction(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
+Process* process_create_from_function(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
-    return createUserProcessEx(name, generateProcessId(), generateThreadId(), func, NULL, argv, envp, parent, tty);
+    return process_create_ex(name, generate_process_id(), generate_thread_id(), func, NULL, argv, envp, parent, tty);
 }
 
-Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
+Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id, Function0 func, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
-    uint32 imageDataEndInMemory = getElfEndInMemory((char*)elfData);
+    uint32 image_data_end_in_memory = elf_get_end_in_memory((char*)elf_data);
 
-    if (imageDataEndInMemory <= USER_OFFSET)
+    if (image_data_end_in_memory <= USER_OFFSET)
     {
         printkf("Could not start the process. Image's memory location is wrong! %s\n", name);
         return NULL;
     }
 
-    if (0 == processId)
+    if (0 == process_id)
     {
-        processId = generateProcessId();
+        process_id = generate_process_id();
     }
 
-    if (0 == threadId)
+    if (0 == thread_id)
     {
-        threadId = generateThreadId();
+        thread_id = generate_thread_id();
     }
 
     Process* process = (Process*)kmalloc(sizeof(Process));
     memset((uint8*)process, 0, sizeof(Process));
     strncpy(process->name, name, PROCESS_NAME_MAX);
     process->name[PROCESS_NAME_MAX - 1] = 0;
-    process->pid = processId;
+    process->pid = process_id;
     process->pd = vmm_acquire_page_directory();
-    process->workingDirectory = fs_get_root_node();
+    process->working_directory = fs_get_root_node();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8*)thread, 0, sizeof(Thread));
 
     thread->owner = process;
 
-    thread->threadId = threadId;
+    thread->threadId = thread_id;
 
-    thread->userMode = 1;
+    thread->user_mode = 1;
 
-    resumeThread(thread);
+    thread_resume(thread);
 
-    thread->birthTime = get_uptime_milliseconds();
+    thread->birth_time = get_uptime_milliseconds();
 
-    thread->messageQueue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->messageQueueLock));
+    thread->message_queue = FifoBuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    Spinlock_Init(&(thread->message_queue_lock));
 
     thread->signals = FifoBuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -386,7 +386,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     {
         process->parent = parent;
 
-        process->workingDirectory = parent->workingDirectory;
+        process->working_directory = parent->working_directory;
 
         process->tty = parent->tty;
     }
@@ -400,7 +400,7 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     {
         //TODO: unlock below when the old TTY system removed
         /*
-        TtyDev* ttyDev = (TtyDev*)process->tty->privateNodeData;
+        TtyDev* ttyDev = (TtyDev*)process->tty->private_node_data;
 
         if (ttyDev->controllingProcess == -1)
         {
@@ -415,52 +415,52 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     }
 
     //clone to kernel space since we are changing page directory soon
-    char** newArgv = cloneStringArray(argv);
-    char** newEnvp = cloneStringArray(envp);
+    char** new_argv = clone_string_array(argv);
+    char** new_envp = clone_string_array(envp);
 
     //Change memory view (page directory)
     CHANGE_PD(process->pd);
 
     vmm_initialize_process_pages(process);
 
-    uint32 sizeInMemory = imageDataEndInMemory - USER_OFFSET;
+    uint32 size_in_memory = image_data_end_in_memory - USER_OFFSET;
 
-    //printkf("image sizeInMemory:%d\n", sizeInMemory);
+    //printkf("image size_in_memory:%d\n", size_in_memory);
 
-    initialize_program_break(process, sizeInMemory);
+    initialize_program_break(process, size_in_memory);
 
 
-    const uint32 stackPageCount = 50;
-    char* vAddressStackPage = (char *) (USER_STACK - PAGESIZE_4K * stackPageCount);
-    uint32 stackFrames[stackPageCount];
-    for (uint32 i = 0; i < stackPageCount; ++i)
+    const uint32 stack_page_count = 50;
+    char* v_address_stack_page = (char *) (USER_STACK - PAGESIZE_4K * stack_page_count);
+    uint32 stack_frames[stack_page_count];
+    for (uint32 i = 0; i < stack_page_count; ++i)
     {
-        stackFrames[i] = vmm_acquire_page_frame_4k();
+        stack_frames[i] = vmm_acquire_page_frame_4k();
     }
-    void* stackVMem = vmm_map_memory(process, (uint32)vAddressStackPage, stackFrames, stackPageCount, TRUE);
-    if (NULL == stackVMem)
+    void* stack_v_mem = vmm_map_memory(process, (uint32)v_address_stack_page, stack_frames, stack_page_count, TRUE);
+    if (NULL == stack_v_mem)
     {
-        for (uint32 i = 0; i < stackPageCount; ++i)
+        for (uint32 i = 0; i < stack_page_count; ++i)
         {
-            vmm_release_page_frame_4k(stackFrames[i]);
+            vmm_release_page_frame_4k(stack_frames[i]);
         }
     }
 
-    uint32 pAddressArgsEnvAux[1];
-    pAddressArgsEnvAux[0] = vmm_acquire_page_frame_4k();
-    char* vAddressArgsEnvAux = (char *) (USER_STACK);
-    void* mapped = vmm_map_memory(process, (uint32)vAddressArgsEnvAux, pAddressArgsEnvAux, 1, TRUE);
+    uint32 p_address_args_env_aux[1];
+    p_address_args_env_aux[0] = vmm_acquire_page_frame_4k();
+    char* v_address_args_env_aux = (char *) (USER_STACK);
+    void* mapped = vmm_map_memory(process, (uint32)v_address_args_env_aux, p_address_args_env_aux, 1, TRUE);
     if (NULL == mapped)
     {
-        vmm_release_page_frame_4k(pAddressArgsEnvAux[0]);
+        vmm_release_page_frame_4k(p_address_args_env_aux[0]);
     }
     else
     {
-        copyArgvEnvToProcess(USER_STACK, elfData, newArgv, newEnvp);
+        copy_argv_env_to_process(USER_STACK, elf_data, new_argv, new_envp);
     }
 
-    destroyStringArray(newArgv);
-    destroyStringArray(newEnvp);
+    destroy_string_array(new_argv);
+    destroy_string_array(new_envp);
 
     uint32 selector = 0x23;
 
@@ -473,18 +473,18 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    uint32 stackPointer = USER_STACK - 4;
+    uint32 stack_pointer = USER_STACK - 4;
 
-    thread->regs.esp = stackPointer;
+    thread->regs.esp = stack_pointer;
 
 
 
     thread->kstack.ss0 = 0x10;
     uint8* stack = (uint8*)kmalloc(KERN_STACK_SIZE);
     thread->kstack.esp0 = (uint32)(stack + KERN_STACK_SIZE - 4);
-    thread->kstack.stackStart = (uint32)stack;
+    thread->kstack.stack_start = (uint32)stack;
 
-    Thread* p = gCurrentThread;
+    Thread* p = g_current_thread;
 
     while (p->next != NULL)
     {
@@ -493,20 +493,20 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 
     p->next = thread;
 
-    if (elfData)
+    if (elf_data)
     {
-        uint32 startLocation = loadElf((char*)elfData);
+        uint32 start_location = elf_load((char*)elf_data);
 
-        //printkf("process start location:%x\n", startLocation);
+        //printkf("process start location:%x\n", start_location);
 
-        if (startLocation > 0)
+        if (start_location > 0)
         {
-            thread->regs.eip = startLocation;
+            thread->regs.eip = start_location;
         }
     }
 
     //Restore memory view (page directory)
-    CHANGE_PD(gCurrentThread->regs.cr3);
+    CHANGE_PD(g_current_thread->regs.cr3);
 
     fs_open_for_process(thread, process->tty, 0);//0: standard input
     fs_open_for_process(thread, process->tty, 0);//1: standard output
@@ -516,18 +516,18 @@ Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId
 }
 
 //This function should be called in interrupts disabled state
-void destroyThread(Thread* thread)
+void thread_destroy(Thread* thread)
 {
     //TODO: signal the process somehow
-    Thread* previousThread = getPreviousThread(thread);
-    if (NULL != previousThread)
+    Thread* previous_thread = thread_get_previous(thread);
+    if (NULL != previous_thread)
     {
-        previousThread->next = thread->next;
+        previous_thread->next = thread->next;
 
-        kfree((void*)thread->kstack.stackStart);
+        kfree((void*)thread->kstack.stack_start);
 
-        Spinlock_Lock(&(thread->messageQueueLock));
-        FifoBuffer_destroy(thread->messageQueue);
+        Spinlock_Lock(&(thread->message_queue_lock));
+        FifoBuffer_destroy(thread->message_queue);
 
         FifoBuffer_destroy(thread->signals);
 
@@ -535,9 +535,9 @@ void destroyThread(Thread* thread)
 
         kfree(thread);
 
-        if (thread == gCurrentThread)
+        if (thread == g_current_thread)
         {
-            gCurrentThread = NULL;
+            g_current_thread = NULL;
         }
     }
     else
@@ -548,9 +548,9 @@ void destroyThread(Thread* thread)
 }
 
 //This function should be called in interrupts disabled state
-void destroyProcess(Process* process)
+void process_destroy(Process* process)
 {
-    Thread* thread = gFirstThread;
+    Thread* thread = g_first_thread;
     Thread* previous = NULL;
     while (thread)
     {
@@ -560,10 +560,10 @@ void destroyProcess(Process* process)
             {
                 previous->next = thread->next;
 
-                kfree((void*)thread->kstack.stackStart);
+                kfree((void*)thread->kstack.stack_start);
 
-                Spinlock_Lock(&(thread->messageQueueLock));
-                FifoBuffer_destroy(thread->messageQueue);
+                Spinlock_Lock(&(thread->message_queue_lock));
+                FifoBuffer_destroy(thread->message_queue);
 
                 FifoBuffer_destroy(thread->signals);
 
@@ -571,9 +571,9 @@ void destroyProcess(Process* process)
 
                 kfree(thread);
 
-                if (thread == gCurrentThread)
+                if (thread == g_current_thread)
                 {
-                    gCurrentThread = NULL;
+                    g_current_thread = NULL;
                 }
 
                 thread = previous->next;
@@ -596,14 +596,14 @@ void destroyProcess(Process* process)
 
     if (process->parent)
     {
-        thread = gFirstThread;
+        thread = g_first_thread;
         while (thread)
         {
             if (process->parent == thread->owner)
             {
                 if (thread->state == TS_WAITCHILD)
                 {
-                    resumeThread(thread);
+                    thread_resume(thread);
                 }
             }
 
@@ -613,42 +613,42 @@ void destroyProcess(Process* process)
 
     log_printf("destroying process %d\n", process->pid);
 
-    uint32 physicalPD = (uint32)process->pd;
+    uint32 physical_pd = (uint32)process->pd;
 
     kfree(process);
 
-    vmm_destroy_page_directory_with_memory(physicalPD);
+    vmm_destroy_page_directory_with_memory(physical_pd);
 }
 
-void changeProcessState(Process* process, ThreadState state)
+void process_change_state(Process* process, ThreadState state)
 {
-    Thread* thread = gFirstThread;
+    Thread* thread = g_first_thread;
 
     while (thread)
     {
         if (process == thread->owner)
         {
-            changeThreadState(thread, state, NULL);
+            thread_change_state(thread, state, NULL);
         }
 
         thread = thread->next;
     }
 }
 
-void changeThreadState(Thread* thread, ThreadState state, void* privateData)
+void thread_change_state(Thread* thread, ThreadState state, void* private_data)
 {
     thread->state = state;
-    thread->state_privateData = privateData;
+    thread->state_privateData = private_data;
 }
 
-void resumeThread(Thread* thread)
+void thread_resume(Thread* thread)
 {
     thread->state = TS_RUN;
     thread->state_privateData = NULL;
 }
 
 //must be called in interrupts disabled
-BOOL signalThread(Thread* thread, uint8 signal)
+BOOL thread_signal(Thread* thread, uint8 signal)
 {
     //TODO: check for ignore mask
 
@@ -667,7 +667,7 @@ BOOL signalThread(Thread* thread, uint8 signal)
         if (FifoBuffer_getFree(thread->signals) > 0)
         {
             FifoBuffer_enqueue(thread->signals, &signal, 1);
-            thread->pendingSignalCount = FifoBuffer_getSize(thread->signals);
+            thread->pending_signal_count = FifoBuffer_getSize(thread->signals);
 
             if (thread->state == TS_WAITIO)
             {
@@ -682,15 +682,15 @@ BOOL signalThread(Thread* thread, uint8 signal)
     return result;
 }
 
-BOOL signalProcess(uint32 pid, uint8 signal)
+BOOL process_signal(uint32 pid, uint8 signal)
 {
-    Thread* t = getMainKernelThread();
+    Thread* t = thread_get_first();
 
     while (t != NULL)
     {
         if (t->owner->pid == pid)
         {
-            if (signalThread(t, signal))
+            if (thread_signal(t, signal))
             {
                 //only one thread should receive a signal per process!
                 return TRUE;
@@ -702,9 +702,9 @@ BOOL signalProcess(uint32 pid, uint8 signal)
     return FALSE;
 }
 
-void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
+void thread_state_to_string(ThreadState state, uint8* buffer, uint32 buffer_size)
 {
-    if (bufferSize < 1)
+    if (buffer_size < 1)
     {
         return;
     }
@@ -714,38 +714,38 @@ void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize)
     switch (state)
     {
     case TS_RUN:
-        strncpy_null((char*)buffer, "run", bufferSize);
+        strncpy_null((char*)buffer, "run", buffer_size);
         break;
     case TS_SLEEP:
-        strncpy_null((char*)buffer, "sleep", bufferSize);
+        strncpy_null((char*)buffer, "sleep", buffer_size);
         break;
     case TS_SUSPEND:
-        strncpy_null((char*)buffer, "suspend", bufferSize);
+        strncpy_null((char*)buffer, "suspend", buffer_size);
         break;
     case TS_WAITCHILD:
-        strncpy_null((char*)buffer, "waitchild", bufferSize);
+        strncpy_null((char*)buffer, "waitchild", buffer_size);
         break;
     case TS_WAITIO:
-        strncpy_null((char*)buffer, "waitio", bufferSize);
+        strncpy_null((char*)buffer, "waitio", buffer_size);
         break;
     case TS_SELECT:
-        strncpy_null((char*)buffer, "select", bufferSize);
+        strncpy_null((char*)buffer, "select", buffer_size);
         break;
     case TS_CRITICAL:
-        strncpy_null((char*)buffer, "critical", bufferSize);
+        strncpy_null((char*)buffer, "critical", buffer_size);
         break;
     case TS_DEAD:
-        strncpy_null((char*)buffer, "dead", bufferSize);
+        strncpy_null((char*)buffer, "dead", buffer_size);
         break;
     case TS_UNINTERRUPTIBLE:
-        strncpy_null((char*)buffer, "uninterruptible", bufferSize);
+        strncpy_null((char*)buffer, "uninterruptible", buffer_size);
         break;
     default:
         break;
     }
 }
 
-void waitForSchedule()
+void wait_for_schedule()
 {
     //Screen_PrintF("Waiting for a schedule()\n");
 
@@ -755,10 +755,10 @@ void waitForSchedule()
         halt();
     }
     disableInterrupts();
-    PANIC("waitForSchedule(): Should not be reached here!!!\n");
+    PANIC("wait_for_schedule(): Should not be reached here!!!\n");
 }
 
-int32 getEmptyFd(Process* process)
+int32 process_get_empty_fd(Process* process)
 {
     int32 result = -1;
 
@@ -778,17 +778,17 @@ int32 getEmptyFd(Process* process)
     return result;
 }
 
-int32 addFileToProcess(Process* process, File* file)
+int32 process_add_file(Process* process, File* file)
 {
     int32 result = -1;
 
     begin_critical_section();
 
-    //Screen_PrintF("addFileToProcess: pid:%d\n", process->pid);
+    //Screen_PrintF("process_add_file: pid:%d\n", process->pid);
 
     for (int i = 0; i < MAX_OPENED_FILES; ++i)
     {
-        //Screen_PrintF("addFileToProcess: i:%d fd[%d]:%x\n", i, i, process->fd[i]);
+        //Screen_PrintF("process_add_file: i:%d fd[%d]:%x\n", i, i, process->fd[i]);
         if (process->fd[i] == NULL)
         {
             result = i;
@@ -803,7 +803,7 @@ int32 addFileToProcess(Process* process, File* file)
     return result;
 }
 
-int32 removeFileFromProcess(Process* process, File* file)
+int32 process_remove_file(Process* process, File* file)
 {
     int32 result = -1;
 
@@ -824,9 +824,9 @@ int32 removeFileFromProcess(Process* process, File* file)
     return result;
 }
 
-Thread* getThreadById(uint32 threadId)
+Thread* thread_get_by_id(uint32 threadId)
 {
-    Thread* p = gFirstThread;
+    Thread* p = g_first_thread;
 
     while (p != NULL)
     {
@@ -840,9 +840,9 @@ Thread* getThreadById(uint32 threadId)
     return NULL;
 }
 
-Thread* getPreviousThread(Thread* thread)
+Thread* thread_get_previous(Thread* thread)
 {
-    Thread* t = gFirstThread;
+    Thread* t = g_first_thread;
 
     while (t->next != NULL)
     {
@@ -856,19 +856,19 @@ Thread* getPreviousThread(Thread* thread)
     return NULL;
 }
 
-Thread* getMainKernelThread()
+Thread* thread_get_first()
 {
-    return gFirstThread;
+    return g_first_thread;
 }
 
-Thread* get_current_thread()
+Thread* thread_get_current()
 {
-    return gCurrentThread;
+    return g_current_thread;
 }
 
-BOOL isThreadValid(Thread* thread)
+BOOL thread_is_valid(Thread* thread)
 {
-    Thread* p = gFirstThread;
+    Thread* p = g_first_thread;
 
     while (p != NULL)
     {
@@ -882,9 +882,9 @@ BOOL isThreadValid(Thread* thread)
     return FALSE;
 }
 
-BOOL isProcessValid(Process* process)
+BOOL process_is_valid(Process* process)
 {
-    Thread* p = gFirstThread;
+    Thread* p = g_first_thread;
 
     while (p != NULL)
     {
@@ -898,33 +898,33 @@ BOOL isProcessValid(Process* process)
     return FALSE;
 }
 
-static void switchToTask(Thread* current, int mode);
+static void thread_switch_to(Thread* thread, int mode);
 
-static void updateUsageMetrics()
+static void thread_update_usage_metrics()
 {
     uint32 seconds = get_uptime_seconds();
 
-    if (seconds > gUsageMarkPoint)
+    if (seconds > g_usage_mark_point)
     {
-        gUsageMarkPoint = seconds;
+        g_usage_mark_point = seconds;
 
-        const uint32 millisecondsPassed = 1000;
+        const uint32 milliseconds_passed = 1000;
 
-        Thread* t = gFirstThread;
+        Thread* t = g_first_thread;
         while (NULL != t)
         {
-            uint32 consumedFromMark = t->consumedCPUTimeMs - t->consumedCPUTimeMsAtPrevMark;
+            uint32 consumed_from_mark = t->consumed_cpu_time_ms - t->consumed_cpu_time_ms_at_prev_mark;
 
-            t->usageCPU = (100 * consumedFromMark) / millisecondsPassed;
+            t->usage_cpu = (100 * consumed_from_mark) / milliseconds_passed;
 
-            t->consumedCPUTimeMsAtPrevMark = t->consumedCPUTimeMs;
+            t->consumed_cpu_time_ms_at_prev_mark = t->consumed_cpu_time_ms;
             
             t = t->next;
         }
     }    
 }
 
-static void updateThreadState(Thread* t)
+static void thread_update_state(Thread* t)
 {
     if (t->state == TS_SLEEP)
     {
@@ -933,26 +933,26 @@ static void updateThreadState(Thread* t)
 
         if (uptime >= target)
         {
-            resumeThread(t);
+            thread_resume(t);
         }
     }
     else if (t->state == TS_SELECT)
     {
         select_update(t);
 
-        if (t->select.selectState == SS_FINISHED)
+        if (t->select.select_state == SS_FINISHED)
         {
-            resumeThread(t);
+            thread_resume(t);
         }
     }
 }
 
-static Thread* lookThreads(Thread* current)
+static Thread* look_threads(Thread* current)
 {
     Thread* t = current->next;
     while (NULL != t)
     {
-        updateThreadState(t);
+        thread_update_state(t);
 
         if (t->state == TS_RUN)
         {
@@ -966,19 +966,19 @@ static Thread* lookThreads(Thread* current)
     //Reached the last thread. Let's try from first thread up to the current including.
     //Of course this makes sense if current is not the first one already.
 
-    if (current == gFirstThread)
+    if (current == g_first_thread)
     {
         //We already searched for all threads
 
         //Desperately return idle thread
-        return gFirstThread;
+        return g_first_thread;
     }
     else
     {
-        t = gFirstThread->next;
+        t = g_first_thread->next;
         while (NULL != t)
         {
-            updateThreadState(t);
+            thread_update_state(t);
 
             if (t->state == TS_RUN)
             {
@@ -996,13 +996,13 @@ static Thread* lookThreads(Thread* current)
     }
 
     //Desperately return idle thread
-    return gFirstThread;
+    return g_first_thread;
 }
 
-static void endContext(TimerInt_Registers* registers, Thread* thread)
+static void end_context(TimerInt_Registers* registers, Thread* thread)
 {
-    thread->contextEndTime = get_uptime_milliseconds();
-    thread->consumedCPUTimeMs += thread->contextEndTime - thread->contextStartTime;
+    thread->context_end_time = get_uptime_milliseconds();
+    thread->consumed_cpu_time_ms += thread->context_end_time - thread->context_start_time;
 
     thread->regs.eflags = registers->eflags;
     thread->regs.cs = registers->cs;
@@ -1037,35 +1037,35 @@ static void endContext(TimerInt_Registers* registers, Thread* thread)
     thread->kstack.esp0 = g_tss.esp0;
 }
 
-static void startContext(Thread* thread)
+static void start_context(Thread* thread)
 {
-    gCurrentThread = thread;//Now gCurrentThread is the thread we are about to schedule to
+    g_current_thread = thread;//Now g_current_thread is the thread we are about to schedule to
 
-    thread->contextStartTime = get_uptime_milliseconds();
+    thread->context_start_time = get_uptime_milliseconds();
 
-    ++gSystemContextSwitchCount;
+    ++g_system_context_switch_count;
 
-    ++thread->contextSwitchCount;
+    ++thread->context_switch_count;
 
     if (thread->regs.cs != 0x08)
     {
-        switchToTask(thread, USERMODE);
+        thread_switch_to(thread, USERMODE);
     }
     else
     {
-        switchToTask(thread, KERNELMODE);
+        thread_switch_to(thread, KERNELMODE);
     }
 }
 
 void schedule(TimerInt_Registers* registers)
 {
-    Thread* current = gCurrentThread;
+    Thread* current = g_current_thread;
 
-    Thread* readyThread = NULL;
+    Thread* ready_thread = NULL;
 
     if (NULL != current)
     {
-        if (current->next == NULL && current == gFirstThread)
+        if (current->next == NULL && current == g_first_thread)
         {
             //We are the only thread, no need to schedule
             return;
@@ -1076,26 +1076,26 @@ void schedule(TimerInt_Registers* registers)
             return;
         }
 
-        endContext(registers, current);
+        end_context(registers, current);
 
-        readyThread = lookThreads(current);
+        ready_thread = look_threads(current);
     }
     else
     {
         //current is NULL. This means the thread is destroyed.
 
-        readyThread = lookThreads(gFirstThread);
+        ready_thread = look_threads(g_first_thread);
     }
 
-    if (readyThread != gFirstThread)
+    if (ready_thread != g_first_thread)
     {
-        if (FifoBuffer_getSize(readyThread->signals) > 0)
+        if (FifoBuffer_getSize(ready_thread->signals) > 0)
         {
             uint8 signal = 0;
-            FifoBuffer_dequeue(readyThread->signals, &signal, 1);
-            readyThread->pendingSignalCount = FifoBuffer_getSize(readyThread->signals);
+            FifoBuffer_dequeue(ready_thread->signals, &signal, 1);
+            ready_thread->pending_signal_count = FifoBuffer_getSize(ready_thread->signals);
 
-            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32)signal, readyThread->owner->pid);
+            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32)signal, ready_thread->owner->pid);
 
             //TODO: call signal handlers
 
@@ -1106,17 +1106,17 @@ void schedule(TimerInt_Registers* registers)
             case SIGSEGV:
             case SIGINT:
             case SIGILL:
-                printkf("Killing pid:%d in scheduler!\n", readyThread->owner->pid);
+                printkf("Killing pid:%d in scheduler!\n", ready_thread->owner->pid);
             
-                destroyProcess(readyThread->owner);
+                process_destroy(ready_thread->owner);
 
-                readyThread = lookThreads(gFirstThread);
+                ready_thread = look_threads(g_first_thread);
                 break;
             case SIGSTOP:
             case SIGTSTP:
-                readyThread->state = TS_SUSPEND;
+                ready_thread->state = TS_SUSPEND;
 
-                readyThread = lookThreads(gFirstThread);
+                ready_thread = look_threads(g_first_thread);
                 break;
             
             default:
@@ -1126,40 +1126,40 @@ void schedule(TimerInt_Registers* registers)
         }
     }
 
-    updateUsageMetrics();
+    thread_update_usage_metrics();
 
-    startContext(readyThread);
+    start_context(ready_thread);
 }
 
 
 
 //The mode indicates whether this process was in user mode or kernel mode
 //When it was previously interrupted by the scheduler.
-static void switchToTask(Thread* current, int mode)
+static void thread_switch_to(Thread* thread, int mode)
 {
     uint32 kesp, eflags;
     uint16 kss, ss, cs;
 
     //Set TSS values
-    g_tss.ss0 = current->kstack.ss0;
-    g_tss.esp0 = current->kstack.esp0;
+    g_tss.ss0 = thread->kstack.ss0;
+    g_tss.esp0 = thread->kstack.esp0;
 
-    ss = current->regs.ss;
-    cs = current->regs.cs;
-    eflags = (current->regs.eflags | 0x200) & 0xFFFFBFFF;
+    ss = thread->regs.ss;
+    cs = thread->regs.cs;
+    eflags = (thread->regs.eflags | 0x200) & 0xFFFFBFFF;
 
     if (mode == USERMODE)
     {
-        kss = current->kstack.ss0;
-        kesp = current->kstack.esp0;
+        kss = thread->kstack.ss0;
+        kesp = thread->kstack.esp0;
     }
     else
     {
-        kss = current->regs.ss;
-        kesp = current->regs.esp;
+        kss = thread->regs.ss;
+        kesp = thread->regs.esp;
     }
 
-    //switchTask is in task.asm
+    //switch_task is in task.asm
 
     asm("	mov %0, %%ss; \
         mov %1, %%esp; \
@@ -1172,16 +1172,16 @@ static void switchToTask(Thread* current, int mode)
         push %5; \
         push %6; \
         push %7; \
-        ljmp $0x08, $switchTask"
+        ljmp $0x08, $switch_task"
         :: \
         "m"(kss), \
         "m"(kesp), \
         "m"(ss), \
-        "m"(current->regs.esp), \
+        "m"(thread->regs.esp), \
         "m"(eflags), \
         "m"(cs), \
-        "m"(current->regs.eip), \
-        "m"(current), \
+        "m"(thread->regs.eip), \
+        "m"(thread), \
         [KMODE] "i"(KERNELMODE), \
         [mode] "g"(mode)
         );

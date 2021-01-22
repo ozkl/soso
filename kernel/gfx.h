@@ -5,7 +5,7 @@
 
 void gfx_initialize(uint32* pixels, uint32 width, uint32 height, uint32 bytesPerPixel, uint32 pitch);
 
-void Gfx_PutCharAt(
+void gfx_put_char_at(
     /* note that this is int, not char as it's a unicode character */
     unsigned short int c,
     /* cursor position on screen, in characters not in pixels */
@@ -15,10 +15,10 @@ void Gfx_PutCharAt(
 
 
 
-uint8* Gfx_GetVideoMemory();
-uint16 Gfx_GetWidth();
-uint16 Gfx_GetHeight();
-uint16 Gfx_GetBytesPerPixel();
-void Gfx_Fill(uint32 color);
+uint8* gfx_get_video_memory();
+uint16 gfx_get_width();
+uint16 gfx_get_height();
+uint16 gfx_get_bytes_per_pixel();
+void gfx_fill(uint32 color);
 
 #endif // GFX_H

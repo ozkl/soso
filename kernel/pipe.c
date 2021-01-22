@@ -59,7 +59,7 @@ static FileSystemDirent *pipes_readdir(FileSystemNode *node, uint32 index)
         if (counter == index)
         {
             strcpy(g_dirent.name, p->name);
-            g_dirent.fileType = FT_Pipe;
+            g_dirent.file_type = FT_PIPE;
 
             return &g_dirent;
         }
@@ -92,7 +92,7 @@ static void block_accessing_threads(Pipe* pipe, List* list)
     {
         Thread* reader = n->data;
 
-        changeThreadState(reader, TS_WAITIO, pipe);
+        thread_change_state(reader, TS_WAITIO, pipe);
     }
 
     enableInterrupts();
@@ -112,7 +112,7 @@ static void wakeup_accessing_threads(Pipe* pipe, List* list)
         {
             if (reader->state_privateData == pipe)
             {
-                resumeThread(reader);
+                thread_resume(reader);
             }
         }
     }
@@ -126,9 +126,9 @@ static BOOL pipe_open(File *file, uint32 flags)
     {
         begin_critical_section();
 
-        gCurrentThread->state = TS_CRITICAL;
+        g_current_thread->state = TS_CRITICAL;
 
-        Pipe* pipe = file->node->privateNodeData;
+        Pipe* pipe = file->node->private_node_data;
 
         pipe->isBroken = FALSE;
 
@@ -143,7 +143,7 @@ static BOOL pipe_open(File *file, uint32 flags)
             List_Append(pipe->writers, file->thread);
         }
 
-        gCurrentThread->state = TS_RUN;
+        g_current_thread->state = TS_RUN;
 
         end_critical_section();
 
@@ -157,7 +157,7 @@ static void pipe_close(File *file)
 {
     begin_critical_section();
 
-    Pipe* pipe = file->node->privateNodeData;
+    Pipe* pipe = file->node->private_node_data;
 
     if (CHECK_ACCESS(file->flags, O_RDONLY))
     {
@@ -181,7 +181,7 @@ static void pipe_close(File *file)
 
 static BOOL pipe_read_test_ready(File *file)
 {
-    Pipe* pipe = file->node->privateNodeData;
+    Pipe* pipe = file->node->private_node_data;
 
     if (FifoBuffer_getSize(pipe->buffer) > 0)
     {
@@ -198,7 +198,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    Pipe* pipe = file->node->privateNodeData;
+    Pipe* pipe = file->node->private_node_data;
 
     uint32 used = 0;
     while (pipe_read_test_ready(file) == FALSE)
@@ -209,7 +209,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
             return -EPIPE;
         }
 
-        if (gCurrentThread->pendingSignalCount > 0)
+        if (g_current_thread->pending_signal_count > 0)
         {
             return -EINTR;
         }
@@ -217,7 +217,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
         block_accessing_threads(pipe, pipe->readers);
     }
 
-    if (gCurrentThread->pendingSignalCount > 0)
+    if (g_current_thread->pending_signal_count > 0)
     {
         return -EINTR;
     }
@@ -235,7 +235,7 @@ static int32 pipe_read(File *file, uint32 size, uint8 *buffer)
 
 static BOOL pipe_write_test_ready(File *file)
 {
-    Pipe* pipe = file->node->privateNodeData;
+    Pipe* pipe = file->node->private_node_data;
 
     begin_critical_section();
     int readerCount = List_GetCount(pipe->readers);
@@ -256,7 +256,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    Pipe* pipe = file->node->privateNodeData;
+    Pipe* pipe = file->node->private_node_data;
 
     uint32 free = 0;
     while (pipe_write_test_ready(file) == FALSE)
@@ -267,7 +267,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
             return -EPIPE;
         }
 
-        if (gCurrentThread->pendingSignalCount > 0)
+        if (g_current_thread->pending_signal_count > 0)
         {
             return -EINTR;
         }
@@ -275,7 +275,7 @@ static int32 pipe_write(File *file, uint32 size, uint8 *buffer)
         block_accessing_threads(pipe, pipe->writers);
     }
 
-    if (gCurrentThread->pendingSignalCount > 0)
+    if (g_current_thread->pending_signal_count > 0)
     {
         return -EINTR;
     }
@@ -313,13 +313,13 @@ BOOL pipe_create(const char* name, uint32 bufferSize)
 
     pipe->fsNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8*)pipe->fsNode, 0, sizeof(FileSystemNode));
-    pipe->fsNode->privateNodeData = pipe;
+    pipe->fsNode->private_node_data = pipe;
     pipe->fsNode->open = pipe_open;
     pipe->fsNode->close = pipe_close;
     pipe->fsNode->read = pipe_read;
     pipe->fsNode->write = pipe_write;
-    pipe->fsNode->readTestReady = pipe_read_test_ready;
-    pipe->fsNode->writeTestReady = pipe_write_test_ready;
+    pipe->fsNode->read_test_ready = pipe_read_test_ready;
+    pipe->fsNode->write_test_ready = pipe_write_test_ready;
 
     List_Append(g_pipe_list, pipe);
 

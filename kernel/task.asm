@@ -1,6 +1,6 @@
-global switchTask
+global switch_task
 
-switchTask:
+switch_task:
         mov esi, [esp]
         pop eax			; *current thread
 

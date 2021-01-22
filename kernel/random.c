@@ -13,7 +13,7 @@ void random_initialize()
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "random");
-    device.device_type = FT_CharacterDevice;
+    device.device_type = FT_CHARACTER_DEVICE;
     device.open = random_open;
     device.read = random_read;
 

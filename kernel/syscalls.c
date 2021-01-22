@@ -64,9 +64,9 @@ struct k_sigaction {
  *
  **************/
 
-static void handleSyscall(Registers* regs);
+static void handle_syscall(Registers* regs);
 
-static void* gSyscallTable[SYSCALL_COUNT];
+static void* g_syscall_table[SYSCALL_COUNT];
 
 struct rusage;
 
@@ -87,19 +87,19 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[]);
 int syscall_execve(const char *path, char *const argv[], char *const envp[]);
 int syscall_wait(int *wstatus);
 int syscall_kill(int pid, int sig);
-int syscall_mount(const char *source, const char *target, const char *fsType, unsigned long flags, void *data);
+int syscall_mount(const char *source, const char *target, const char *fs_type, unsigned long flags, void *data);
 int syscall_unmount(const char *target);
 int syscall_mkdir(const char *path, uint32 mode);
 int syscall_rmdir(const char *path);
 int syscall_getdents(int fd, char *buf, int nbytes);
-int syscall_getWorkingDirectory(char *buf, int size);
-int syscall_setWorkingDirectory(const char *path);
-int syscall_managePipe(const char *pipeName, int operation, int data);
-int syscall_readDir(int fd, void *dirent, int index);
-int syscall_getUptimeMilliseconds();
-int syscall_sleepMilliseconds(int ms);
-int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
-int syscall_manageMessage(int command, void* message);
+int syscall_get_working_directory(char *buf, int size);
+int syscall_set_working_directory(const char *path);
+int syscall_manage_pipe(const char *pipe_name, int operation, int data);
+int syscall_read_dir_(int fd, void *dirent, int index);
+int syscall_get_uptime_ms();
+int syscall_sleep_ms(int ms);
+int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
+int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32 sigsetsize);
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_munmap(void *addr, int length);
@@ -124,72 +124,72 @@ int32 syscall_clock_gettime64(int32 clockid, struct timespec *tp);
 int32 syscall_clock_settime64(int32 clockid, const struct timespec *tp);
 int32 syscall_clock_getres64(int32 clockid, struct timespec *res);
 
-void initialize_syscalls()
+void syscalls_initialize()
 {
-    memset((uint8*)gSyscallTable, 0, sizeof(void*) * SYSCALL_COUNT);
+    memset((uint8*)g_syscall_table, 0, sizeof(void*) * SYSCALL_COUNT);
 
-    gSyscallTable[SYS_open] = syscall_open;
-    gSyscallTable[SYS_close] = syscall_close;
-    gSyscallTable[SYS_read] = syscall_read;
-    gSyscallTable[SYS_write] = syscall_write;
-    gSyscallTable[SYS_lseek] = syscall_lseek;
-    gSyscallTable[SYS_stat] = syscall_stat;
-    gSyscallTable[SYS_fstat] = syscall_fstat;
-    gSyscallTable[SYS_ioctl] = syscall_ioctl;
-    gSyscallTable[SYS_exit] = syscall_exit;
-    gSyscallTable[SYS_sbrk] = syscall_sbrk;
-    gSyscallTable[SYS_fork] = syscall_fork;
-    gSyscallTable[SYS_getpid] = syscall_getpid;
+    g_syscall_table[SYS_open] = syscall_open;
+    g_syscall_table[SYS_close] = syscall_close;
+    g_syscall_table[SYS_read] = syscall_read;
+    g_syscall_table[SYS_write] = syscall_write;
+    g_syscall_table[SYS_lseek] = syscall_lseek;
+    g_syscall_table[SYS_stat] = syscall_stat;
+    g_syscall_table[SYS_fstat] = syscall_fstat;
+    g_syscall_table[SYS_ioctl] = syscall_ioctl;
+    g_syscall_table[SYS_exit] = syscall_exit;
+    g_syscall_table[SYS_sbrk] = syscall_sbrk;
+    g_syscall_table[SYS_fork] = syscall_fork;
+    g_syscall_table[SYS_getpid] = syscall_getpid;
 
-    gSyscallTable[SYS_execute] = syscall_execute;
-    gSyscallTable[SYS_execve] = syscall_execve;
-    gSyscallTable[SYS_wait] = syscall_wait;
-    gSyscallTable[SYS_kill] = syscall_kill;
-    gSyscallTable[SYS_mount] = syscall_mount;
-    gSyscallTable[SYS_unmount] = syscall_unmount;
-    gSyscallTable[SYS_mkdir] = syscall_mkdir;
-    gSyscallTable[SYS_rmdir] = syscall_rmdir;
-    gSyscallTable[SYS_getdents] = syscall_getdents;
-    gSyscallTable[SYS_getWorkingDirectory] = syscall_getWorkingDirectory;
-    gSyscallTable[SYS_setWorkingDirectory] = syscall_setWorkingDirectory;
-    gSyscallTable[SYS_managePipe] = syscall_managePipe;
-    gSyscallTable[SYS_readDir] = syscall_readDir;
-    gSyscallTable[SYS_getUptimeMilliseconds] = syscall_getUptimeMilliseconds;
-    gSyscallTable[SYS_sleepMilliseconds] = syscall_sleepMilliseconds;
-    gSyscallTable[SYS_executeOnTTY] = syscall_executeOnTTY;
-    gSyscallTable[SYS_manageMessage] = syscall_manageMessage;
-    gSyscallTable[SYS_rt_sigaction] = syscall_rt_sigaction;
-    gSyscallTable[SYS_mmap] = syscall_mmap;
-    gSyscallTable[SYS_munmap] = syscall_munmap;
-    gSyscallTable[SYS_shm_open] = syscall_shm_open;
-    gSyscallTable[SYS_shm_unlink] = syscall_shm_unlink;
-    gSyscallTable[SYS_ftruncate] = syscall_ftruncate;
-    gSyscallTable[SYS_posix_openpt] = syscall_posix_openpt;
-    gSyscallTable[SYS_ptsname_r] = syscall_ptsname_r;
-    gSyscallTable[SYS_printk] = syscall_printk;
-    gSyscallTable[SYS_readv] = syscall_readv;
-    gSyscallTable[SYS_writev] = syscall_writev;
-    gSyscallTable[SYS_set_thread_area] = syscall_set_thread_area;
-    gSyscallTable[SYS_set_tid_address] = syscall_set_tid_address;
-    gSyscallTable[SYS_exit_group] = syscall_exit_group;
-    gSyscallTable[SYS_llseek] = syscall_llseek;
-    gSyscallTable[SYS_select] = syscall_select;
-    gSyscallTable[SYS_statx] = syscall_statx;
-    gSyscallTable[SYS_wait4] = syscall_wait4;
-    gSyscallTable[SYS_clock_gettime64] = syscall_clock_gettime64;
-    gSyscallTable[SYS_clock_settime64] = syscall_clock_settime64;
-    gSyscallTable[SYS_clock_getres64] = syscall_clock_getres64;
+    g_syscall_table[SYS_execute] = syscall_execute;
+    g_syscall_table[SYS_execve] = syscall_execve;
+    g_syscall_table[SYS_wait] = syscall_wait;
+    g_syscall_table[SYS_kill] = syscall_kill;
+    g_syscall_table[SYS_mount] = syscall_mount;
+    g_syscall_table[SYS_unmount] = syscall_unmount;
+    g_syscall_table[SYS_mkdir] = syscall_mkdir;
+    g_syscall_table[SYS_rmdir] = syscall_rmdir;
+    g_syscall_table[SYS_getdents] = syscall_getdents;
+    g_syscall_table[SYS_getWorkingDirectory] = syscall_get_working_directory;
+    g_syscall_table[SYS_setWorkingDirectory] = syscall_set_working_directory;
+    g_syscall_table[SYS_managePipe] = syscall_manage_pipe;
+    g_syscall_table[SYS_readDir] = syscall_read_dir_;
+    g_syscall_table[SYS_getUptimeMilliseconds] = syscall_get_uptime_ms;
+    g_syscall_table[SYS_sleepMilliseconds] = syscall_sleep_ms;
+    g_syscall_table[SYS_executeOnTTY] = syscall_execute_on_tty;
+    g_syscall_table[SYS_manageMessage] = syscall_manage_message;
+    g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
+    g_syscall_table[SYS_mmap] = syscall_mmap;
+    g_syscall_table[SYS_munmap] = syscall_munmap;
+    g_syscall_table[SYS_shm_open] = syscall_shm_open;
+    g_syscall_table[SYS_shm_unlink] = syscall_shm_unlink;
+    g_syscall_table[SYS_ftruncate] = syscall_ftruncate;
+    g_syscall_table[SYS_posix_openpt] = syscall_posix_openpt;
+    g_syscall_table[SYS_ptsname_r] = syscall_ptsname_r;
+    g_syscall_table[SYS_printk] = syscall_printk;
+    g_syscall_table[SYS_readv] = syscall_readv;
+    g_syscall_table[SYS_writev] = syscall_writev;
+    g_syscall_table[SYS_set_thread_area] = syscall_set_thread_area;
+    g_syscall_table[SYS_set_tid_address] = syscall_set_tid_address;
+    g_syscall_table[SYS_exit_group] = syscall_exit_group;
+    g_syscall_table[SYS_llseek] = syscall_llseek;
+    g_syscall_table[SYS_select] = syscall_select;
+    g_syscall_table[SYS_statx] = syscall_statx;
+    g_syscall_table[SYS_wait4] = syscall_wait4;
+    g_syscall_table[SYS_clock_gettime64] = syscall_clock_gettime64;
+    g_syscall_table[SYS_clock_settime64] = syscall_clock_settime64;
+    g_syscall_table[SYS_clock_getres64] = syscall_clock_getres64;
 
     // Register our syscall handler.
-    interrupt_register (0x80, &handleSyscall);
+    interrupt_register (0x80, &handle_syscall);
 }
 
-static void handleSyscall(Registers* regs)
+static void handle_syscall(Registers* regs)
 {
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
     Process* process = thread->owner;
 
-    ++thread->calledSyscallCount;
+    ++thread->called_syscall_count;
 
     if (regs->eax >= SYSCALL_COUNT)
     {
@@ -200,7 +200,7 @@ static void handleSyscall(Registers* regs)
         return;
     }
 
-    void *location = gSyscallTable[regs->eax];
+    void *location = g_syscall_table[regs->eax];
 
     if (NULL == location)
     {
@@ -252,7 +252,7 @@ int syscall_open(const char *pathname, int flags)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(pathname, process);
@@ -272,7 +272,7 @@ int syscall_open(const char *pathname, int flags)
 
 int syscall_close(int fd)
 {
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -312,7 +312,7 @@ int syscall_read(int fd, void *buf, int nbytes)
 
     //Screen_PrintF("syscall_read: begin - nbytes:%d\n", nbytes);
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -357,7 +357,7 @@ int syscall_write(int fd, void *buf, int nbytes)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         //Screen_PrintF("syscall_write() called from process: %d. fd:%d\n", process->pid, fd);
@@ -470,7 +470,7 @@ int syscall_set_tid_address(void* p)
         return -EFAULT;
     }
 
-    return get_current_thread()->threadId;
+    return thread_get_current()->threadId;
 }
 
 int syscall_exit_group(int status)
@@ -480,7 +480,7 @@ int syscall_exit_group(int status)
 
 int syscall_lseek(int fd, int offset, int whence)
 {
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -522,7 +522,7 @@ int syscall_llseek(unsigned int fd, unsigned int offset_high,
 
     //this syscall is used for large files in 32 bit systems for the offset (offset_high<<32) | offset_low
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     //printkf("syscall_llseek() called from process: %d. fd:%d\n", process->pid, fd);
 
     if (offset_high != 0)
@@ -554,7 +554,7 @@ int syscall_stat(const char *path, struct stat *buf)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
@@ -579,7 +579,7 @@ int syscall_fstat(int fd, struct stat *buf)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -614,7 +614,7 @@ int syscall_ioctl(int fd, int32 request, void *arg)
     //We don't check_user_access() for arg here. Because it is not always a pointer.
     //So it is driver's responsibility to check_user_access(arg) for using it as a pointer.
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         //serial_printf("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
@@ -647,11 +647,11 @@ int syscall_ioctl(int fd, int32 request, void *arg)
 
 int syscall_exit()
 {
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
 
-    signalThread(thread, SIGTERM);
+    thread_signal(thread, SIGTERM);
     
-    waitForSchedule();
+    wait_for_schedule();
 
     return -1;
 }
@@ -660,7 +660,7 @@ void* syscall_sbrk(uint32 increment)
 {
     //Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         return sbrk(process, increment);
@@ -682,7 +682,7 @@ int syscall_fork()
 
 int syscall_getpid()
 {
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         return process->pid;
@@ -715,7 +715,7 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
     int result = -1;
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
@@ -728,22 +728,22 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
 
                 //Screen_PrintF("executing %s and its %d bytes\n", filename, node->length);
 
-                int32 bytesRead = fs_read(f, node->length, image);
+                int32 bytes_read = fs_read(f, node->length, image);
 
-                //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytesRead);
+                //Screen_PrintF("syscall_execute: fs_read returned %d bytes\n", bytes_read);
 
-                if (bytesRead > 0)
+                if (bytes_read > 0)
                 {
                     char* name = "UserProcess";
                     if (NULL != argv)
                     {
                         name = argv[0];
                     }
-                    Process* newProcess = create_user_process_from_elf_data(name, image, argv, envp, process, NULL);
+                    Process* new_process = process_create_from_elf_data(name, image, argv, envp, process, NULL);
 
-                    if (newProcess)
+                    if (new_process)
                     {
-                        result = newProcess->pid;
+                        result = new_process->pid;
                     }
                 }
                 fs_close(f);
@@ -761,7 +761,7 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
     return result;
 }
 
-int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath)
+int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path)
 {
     if (!check_user_access((char*)path))
     {
@@ -778,19 +778,19 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
         return -EFAULT;
     }
 
-    if (!check_user_access((char*)ttyPath))
+    if (!check_user_access((char*)tty_path))
     {
         return -EFAULT;
     }
 
     int result = -1;
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
-        FileSystemNode* ttyNode = fs_get_node_absolute_or_relative(ttyPath, process);
-        if (node && ttyNode)
+        FileSystemNode* tty_node = fs_get_node_absolute_or_relative(tty_path, process);
+        if (node && tty_node)
         {
             File* f = fs_open(node, 0);
             if (f)
@@ -810,11 +810,11 @@ int syscall_executeOnTTY(const char *path, char *const argv[], char *const envp[
                     {
                         name = argv[0];
                     }
-                    Process* newProcess = create_user_process_from_elf_data(name, image, argv, envp, process, ttyNode);
+                    Process* new_process = process_create_from_elf_data(name, image, argv, envp, process, tty_node);
 
-                    if (newProcess)
+                    if (new_process)
                     {
-                        result = newProcess->pid;
+                        result = new_process->pid;
                     }
                 }
                 fs_close(f);
@@ -849,7 +849,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
         return -EFAULT;
     }
 
-    Process* callingProcess = get_current_thread()->owner;
+    Process* calling_process = thread_get_current()->owner;
 
     FileSystemNode* node = fs_get_node(path);
     if (node)
@@ -863,17 +863,17 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
             {
                 disableInterrupts(); //just in case if a file operation left interrupts enabled.
 
-                Process* newProcess = createUserProcessEx("fromExecve", callingProcess->pid, 0, NULL, image, argv, envp, NULL, callingProcess->tty);
+                Process* new_process = process_create_ex("fromExecve", calling_process->pid, 0, NULL, image, argv, envp, NULL, calling_process->tty);
 
                 fs_close(f);
 
                 kfree(image);
 
-                if (newProcess)
+                if (new_process)
                 {
-                    destroyProcess(callingProcess);
+                    process_destroy(calling_process);
 
-                    waitForSchedule();
+                    wait_for_schedule();
 
                     //unreachable
                 }
@@ -899,22 +899,22 @@ int syscall_wait(int *wstatus)
 
     //TODO: return pid of exited child. implement with sendsignal
 
-    Thread* currentThread = get_current_thread();
+    Thread* current_thread = thread_get_current();
 
-    Process* process = currentThread->owner;
+    Process* process = current_thread->owner;
     if (process)
     {
-        Thread* thread = getMainKernelThread();
+        Thread* thread = thread_get_first();
         while (thread)
         {
             if (process == thread->owner->parent)
             {
                 //We have a child process
 
-                changeThreadState(currentThread, TS_WAITCHILD, NULL);
+                thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                 enableInterrupts();
-                while (currentThread->state == TS_WAITCHILD);
+                while (current_thread->state == TS_WAITCHILD);
 
                 break;
             }
@@ -942,22 +942,22 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
         return -EFAULT;
     }
 
-    Thread* currentThread = get_current_thread();
+    Thread* current_thread = thread_get_current();
 
-    Process* process = currentThread->owner;
+    Process* process = current_thread->owner;
     if (process)
     {
-        Thread* thread = getMainKernelThread();
+        Thread* thread = thread_get_first();
         while (thread)
         {
             if (process == thread->owner->parent)
             {
                 if (pid < 0 || pid == (int)thread->owner->pid)
                 {
-                    changeThreadState(currentThread, TS_WAITCHILD, NULL);
+                    thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                     enableInterrupts();
-                    while (currentThread->state == TS_WAITCHILD);
+                    while (current_thread->state == TS_WAITCHILD);
 
                     break;
                 }
@@ -1006,9 +1006,9 @@ int32 syscall_clock_getres64(int32 clockid, struct timespec *res)
 
 int syscall_kill(int pid, int sig)
 {
-    Process* selfProcess = get_current_thread()->owner;
+    Process* selfProcess = thread_get_current()->owner;
 
-    if (signalProcess(pid, sig))
+    if (process_signal(pid, sig))
     {
         return 0;
     }
@@ -1016,7 +1016,7 @@ int syscall_kill(int pid, int sig)
     return -1;
 }
 
-int syscall_mount(const char *source, const char *target, const char *fsType, unsigned long flags, void *data)//non-posix
+int syscall_mount(const char *source, const char *target, const char *fs_type, unsigned long flags, void *data)//non-posix
 {
     if (!check_user_access((char*)source))
     {
@@ -1028,7 +1028,7 @@ int syscall_mount(const char *source, const char *target, const char *fsType, un
         return -EFAULT;
     }
 
-    if (!check_user_access((char*)fsType))
+    if (!check_user_access((char*)fs_type))
     {
         return -EFAULT;
     }
@@ -1038,7 +1038,7 @@ int syscall_mount(const char *source, const char *target, const char *fsType, un
         return -EFAULT;
     }
 
-    BOOL result = fs_mount(source, target, fsType, flags, data);
+    BOOL result = fs_mount(source, target, fs_type, flags, data);
 
     if (TRUE == result)
     {
@@ -1059,11 +1059,11 @@ int syscall_unmount(const char *target)//non-posix
 
     if (targetNode)
     {
-        if (targetNode->nodeType == FT_MountPoint)
+        if (targetNode->node_type == FT_MOUNT_POINT)
         {
-            targetNode->nodeType = FT_Directory;
+            targetNode->node_type = FT_DIRECTORY;
 
-            targetNode->mountPoint = NULL;
+            targetNode->mount_point = NULL;
 
             //TODO: check conditions, maybe busy. make clean up.
 
@@ -1081,7 +1081,7 @@ int syscall_mkdir(const char *path, uint32 mode)
         return -EFAULT;
     }
 
-    char parentPath[128];
+    char parent_path[128];
     const char* name = NULL;
     int length = strlen(path);
     for (int i = length - 1; i >= 0; --i)
@@ -1089,16 +1089,16 @@ int syscall_mkdir(const char *path, uint32 mode)
         if (path[i] == '/')
         {
             name = path + i + 1;
-            strncpy(parentPath, path, i);
-            parentPath[i] = '\0';
+            strncpy(parent_path, path, i);
+            parent_path[i] = '\0';
             break;
         }
     }
 
-    if (strlen(parentPath) == 0)
+    if (strlen(parent_path) == 0)
     {
-        parentPath[0] = '/';
-        parentPath[1] = '\0';
+        parent_path[0] = '/';
+        parent_path[1] = '\0';
     }
 
     if (strlen(name) == 0)
@@ -1108,11 +1108,11 @@ int syscall_mkdir(const char *path, uint32 mode)
 
     //Screen_PrintF("mkdir: parent:[%s] name:[%s]\n", parentPath, name);
 
-    FileSystemNode* targetNode = fs_get_node(parentPath);
+    FileSystemNode* target_node = fs_get_node(parent_path);
 
-    if (targetNode)
+    if (target_node)
     {
-        BOOL success = fs_mkdir(targetNode, name, mode);
+        BOOL success = fs_mkdir(target_node, name, mode);
         if (success)
         {
             return 0;//on success
@@ -1142,7 +1142,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1153,22 +1153,22 @@ int syscall_getdents(int fd, char *buf, int nbytes)
             {
                 //Screen_PrintF("syscall_getdents(%d): %s\n", process->pid, buf);
 
-                int byteCounter = 0;
+                int byte_counter = 0;
 
                 int index = 0;
                 FileSystemDirent* dirent = fs_readdir(file->node, index);
 
-                while (NULL != dirent && (byteCounter + sizeof(FileSystemDirent) <= nbytes))
+                while (NULL != dirent && (byte_counter + sizeof(FileSystemDirent) <= nbytes))
                 {
-                    memcpy((uint8*)buf + byteCounter, (uint8*)dirent, sizeof(FileSystemDirent));
+                    memcpy((uint8*)buf + byte_counter, (uint8*)dirent, sizeof(FileSystemDirent));
 
-                    byteCounter += sizeof(FileSystemDirent);
+                    byte_counter += sizeof(FileSystemDirent);
 
                     index += 1;
                     dirent = fs_readdir(file->node, index);
                 }
 
-                return byteCounter;
+                return byte_counter;
             }
             else
             {
@@ -1188,14 +1188,14 @@ int syscall_getdents(int fd, char *buf, int nbytes)
     return -1;//on error
 }
 
-int syscall_readDir(int fd, void *dirent, int index)
+int syscall_read_dir_(int fd, void *dirent, int index)
 {
     if (!check_user_access(dirent))
     {
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1204,11 +1204,11 @@ int syscall_readDir(int fd, void *dirent, int index)
 
             if (file)
             {
-                FileSystemDirent* direntFs = fs_readdir(file->node, index);
+                FileSystemDirent* dirent_fs = fs_readdir(file->node, index);
 
-                if (direntFs)
+                if (dirent_fs)
                 {
-                    memcpy((uint8*)dirent, (uint8*)direntFs, sizeof(FileSystemDirent));
+                    memcpy((uint8*)dirent, (uint8*)dirent_fs, sizeof(FileSystemDirent));
 
                     return 1;
                 }
@@ -1231,19 +1231,19 @@ int syscall_readDir(int fd, void *dirent, int index)
     return -1;//on error
 }
 
-int syscall_getWorkingDirectory(char *buf, int size)
+int syscall_get_working_directory(char *buf, int size)
 {
     if (!check_user_access(buf))
     {
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (process->workingDirectory)
+        if (process->working_directory)
         {
-            return fs_get_node_path(process->workingDirectory, buf, size);
+            return fs_get_node_path(process->working_directory, buf, size);
         }
     }
     else
@@ -1254,21 +1254,21 @@ int syscall_getWorkingDirectory(char *buf, int size)
     return -1;//on error
 }
 
-int syscall_setWorkingDirectory(const char *path)
+int syscall_set_working_directory(const char *path)
 {
     if (!check_user_access((char*)path))
     {
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
 
         if (node)
         {
-            process->workingDirectory = node;
+            process->working_directory = node;
 
             return 0; //success
         }
@@ -1281,9 +1281,9 @@ int syscall_setWorkingDirectory(const char *path)
     return -1;//on error
 }
 
-int syscall_managePipe(const char *pipeName, int operation, int data)
+int syscall_manage_pipe(const char *pipe_name, int operation, int data)
 {
-    if (!check_user_access((char*)pipeName))
+    if (!check_user_access((char*)pipe_name))
     {
         return -EFAULT;
     }
@@ -1293,56 +1293,56 @@ int syscall_managePipe(const char *pipeName, int operation, int data)
     switch (operation)
     {
     case 0:
-        result = pipe_exists(pipeName);
+        result = pipe_exists(pipe_name);
         break;
     case 1:
-        result = pipe_create(pipeName, data);
+        result = pipe_create(pipe_name, data);
         break;
     case 2:
-        result = pipe_destroy(pipeName);
+        result = pipe_destroy(pipe_name);
         break;
     }
 
     return result;
 }
 
-int syscall_getUptimeMilliseconds()
+int syscall_get_uptime_ms()
 {
     return get_uptime_milliseconds();
 }
 
-int syscall_sleepMilliseconds(int ms)
+int syscall_sleep_ms(int ms)
 {
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
 
     sleep_ms(thread, (uint32)ms);
 
     return 0;
 }
 
-int syscall_manageMessage(int command, void* message)
+int syscall_manage_message(int command, void* message)
 {
     if (!check_user_access(message))
     {
         return -EFAULT;
     }
 
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
 
     int result = -1;
 
     switch (command)
     {
     case 0:
-        result = getMessageQueueCount(thread);
+        result = message_get_queue_count(thread);
         break;
     case 1:
-        sendMesage(thread, (SosoMessage*)message);
+        message_send(thread, (SosoMessage*)message);
         result = 0;
         break;
     case 2:
         //make blocking
-        result = getNextMessage(thread, (SosoMessage*)message);
+        result = message_get_next(thread, (SosoMessage*)message);
         break;
     default:
         break;
@@ -1359,11 +1359,11 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset)
 {
-    uint32 vAddressHint = (uint32)addr;
+    uint32 v_address_hint = (uint32)addr;
 
-    if (vAddressHint < USER_OFFSET)
+    if (v_address_hint < USER_OFFSET)
     {
-        vAddressHint = USER_MMAP_START;
+        v_address_hint = USER_MMAP_START;
     }
 
     if (length <= 0)
@@ -1371,41 +1371,41 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
         return (void*)-1;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
 
     if (process)
     {
         if (fd < 0)
         {
-            int neededPages = PAGE_COUNT(length);
-            uint32 freePages = vmm_get_free_page_count();
+            int needed_pages = PAGE_COUNT(length);
+            uint32 free_pages = vmm_get_free_page_count();
             //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
-            if ((uint32)neededPages + 1 > freePages)
+            if ((uint32)needed_pages + 1 > free_pages)
             {
                 return (void*)-1;
             }
-            uint32* physicalArray = (uint32*)kmalloc(neededPages * sizeof(uint32));
-            for (int i = 0; i < neededPages; ++i)
+            uint32* physical_array = (uint32*)kmalloc(needed_pages * sizeof(uint32));
+            for (int i = 0; i < needed_pages; ++i)
             {
-                uint32 pageFrame = vmm_acquire_page_frame_4k();
-                physicalArray[i] = pageFrame;
+                uint32 page_frame = vmm_acquire_page_frame_4k();
+                physical_array[i] = page_frame;
             }
 
-            void* mem = vmm_map_memory(process, vAddressHint, physicalArray, neededPages, TRUE);
+            void* mem = vmm_map_memory(process, v_address_hint, physical_array, needed_pages, TRUE);
             if (mem != NULL)
             {
                 memset((uint8*)mem, 0, length);
             }
             else
             {
-                for (int i = 0; i < neededPages; ++i)
+                for (int i = 0; i < needed_pages; ++i)
                 {
-                    vmm_release_page_frame_4k(physicalArray[i]);
+                    vmm_release_page_frame_4k(physical_array[i]);
                 }
 
                 mem = (void*)-1;
             }
-            kfree(physicalArray);
+            kfree(physical_array);
 
             return mem;
         }
@@ -1450,7 +1450,7 @@ int syscall_munmap(void *addr, int length)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
 
     if (process)
     {
@@ -1525,14 +1525,14 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
-        int pathLen = strlen(pathname);
+        int path_len = strlen(pathname);
 
         FileSystemNode* node = NULL;
 
-        if (pathLen > 0)
+        if (path_len > 0)
         {
             if (pathname[0] == '/') //ignore dirfd. this is absolute path
             {
@@ -1542,19 +1542,19 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
             {
                 if (dirfd == AT_FDCWD) //pathname is relative to Current Working Directory
                 {
-                    node = fs_get_node_relative_to_node(pathname, process->workingDirectory);
+                    node = fs_get_node_relative_to_node(pathname, process->working_directory);
                 }
                 else if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
                 {
-                    File* dirFdDir = process->fd[dirfd];
-                    if ((dirFdDir->node->nodeType & FT_Directory) == FT_Directory) //pathname is relative to the directory that dirfd refers to
+                    File* dir_fd_dir = process->fd[dirfd];
+                    if ((dir_fd_dir->node->node_type & FT_DIRECTORY) == FT_DIRECTORY) //pathname is relative to the directory that dirfd refers to
                     {
-                        node = fs_get_node_relative_to_node(pathname, dirFdDir->node);
+                        node = fs_get_node_relative_to_node(pathname, dir_fd_dir->node);
                     }
                 }
             }
         }
-        else if (pathLen == 0)
+        else if (path_len == 0)
         {
             if ((flags & AT_EMPTY_PATH) == AT_EMPTY_PATH)
             {
@@ -1633,7 +1633,7 @@ int syscall_shm_unlink(const char *name)
 
 int syscall_ftruncate(int fd, int size)
 {
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1664,15 +1664,15 @@ int syscall_ftruncate(int fd, int size)
 
 int syscall_posix_openpt(int flags)
 {
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         FileSystemNode* node = ttydev_create();
         if (node)
         {
-            TtyDev* ttyDev = (TtyDev*)node->privateNodeData;
-            ttyDev->controlling_process = process->pid;
-            ttyDev->foreground_process = process->pid;
+            TtyDev* tty_dev = (TtyDev*)node->private_node_data;
+            tty_dev->controlling_process = process->pid;
+            tty_dev->foreground_process = process->pid;
 
             File* file = fs_open(node, flags);
 
@@ -1697,7 +1697,7 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
         return -EFAULT;
     }
 
-    Process* process = get_current_thread()->owner;
+    Process* process = thread_get_current()->owner;
     if (process)
     {
         if (fd < MAX_OPENED_FILES)
@@ -1706,11 +1706,11 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
 
             if (file)
             {
-                TtyDev* ttyDev = file->node->privateNodeData;
+                TtyDev* tty_dev = file->node->private_node_data;
 
-                FileSystemNode* slaveNode = ttyDev->slave_node;
+                FileSystemNode* slave_node = tty_dev->slave_node;
 
-                int result = fs_get_node_path(slaveNode, buf, buflen);
+                int result = fs_get_node_path(slave_node, buf, buflen);
 
                 if (result >= 0)
                 {

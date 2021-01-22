@@ -78,7 +78,7 @@ FileSystemNode* ttydev_create()
     Device master;
     memset((uint8*)&master, 0, sizeof(Device));
     sprintf(master.name, "ptty%d-m", g_name_generator);
-    master.device_type = FT_CharacterDevice;
+    master.device_type = FT_CHARACTER_DEVICE;
     master.open = master_open;
     master.close = master_close;
     master.read = master_read;
@@ -90,7 +90,7 @@ FileSystemNode* ttydev_create()
     Device slave;
     memset((uint8*)&slave, 0, sizeof(Device));
     sprintf(slave.name, "ptty%d", g_name_generator);
-    slave.device_type = FT_CharacterDevice;
+    slave.device_type = FT_CHARACTER_DEVICE;
     slave.open = slave_open;
     slave.close = slave_close;
     slave.read = slave_read;
@@ -117,7 +117,7 @@ static void wake_slave_readers(TtyDev* tty)
         Thread* thread = (Thread*)n->data;
         if (thread->state == TS_WAITIO && thread->state_privateData == tty)
         {
-            resumeThread(thread);
+            thread_resume(thread);
         }
     }
     Spinlock_Unlock(&tty->slave_readers_lock);
@@ -135,7 +135,7 @@ static void master_close(File *file)
 
 static BOOL master_readTestReady(File *file)
 {
-    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+    TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     if (Spinlock_TryLock(&tty->buffer_master_read_lock))
     {
@@ -158,7 +158,7 @@ static int32 master_read(File *file, uint32 size, uint8 *buffer)
 
     if (size > 0)
     {
-        TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+        TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
         
         while (TRUE)
@@ -183,7 +183,7 @@ static int32 master_read(File *file, uint32 size, uint8 *buffer)
             }
 
             tty->master_reader = file->thread;
-            changeThreadState(file->thread, TS_WAITIO, tty);
+            thread_change_state(file->thread, TS_WAITIO, tty);
             halt();
         }
     }
@@ -195,7 +195,7 @@ int32 ttydev_master_read_nonblock(File *file, uint32 size, uint8 *buffer)
 {
     if (size > 0)
     {
-        TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+        TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
         int read_size = 0;
         if (Spinlock_TryLock(&tty->buffer_master_read_lock))
@@ -264,7 +264,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+    TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     FifoBuffer_clear(tty->buffer_echo);
 
@@ -314,15 +314,15 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
         {
             if (character == tty->term.c_cc[VINTR])
             {
-                signalProcess(tty->foreground_process, SIGINT);
+                process_signal(tty->foreground_process, SIGINT);
             }
             else if (character == tty->term.c_cc[VSUSP])
             {
-                signalProcess(tty->foreground_process, SIGTSTP);
+                process_signal(tty->foreground_process, SIGTSTP);
             }
             else if (character == tty->term.c_cc[VQUIT])
             {
-                signalProcess(tty->foreground_process, SIGQUIT);
+                process_signal(tty->foreground_process, SIGQUIT);
             }
         }
 
@@ -417,7 +417,7 @@ static int32 master_write(File *file, uint32 size, uint8 *buffer)
             {
                 if (tty->master_reader->state == TS_WAITIO && tty->master_reader->state_privateData == tty)
                 {
-                    resumeThread(tty->master_reader);
+                    thread_resume(tty->master_reader);
                 }
             }
         }
@@ -439,10 +439,10 @@ static void slave_close(File *file)
 
 static int32 slave_ioctl(File *file, int32 request, void * argp)
 {
-    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+    TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
 
-    if (file->node != gCurrentThread->owner->tty)
+    if (file->node != g_current_thread->owner->tty)
     {
         printkf("-ENOTTY\n");
         return -ENOTTY;
@@ -530,7 +530,7 @@ static int32 slave_ioctl(File *file, int32 request, void * argp)
 
 static BOOL slave_read_test_ready(File *file)
 {
-    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+    TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     if (Spinlock_TryLock(&tty->buffer_master_write_lock))
     {
@@ -562,7 +562,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer)
 
     if (size > 0)
     {
-        TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+        TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
         
         while (TRUE)
@@ -609,7 +609,7 @@ static int32 slave_read(File *file, uint32 size, uint8 *buffer)
             List_Append(tty->slave_readers, file->thread);
             Spinlock_Unlock(&tty->slave_readers_lock);
 
-            changeThreadState(file->thread, TS_WAITIO, tty);
+            thread_change_state(file->thread, TS_WAITIO, tty);
             halt();
         }
     }
@@ -678,7 +678,7 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
         return -1;
     }
 
-    TtyDev* tty = (TtyDev*)file->node->privateNodeData;
+    TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     enableInterrupts();
 
@@ -708,7 +708,7 @@ static int32 slave_write(File *file, uint32 size, uint8 *buffer)
         {
             if (tty->master_reader->state == TS_WAITIO && tty->master_reader->state_privateData == tty)
             {
-                resumeThread(tty->master_reader);
+                thread_resume(tty->master_reader);
             }
         }
         

@@ -56,15 +56,15 @@ struct Process
     uint32 b_bss;
     uint32 e_bss;
 
-    char *brkBegin;
-    char *brkEnd;
-    char *brkNextUnallocatedPageBegin;
+    char *brk_begin;
+    char *brk_end;
+    char *brk_next_unallocated_page_begin;
 
-    uint8 mmappedVirtualMemory[RAM_AS_4K_PAGES / 8];
+    uint8 mmapped_virtual_memory[RAM_AS_4K_PAGES / 8];
 
     FileSystemNode* tty;
 
-    FileSystemNode* workingDirectory;
+    FileSystemNode* working_directory;
 
     Process* parent;
 
@@ -91,43 +91,43 @@ struct Thread
     {
         uint32 esp0;
         uint16 ss0;
-        uint32 stackStart;
+        uint32 stack_start;
     } kstack __attribute__ ((packed));
 
     struct
     {
         int nfds;
-        fd_set readSet;
-        fd_set writeSet;
-        fd_set readSetResult;
-        fd_set writeSetResult;
-        time_t targetTime;
-        SelectState selectState;
+        fd_set read_set;
+        fd_set write_set;
+        fd_set read_set_result;
+        fd_set write_set_result;
+        time_t target_time;
+        SelectState select_state;
         int result;
     } select;
 
-    uint32 userMode;
+    uint32 user_mode;
 
     FifoBuffer* signals;//no need to lock as this always accessed in interrupts disabled
-    uint32 pendingSignalCount;
+    uint32 pending_signal_count;
 
     ThreadState state;
     void* state_privateData;
 
     Process* owner;
 
-    uint32 birthTime;
-    uint32 contextSwitchCount;
-    uint32 contextStartTime;
-    uint32 contextEndTime;
-    uint32 consumedCPUTimeMs;
-    uint32 consumedCPUTimeMsAtPrevMark;
-    uint32 usageCPU; //FromPrevMark
-    uint32 calledSyscallCount;
+    uint32 birth_time;
+    uint32 context_switch_count;
+    uint32 context_start_time;
+    uint32 context_end_time;
+    uint32 consumed_cpu_time_ms;
+    uint32 consumed_cpu_time_ms_at_prev_mark;
+    uint32 usage_cpu; //FromPrevMark
+    uint32 called_syscall_count;
 
 
-    FifoBuffer* messageQueue;
-    Spinlock messageQueueLock;
+    FifoBuffer* message_queue;
+    Spinlock message_queue_lock;
 
     struct Thread* next;
 
@@ -144,32 +144,32 @@ typedef struct TimerInt_Registers
 
 typedef void (*Function0)();
 
-void initialize_tasking();
-void createKernelThread(Function0 func);
-Process* create_user_process_from_elf_data(const char* name, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
-Process* createUserProcessFromFunction(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
-Process* createUserProcessEx(const char* name, uint32 processId, uint32 threadId, Function0 func, uint8* elfData, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
-void destroyThread(Thread* thread);
-void destroyProcess(Process* process);
-void changeProcessState(Process* process, ThreadState state);
-void changeThreadState(Thread* thread, ThreadState state, void* privateData);
-void resumeThread(Thread* thread);
-BOOL signalThread(Thread* thread, uint8 signal);
-BOOL signalProcess(uint32 pid, uint8 signal);
-void threadStateToString(ThreadState state, uint8* buffer, uint32 bufferSize);
-void waitForSchedule();
-int32 getEmptyFd(Process* process);
-int32 addFileToProcess(Process* process, File* file);
-int32 removeFileFromProcess(Process* process, File* file);
-Thread* getThreadById(uint32 threadId);
-Thread* getPreviousThread(Thread* thread);
-Thread* getMainKernelThread();
-Thread* get_current_thread();
+void tasking_initialize();
+void thread_create_kthread(Function0 func);
+Process* process_create_from_elf_data(const char* name, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
+Process* process_create_from_function(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
+Process* process_create_ex(const char* name, uint32 process_id, uint32 thread_id, Function0 func, uint8* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
+void thread_destroy(Thread* thread);
+void process_destroy(Process* process);
+void process_change_state(Process* process, ThreadState state);
+void thread_change_state(Thread* thread, ThreadState state, void* private_data);
+void thread_resume(Thread* thread);
+BOOL thread_signal(Thread* thread, uint8 signal);
+BOOL process_signal(uint32 pid, uint8 signal);
+void thread_state_to_string(ThreadState state, uint8* buffer, uint32 buffer_size);
+void wait_for_schedule();
+int32 process_get_empty_fd(Process* process);
+int32 process_add_file(Process* process, File* file);
+int32 process_remove_file(Process* process, File* file);
+Thread* thread_get_by_id(uint32 thread_id);
+Thread* thread_get_previous(Thread* thread);
+Thread* thread_get_first();
+Thread* thread_get_current();
 void schedule(TimerInt_Registers* registers);
-BOOL isThreadValid(Thread* thread);
-BOOL isProcessValid(Process* process);
-uint32 getSystemContextSwitchCount();
+BOOL thread_is_valid(Thread* thread);
+BOOL process_is_valid(Process* process);
+uint32 get_system_context_switch_count();
 
-extern Thread* gCurrentThread;
+extern Thread* g_current_thread;
 
 #endif // PROCESS_H

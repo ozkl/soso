@@ -9,7 +9,7 @@ void sleep_ms(Thread* thread, uint32 ms)
     //target uptime to wakeup
     uint32 target = uptime + ms;
 
-    changeThreadState(thread, TS_SLEEP, (void*)target);
+    thread_change_state(thread, TS_SLEEP, (void*)target);
 
     enableInterrupts();
 

@@ -10,6 +10,6 @@ enum EnFrameBuferIoctl
     FB_GET_BITSPERPIXEL
 };
 
-void initializeFrameBuffer(uint8* p_address, uint8* v_address);
+void framebuffer_initialize(uint8* p_address, uint8* v_address);
 
 #endif // FRAMEBUFFER_H

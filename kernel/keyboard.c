@@ -40,7 +40,7 @@ void keyboard_initialize()
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "keyboard");
-    device.device_type = FT_CharacterDevice;
+    device.device_type = FT_CHARACTER_DEVICE;
     device.open = keyboard_open;
     device.close = keyboard_close;
     device.read = keyboard_read;
@@ -88,13 +88,13 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
 {
     Reader* reader = (Reader*)file->private_data;
 
-    uint32 readIndex = reader->read_index;
+    uint32 read_index = reader->read_index;
 
     if (reader->read_mode == RM_BLOCKING)
     {
-        while (readIndex == g_key_buffer_write_index)
+        while (read_index == g_key_buffer_write_index)
         {
-            changeThreadState(file->thread, TS_WAITIO, keyboard_read);
+            thread_change_state(file->thread, TS_WAITIO, keyboard_read);
             
             enableInterrupts();
             halt();
@@ -103,17 +103,17 @@ static int32 keyboard_read(File *file, uint32 size, uint8 *buffer)
 
     disableInterrupts();
 
-    if (readIndex == g_key_buffer_write_index)
+    if (read_index == g_key_buffer_write_index)
     {
         //non-blocking return here
         return -1;
     }
 
-    buffer[0] = g_key_buffer[readIndex];
-    readIndex++;
-    readIndex %= KEYBUFFER_SIZE;
+    buffer[0] = g_key_buffer[read_index];
+    read_index++;
+    read_index %= KEYBUFFER_SIZE;
 
-    reader->read_index = readIndex;
+    reader->read_index = read_index;
 
     return 1;
 }
@@ -173,7 +173,7 @@ static void handle_keyboard_interrupt(Registers *regs)
         {
             if (file->thread->state_privateData == keyboard_read)
             {
-                resumeThread(file->thread);
+                thread_resume(file->thread);
             }
         }
     }

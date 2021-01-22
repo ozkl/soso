@@ -2,9 +2,9 @@
 #include "common.h"
 #include "process.h"
 
-BOOL isElf(const char *elfData)
+BOOL elf_is_valid(const char *elf_data)
 {
-    Elf32_Ehdr *hdr = (Elf32_Ehdr *) elfData;
+    Elf32_Ehdr *hdr = (Elf32_Ehdr *) elf_data;
 
     if (hdr->e_ident[0] == 0x7f && hdr->e_ident[1] == 'E' &&
         hdr->e_ident[2] == 'L' && hdr->e_ident[3] == 'F')
@@ -15,19 +15,19 @@ BOOL isElf(const char *elfData)
     return FALSE;
 }
 
-uint32 loadElf(const char *elfData)
+uint32 elf_load(const char *elf_data)
 {
     uint32 v_begin, v_end;
     Elf32_Ehdr *hdr;
     Elf32_Phdr *p_entry;
     Elf32_Scdr *s_entry;
 
-    hdr = (Elf32_Ehdr *) elfData;
-    p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
+    hdr = (Elf32_Ehdr *) elf_data;
+    p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
 
-    s_entry = (Elf32_Scdr*) (elfData + hdr->e_shoff);
+    s_entry = (Elf32_Scdr*) (elf_data + hdr->e_shoff);
 
-    if (isElf(elfData)==FALSE)
+    if (elf_is_valid(elf_data)==FALSE)
     {
         return 0;
     }
@@ -42,7 +42,7 @@ uint32 loadElf(const char *elfData)
             v_end = p_entry->p_vaddr + p_entry->p_memsz;
             if (v_begin < USER_OFFSET)
             {
-                //printkf("INFO: loadElf(): can't load executable below %x. Yours: %x\n", USER_OFFSET, v_begin);
+                //printkf("INFO: elf_load(): can't load executable below %x. Yours: %x\n", USER_OFFSET, v_begin);
                 //return 0;
                 printkf("Warning: skipped to load %d(%x) bytes to %x\n", p_entry->p_filesz, p_entry->p_filesz, v_begin);
                 continue;
@@ -50,7 +50,7 @@ uint32 loadElf(const char *elfData)
 
             if (v_end > USER_STACK)
             {
-                //printkf("INFO: loadElf(): can't load executable above %x. Yours: %x\n", USER_STACK, v_end);
+                //printkf("INFO: elf_load(): can't load executable above %x. Yours: %x\n", USER_STACK, v_end);
                 //return 0;
 
                 printkf("Warning: skipped to load %d(%x) bytes to %x\n", p_entry->p_filesz, p_entry->p_filesz, v_begin);
@@ -60,7 +60,7 @@ uint32 loadElf(const char *elfData)
             //printkf("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);
 
 
-            memcpy((uint8 *) v_begin, (uint8 *) (elfData + p_entry->p_offset), p_entry->p_filesz);
+            memcpy((uint8 *) v_begin, (uint8 *) (elf_data + p_entry->p_offset), p_entry->p_filesz);
             if (p_entry->p_memsz > p_entry->p_filesz)
             {
                 char* p = (char *) p_entry->p_vaddr;
@@ -76,16 +76,16 @@ uint32 loadElf(const char *elfData)
     return hdr->e_entry;
 }
 
-uint32 getElfEndInMemory(const char *elfData)
+uint32 elf_get_end_in_memory(const char *elf_data)
 {
     uint32 v_end;
     Elf32_Ehdr *hdr;
     Elf32_Phdr *p_entry;
 
-    hdr = (Elf32_Ehdr *) elfData;
-    p_entry = (Elf32_Phdr *) (elfData + hdr->e_phoff);
+    hdr = (Elf32_Ehdr *) elf_data;
+    p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
 
-    if (isElf(elfData) == FALSE)
+    if (elf_is_valid(elf_data) == FALSE)
     {
         return 0;
     }

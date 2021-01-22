@@ -151,7 +151,7 @@ static void sbrk_page(Process* process, int page_count)
     {
         for (int i = 0; i < page_count; ++i)
         {
-            if ((process->brkNextUnallocatedPageBegin + PAGESIZE_4K) > (char*)(MEMORY_END - PAGESIZE_4K))
+            if ((process->brk_next_unallocated_page_begin + PAGESIZE_4K) > (char*)(MEMORY_END - PAGESIZE_4K))
             {
                 return;
             }
@@ -164,11 +164,11 @@ static void sbrk_page(Process* process, int page_count)
                 return;
             }
 
-            vmm_add_page_to_pd(process->brkNextUnallocatedPageBegin, p_addr, PG_USER | PG_OWNED);
+            vmm_add_page_to_pd(process->brk_next_unallocated_page_begin, p_addr, PG_USER | PG_OWNED);
 
-            SET_PAGEFRAME_USED(process->mmappedVirtualMemory, PAGE_INDEX_4K((uint32)process->brkNextUnallocatedPageBegin));
+            SET_PAGEFRAME_USED(process->mmapped_virtual_memory, PAGE_INDEX_4K((uint32)process->brk_next_unallocated_page_begin));
 
-            process->brkNextUnallocatedPageBegin += PAGESIZE_4K;
+            process->brk_next_unallocated_page_begin += PAGESIZE_4K;
         }
     }
     else if (page_count < 0)
@@ -177,14 +177,14 @@ static void sbrk_page(Process* process, int page_count)
 
         for (int i = 0; i < page_count; ++i)
         {
-            if (process->brkNextUnallocatedPageBegin - PAGESIZE_4K >= process->brkBegin)
+            if (process->brk_next_unallocated_page_begin - PAGESIZE_4K >= process->brk_begin)
             {
-                process->brkNextUnallocatedPageBegin -= PAGESIZE_4K;
+                process->brk_next_unallocated_page_begin -= PAGESIZE_4K;
 
                 //This also releases the page frame
-                vmm_remove_page_from_pd(process->brkNextUnallocatedPageBegin);
+                vmm_remove_page_from_pd(process->brk_next_unallocated_page_begin);
 
-                SET_PAGEFRAME_UNUSED(process->mmappedVirtualMemory, (uint32)process->brkNextUnallocatedPageBegin);
+                SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, (uint32)process->brk_next_unallocated_page_begin);
             }
         }
     }
@@ -192,9 +192,9 @@ static void sbrk_page(Process* process, int page_count)
 
 void initialize_program_break(Process* process, uint32 size)
 {
-    process->brkBegin = (char*) USER_OFFSET;
-    process->brkEnd = process->brkBegin;
-    process->brkNextUnallocatedPageBegin = process->brkBegin;
+    process->brk_begin = (char*) USER_OFFSET;
+    process->brk_end = process->brk_begin;
+    process->brk_next_unallocated_page_begin = process->brk_begin;
 
     //Userland programs (their code, data,..) start from USER_OFFSET
     //Lets allocate some space for them by moving program break.
@@ -204,11 +204,11 @@ void initialize_program_break(Process* process, uint32 size)
 
 void *sbrk(Process* process, int n_bytes)
 {
-    char* previous_break = process->brkEnd;
+    char* previous_break = process->brk_end;
 
     if (n_bytes > 0)
     {
-        int remainingInThePage = process->brkNextUnallocatedPageBegin - process->brkEnd;
+        int remainingInThePage = process->brk_next_unallocated_page_begin - process->brk_end;
 
         if (n_bytes > remainingInThePage)
         {
@@ -226,9 +226,9 @@ void *sbrk(Process* process, int n_bytes)
     }
     else if (n_bytes < 0)
     {
-        char* currentPageBegin = process->brkNextUnallocatedPageBegin - PAGESIZE_4K;
+        char* currentPageBegin = process->brk_next_unallocated_page_begin - PAGESIZE_4K;
 
-        int remainingInThePage = process->brkEnd - currentPageBegin;
+        int remainingInThePage = process->brk_end - currentPageBegin;
 
         if (-n_bytes > remainingInThePage)
         {
@@ -239,7 +239,7 @@ void *sbrk(Process* process, int n_bytes)
         }
     }
 
-    process->brkEnd += n_bytes;
+    process->brk_end += n_bytes;
 
     return previous_break;
 }

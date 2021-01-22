@@ -1,6 +1,6 @@
 #ifndef SYSCALLS_H
 #define SYSCALLS_H
 
-void initialize_syscalls();
+void syscalls_initialize();
 
 #endif // SYSCALLS_H

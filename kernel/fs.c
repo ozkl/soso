@@ -194,7 +194,7 @@ uint32 fs_write(File *file, uint32 size, uint8 *buffer)
 
 File *fs_open(FileSystemNode *node, uint32 flags)
 {
-    return fs_open_for_process(get_current_thread(), node, flags);
+    return fs_open_for_process(thread_get_current(), node, flags);
 }
 
 File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
@@ -205,9 +205,9 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
         process = thread->owner;
     }
 
-    if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
+    if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
-        node = node->mountPoint;
+        node = node->mount_point;
     }
 
     if (node->open != NULL)
@@ -224,7 +224,7 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32 flags)
         if (success)
         {
             //Screen_PrintF("Opened:%s\n", file->node->name);
-            int32 fd = addFileToProcess(file->process, file);
+            int32 fd = process_add_file(file->process, file);
 
             if (fd < 0)
             {
@@ -254,7 +254,7 @@ void fs_close(File *file)
         file->node->close(file);
     }
 
-    removeFileFromProcess(file->process, file);
+    process_remove_file(file->process, file);
 
     kfree(file);
 }
@@ -307,27 +307,27 @@ int32 fs_stat(FileSystemNode *node, struct stat *buf)
         {
             //return value of 1 from driver means we should fill buf here.
 
-            if ((node->nodeType & FT_Directory) == FT_Directory)
+            if ((node->node_type & FT_DIRECTORY) == FT_DIRECTORY)
             {
                 buf->st_mode = __S_IFDIR;
             }
-            else if ((node->nodeType & FT_CharacterDevice) == FT_CharacterDevice)
+            else if ((node->node_type & FT_CHARACTER_DEVICE) == FT_CHARACTER_DEVICE)
             {
                 buf->st_mode = __S_IFCHR;
             }
-            else if ((node->nodeType & FT_BlockDevice) == FT_BlockDevice)
+            else if ((node->node_type & FT_BLOCK_DEVICE) == FT_BLOCK_DEVICE)
             {
                 buf->st_mode = __S_IFBLK;
             }
-            else if ((node->nodeType & FT_Pipe) == FT_Pipe)
+            else if ((node->node_type & FT_PIPE) == FT_PIPE)
             {
                 buf->st_mode = __S_IFIFO;
             }
-            else if ((node->nodeType & FT_SymbolicLink) == FT_SymbolicLink)
+            else if ((node->node_type & FT_SYMBOLIC_LINK) == FT_SYMBOLIC_LINK)
             {
                 buf->st_mode = __S_IFLNK;
             }
-            else if ((node->nodeType & FT_File) == FT_File)
+            else if ((node->node_type & FT_FILE) == FT_FILE)
             {
                 buf->st_mode = __S_IFREG;
             }
@@ -349,18 +349,18 @@ FileSystemDirent *fs_readdir(FileSystemNode *node, uint32 index)
 {
     //Screen_PrintF("fs_readdir: node->name:%s index:%d\n", node->name, index);
 
-    if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
+    if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
-        if (NULL == node->mountPoint->readdir)
+        if (NULL == node->mount_point->readdir)
         {
             WARNING("mounted fs does not have readdir!\n");
         }
         else
         {
-            return node->mountPoint->readdir(node->mountPoint, index);
+            return node->mount_point->readdir(node->mount_point, index);
         }
     }
-    else if ( (node->nodeType & FT_Directory) == FT_Directory && node->readdir != NULL )
+    else if ( (node->node_type & FT_DIRECTORY) == FT_DIRECTORY && node->readdir != NULL )
     {
         return node->readdir(node, index);
     }
@@ -372,18 +372,18 @@ FileSystemNode *fs_finddir(FileSystemNode *node, char *name)
 {
     //Screen_PrintF("fs_finddir: name:%s\n", name);
 
-    if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
+    if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
-        if (NULL == node->mountPoint->finddir)
+        if (NULL == node->mount_point->finddir)
         {
             WARNING("mounted fs does not have finddir!\n");
         }
         else
         {
-            return node->mountPoint->finddir(node->mountPoint, name);
+            return node->mount_point->finddir(node->mount_point, name);
         }
     }
-    else if ( (node->nodeType & FT_Directory) == FT_Directory && node->finddir != NULL )
+    else if ( (node->node_type & FT_DIRECTORY) == FT_DIRECTORY && node->finddir != NULL )
     {
         return node->finddir(node, name);
     }
@@ -393,14 +393,14 @@ FileSystemNode *fs_finddir(FileSystemNode *node, char *name)
 
 BOOL fs_mkdir(FileSystemNode *node, const char *name, uint32 flags)
 {
-    if ( (node->nodeType & FT_MountPoint) == FT_MountPoint && node->mountPoint != NULL )
+    if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
-        if (node->mountPoint->mkdir)
+        if (node->mount_point->mkdir)
         {
-            return node->mountPoint->mkdir(node->mountPoint, name, flags);
+            return node->mount_point->mkdir(node->mount_point, name, flags);
         }
     }
-    else if ( (node->nodeType & FT_Directory) == FT_Directory && node->mkdir != NULL )
+    else if ( (node->node_type & FT_DIRECTORY) == FT_DIRECTORY && node->mkdir != NULL )
     {
         return node->mkdir(node, name, flags);
     }
@@ -536,9 +536,9 @@ FileSystemNode* fs_get_node_absolute_or_relative(const char* path, Process* proc
         {
             //relative
 
-            if (process->workingDirectory)
+            if (process->working_directory)
             {
-                node = fs_get_node_relative_to_node(path, process->workingDirectory);
+                node = fs_get_node_relative_to_node(path, process->working_directory);
             }
         }
     }
@@ -626,5 +626,5 @@ BOOL fs_check_mount(const char *source, const char *target, const char *fsType, 
         return FALSE;
     }
 
-    return fs->checkMount(source, target, flags, data);
+    return fs->check_mount(source, target, flags, data);
 }

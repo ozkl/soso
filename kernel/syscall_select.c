@@ -18,21 +18,21 @@ void select_update(Thread* thread)
 
         if (file)
         {
-            if (FD_ISSET(fd, &thread->select.readSet))
+            if (FD_ISSET(fd, &thread->select.read_set))
             {
-                if (file->node->readTestReady && file->node->readTestReady(file))
+                if (file->node->read_test_ready && file->node->read_test_ready(file))
                 {
-                    FD_SET(fd, &thread->select.readSetResult);
+                    FD_SET(fd, &thread->select.read_set_result);
 
                     ++total_ready;
                 }
             }
 
-            if (FD_ISSET(fd, &thread->select.writeSet))
+            if (FD_ISSET(fd, &thread->select.write_set))
             {
-                if (file->node->writeTestReady && file->node->writeTestReady(file))
+                if (file->node->write_test_ready && file->node->write_test_ready(file))
                 {
-                    FD_SET(fd, &thread->select.writeSetResult);
+                    FD_SET(fd, &thread->select.write_set_result);
 
                     ++total_ready;
                 }
@@ -43,16 +43,16 @@ void select_update(Thread* thread)
     if (total_ready > 0)
     {
         thread->select.result = total_ready;
-        thread->select.selectState = SS_FINISHED;
+        thread->select.select_state = SS_FINISHED;
     }
-    else if (thread->select.targetTime > 0)
+    else if (thread->select.target_time > 0)
     {
         time_t now = get_uptime_milliseconds64();
 
-        if (now > thread->select.targetTime)
+        if (now > thread->select.target_time)
         {
             thread->select.result = 0;
-            thread->select.selectState = SS_FINISHED;
+            thread->select.select_state = SS_FINISHED;
         }
     }
 }
@@ -61,12 +61,12 @@ static int select_finish(Thread* thread, fd_set* rfds, fd_set* wfds)
 {
     if (rfds)
     {
-        *rfds = thread->select.readSetResult;
+        *rfds = thread->select.read_set_result;
     }
 
     if (wfds)
     {
-        *wfds = thread->select.writeSetResult;
+        *wfds = thread->select.write_set_result;
     }
 
     int result = thread->select.result;
@@ -97,52 +97,52 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
         return -EFAULT;
     }
 
-    Thread* thread = get_current_thread();
+    Thread* thread = thread_get_current();
     Process* process = thread->owner;
 
     if (process)
     {
-        thread->select.selectState = SS_STARTED;
+        thread->select.select_state = SS_STARTED;
         thread->select.nfds = n;
-        FD_ZERO(&thread->select.readSetResult);
-        FD_ZERO(&thread->select.writeSetResult);
+        FD_ZERO(&thread->select.read_set_result);
+        FD_ZERO(&thread->select.write_set_result);
 
-        FD_ZERO(&thread->select.readSet);
+        FD_ZERO(&thread->select.read_set);
         if (rfds)
         {
-            thread->select.readSet = *rfds;
+            thread->select.read_set = *rfds;
             FD_ZERO(rfds);
         }
 
-        FD_ZERO(&thread->select.writeSet);
+        FD_ZERO(&thread->select.write_set);
         if (wfds)
         {
-            thread->select.writeSet = *wfds;
+            thread->select.write_set = *wfds;
             FD_ZERO(wfds);
         }
 
         thread->select.result = -1;
 
-        thread->select.targetTime = 0;
+        thread->select.target_time = 0;
         if (tv)
         {
-            thread->select.targetTime = get_uptime_milliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
+            thread->select.target_time = get_uptime_milliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
         }
 
         select_update(thread);
 
-        if (thread->select.selectState == SS_FINISHED)
+        if (thread->select.select_state == SS_FINISHED)
         {
             int result = select_finish(thread, rfds, wfds);
 
             return result;
         }
 
-        changeThreadState(thread, TS_SELECT, NULL);
+        thread_change_state(thread, TS_SELECT, NULL);
         enableInterrupts();
         halt();
 
-        if (thread->select.selectState == SS_FINISHED)
+        if (thread->select.select_state == SS_FINISHED)
         {
             int result = select_finish(thread, rfds, wfds);
 

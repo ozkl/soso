@@ -11,19 +11,19 @@
 
 typedef enum FileType
 {
-    FT_File               = 1,
-    FT_CharacterDevice    = 2,
-    FT_BlockDevice        = 3,
-    FT_Pipe               = 4,
-    FT_SymbolicLink       = 5,
-    FT_Directory          = 128,
-    FT_MountPoint         = 256
+    FT_FILE               = 1,
+    FT_CHARACTER_DEVICE   = 2,
+    FT_BLOCK_DEVICE       = 3,
+    FT_PIPE               = 4,
+    FT_SYMBOLIC_LINK      = 5,
+    FT_DIRECTORY          = 128,
+    FT_MOUNT_POINT        = 256
 } FileType;
 
 typedef enum IoctlCommand
 {
-    IC_GetSectorSizeInBytes,
-    IC_GetSectorCount,
+    IC_GET_SECTOR_SIZE_BYTES,
+    IC_GET_SECTOR_COUNT,
 } IoctlCommand;
 
 typedef struct FileSystem FileSystem;
@@ -37,7 +37,7 @@ struct stat;
 
 typedef int32 (*ReadWriteFunction)(File* file, uint32 size, uint8* buffer);
 typedef BOOL (*ReadWriteTestFunction)(File* file);
-typedef int32 (*ReadWriteBlockFunction)(FileSystemNode* node, uint32 blockNumber, uint32 count, uint8* buffer);
+typedef int32 (*ReadWriteBlockFunction)(FileSystemNode* node, uint32 block_number, uint32 count, uint8* buffer);
 typedef BOOL (*OpenFunction)(File* file, uint32 flags);
 typedef void (*CloseFunction)(File* file);
 typedef int32 (*IoctlFunction)(File *file, int32 request, void * argp);
@@ -50,12 +50,12 @@ typedef BOOL (*MkDirFunction)(FileSystemNode* node, const char *name, uint32 fla
 typedef void* (*MmapFunction)(File* file, uint32 size, uint32 offset, uint32 flags);
 typedef BOOL (*MunmapFunction)(File* file, void* address, uint32 size);
 
-typedef BOOL (*MountFunction)(const char* sourcePath, const char* targetPath, uint32 flags, void *data);
+typedef BOOL (*MountFunction)(const char* source_path, const char* target_path, uint32 flags, void *data);
 
 typedef struct FileSystem
 {
     char name[32];
-    MountFunction checkMount;
+    MountFunction check_mount;
     MountFunction mount;
 } FileSystem;
 
@@ -63,17 +63,17 @@ typedef struct FileSystemNode
 {
     char name[128];
     uint32 mask;
-    uint32 userId;
-    uint32 groupId;
-    uint32 nodeType;
+    uint32 user_id;
+    uint32 group_id;
+    uint32 node_type;
     uint32 inode;
     uint32 length;
-    ReadWriteBlockFunction readBlock;
-    ReadWriteBlockFunction writeBlock;
+    ReadWriteBlockFunction read_block;
+    ReadWriteBlockFunction write_block;
     ReadWriteFunction read;
     ReadWriteFunction write;
-    ReadWriteTestFunction readTestReady;
-    ReadWriteTestFunction writeTestReady;
+    ReadWriteTestFunction read_test_ready;
+    ReadWriteTestFunction write_test_ready;
     OpenFunction open;
     CloseFunction close;
     IoctlFunction ioctl;
@@ -85,18 +85,18 @@ typedef struct FileSystemNode
     MkDirFunction mkdir;
     MmapFunction mmap;
     MunmapFunction munmap;
-    FileSystemNode *firstChild;
-    FileSystemNode *nextSibling;
+    FileSystemNode *first_child;
+    FileSystemNode *next_sibling;
     FileSystemNode *parent;
-    FileSystemNode *mountPoint;//only used in mounts
-    FileSystemNode *mountSource;//only used in mounts
-    void* privateNodeData;
+    FileSystemNode *mount_point;//only used in mounts
+    FileSystemNode *mount_source;//only used in mounts
+    void* private_node_data;
 } FileSystemNode;
 
 typedef struct FileSystemDirent
 {
     char name[128];
-    FileType fileType;
+    FileType file_type;
     uint32 inode;
 } FileSystemDirent;
 

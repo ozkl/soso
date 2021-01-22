@@ -65,7 +65,7 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32 in
         if (counter == index)
         {
             strcpy(g_dirent.name, p->node->name);
-            g_dirent.fileType = p->node->nodeType;
+            g_dirent.file_type = p->node->node_type;
 
             result = &g_dirent;
 
@@ -118,7 +118,7 @@ static int32 sharedmemory_ftruncate(File *file, int32 length)
         return -1;
     }
 
-    SharedMemory* shared_mem = (SharedMemory*)file->node->privateNodeData;
+    SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
 
     if (0 != file->node->length)
     {
@@ -149,7 +149,7 @@ static void* sharedmemory_mmap(File* file, uint32 size, uint32 offset, uint32 fl
 {
     void* result = NULL;
 
-    SharedMemory* shared_mem = (SharedMemory*)file->node->privateNodeData;
+    SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
 
     Spinlock_Lock(&shared_mem->physical_address_list_lock);
 
@@ -210,12 +210,12 @@ FileSystemNode* sharedmemory_create(const char* name)
     memset((uint8*)node, 0, sizeof(FileSystemNode));
 
     strcpy(node->name, name);
-    node->nodeType = FT_CharacterDevice;
+    node->node_type = FT_CHARACTER_DEVICE;
     node->open = sharedmemory_open;
     //TODO: node->shm_unlink = sharedmemory_unlink;
     node->ftruncate = sharedmemory_ftruncate;
     node->mmap = sharedmemory_mmap;
-    node->privateNodeData = shared_mem;
+    node->private_node_data = shared_mem;
 
     shared_mem->node = node;
     shared_mem->physical_address_list = List_Create();

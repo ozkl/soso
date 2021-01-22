@@ -37,7 +37,7 @@ void console_initialize(BOOL graphicMode)
         FileSystemNode* ttyNode = ttydev_create();
         if (ttyNode)
         {
-            TtyDev* ttyDev = (TtyDev*)ttyNode->privateNodeData;
+            TtyDev* ttyDev = (TtyDev*)ttyNode->private_node_data;
         
             terminal = terminal_create(ttyDev, graphicMode);
         }
@@ -50,7 +50,7 @@ void console_initialize(BOOL graphicMode)
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     sprintf(device.name, "console");
-    device.device_type = FT_CharacterDevice;
+    device.device_type = FT_CHARACTER_DEVICE;
     device.open = console_open;
     device.close = console_close;
     device.ioctl = console_ioctl;
@@ -96,7 +96,7 @@ static void set_active_terminal(uint32 index)
         g_active_terminal_index = index;
         g_active_terminal = g_terminals[g_active_terminal_index];
 
-        Gfx_Fill(0xFFFFFFFF);
+        gfx_fill(0xFFFFFFFF);
 
         if (g_active_terminal->refresh_function)
         {
@@ -114,10 +114,10 @@ static uint8 get_character_for_scancode(KeyModifier modifier, uint8 scancode)
 {
     if ((modifier & KM_LeftShift) || (modifier & KM_RightShift))
     {
-        return gKeyShiftMap[scancode];
+        return g_key_shift_map[scancode];
     }
 
-    return gKeyMap[scancode];
+    return g_key_map[scancode];
 }
 
 static void process_scancode(uint8 scancode)

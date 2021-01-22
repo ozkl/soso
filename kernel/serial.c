@@ -42,7 +42,7 @@ void serial_initialize()
     Device device;
     memset((uint8*)&device, 0, sizeof(Device));
     strcpy(device.name, "com1");
-    device.device_type = FT_CharacterDevice;
+    device.device_type = FT_CHARACTER_DEVICE;
     device.open = serial_open;
     device.close = serial_close;
     device.read = serial_read;
@@ -100,7 +100,7 @@ static void handle_serial_interrupt(Registers *regs)
         {
             if (reader->state_privateData == serial_read)
             {
-                resumeThread(reader);
+                thread_resume(reader);
             }
         }
     }
@@ -195,14 +195,14 @@ static int32 serial_read(File *file, uint32 size, uint8 *buffer)
 
     while (serial_read_test_ready(file) == FALSE)
     {
-        changeThreadState(file->thread, TS_WAITIO, serial_read);
+        thread_change_state(file->thread, TS_WAITIO, serial_read);
         enableInterrupts();
         halt();
     }
 
     disableInterrupts();
 
-    resumeThread(file->thread);
+    thread_resume(file->thread);
 
     int32 read_bytes = FifoBuffer_dequeue(g_buffer_com1, buffer, size);
 
