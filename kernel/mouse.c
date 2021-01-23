@@ -17,6 +17,7 @@ static void handle_mouse_interrupt(Registers *regs);
 
 static BOOL mouse_open(File *file, uint32_t flags);
 static void mouse_close(File *file);
+static BOOL mouse_read_test_ready(File *file);
 static int32_t mouse_read(File *file, uint32_t size, uint8_t *buffer);
 
 #define MOUSE_PACKET_SIZE 3
@@ -35,6 +36,7 @@ void initialize_mouse()
     device.device_type = FT_CHARACTER_DEVICE;
     device.open = mouse_open;
     device.close = mouse_close;
+    device.read_test_ready = mouse_read_test_ready;
     device.read = mouse_read;
     interrupt_register(IRQ12, handle_mouse_interrupt);
 
@@ -89,11 +91,23 @@ static void mouse_close(File *file)
     fifobuffer_destroy(fifo);
 }
 
+static BOOL mouse_read_test_ready(File *file)
+{
+    FifoBuffer* fifo = (FifoBuffer*)file->private_data;
+
+    if (fifobuffer_get_size(fifo) >= MOUSE_PACKET_SIZE)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 static int32_t mouse_read(File *file, uint32_t size, uint8_t *buffer)
 {
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-    while (fifobuffer_get_size(fifo) < MOUSE_PACKET_SIZE)
+    while (mouse_read_test_ready(file) == FALSE)
     {
         thread_change_state(file->thread, TS_WAITIO, mouse_read);
 
