@@ -49,7 +49,7 @@ void console_initialize(BOOL graphicMode)
 
     Device device;
     memset((uint8_t*)&device, 0, sizeof(Device));
-    sprintf(device.name, "console");
+    sprintf(device.name, 16, "console");
     device.device_type = FT_CHARACTER_DEVICE;
     device.open = console_open;
     device.close = console_close;

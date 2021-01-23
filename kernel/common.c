@@ -1,5 +1,7 @@
 #include "common.h"
 #include "serial.h"
+#include "console.h"
+#include "terminal.h"
 #include "log.h"
 
 static BOOL g_interrupts_were_enabled = FALSE;
@@ -309,73 +311,103 @@ void itoa (char *buf, int base, int d)
     }
 }
 
-int sprintf_va(char* buffer, const char *format, __builtin_va_list vl)
+typedef enum 
+{
+    PF_NONE = 0,
+    PF_REPLACE_NEWLINE_RN = 1
+} SprintfFlags;
+
+int sprintf_va(char *buffer, uint32_t buffer_size, SprintfFlags flags, const char *format, __builtin_va_list vl)
 {
     char c;
     char buf[20];
+    char *p = NULL;
 
-    int buffer_index = 0;
+    uint32_t buffer_index = 0;
 
     while ((c = *format++) != 0)
-      {
-        if (c != '%')
-          buffer[buffer_index++] = c;
-        else
-          {
-            char *p;
+    {
+        if (c == '\n')
+        {
+            if (flags & PF_REPLACE_NEWLINE_RN)
+            {
+                buf[0] = '\r';
+                buf[1] = '\n';
+                buf[2] = '\0';
+            }
+            else
+            {
+                buf[0] = '\n';
+                buf[1] = '\0';
+            }
+            p = buf;
 
+            while (*p)
+            {
+                buffer[buffer_index++] = (*p++);
+            }
+        }
+        else if (c == '%')
+        {
             c = *format++;
             switch (c)
-              {
-              case 'p':
-              case 'x':
-                 buf[0] = '0';
-                 buf[1] = 'x';
-                 //itoa (buf + 2, c, *((int *) arg++));
-                 itoa (buf + 2, c, __builtin_va_arg(vl, int));
-                 p = buf;
-                 goto string;
-                 break;
-              case 'd':
-              case 'u':
-                //itoa (buf, c, *((int *) arg++));
-                itoa (buf, c, __builtin_va_arg(vl, int));
+            {
+            case 'p':
+            case 'x':
+                buf[0] = '0';
+                buf[1] = 'x';
+                itoa(buf + 2, c, __builtin_va_arg(vl, int));
+                p = buf;
+                goto string;
+                break;
+            case 'd':
+            case 'u':
+                itoa(buf, c, __builtin_va_arg(vl, int));
                 p = buf;
                 goto string;
                 break;
 
-              case 's':
-                //p = *arg++;
-                p = __builtin_va_arg(vl, char*);
-                if (! p)
-                  p = "(null)";
+            case 's':
+                p = __builtin_va_arg(vl, char *);
+                if (!p)
+                    p = "(null)";
 
-              string:
+            string:
                 while (*p)
-                  buffer[buffer_index++] = (*p++);
+                {
+                    buffer[buffer_index++] = (*p++);
+                }
                 break;
 
-              default:
-                //buffer[buffer_index++] = (*((int *) arg++));
+            default:
                 buffer[buffer_index++] = __builtin_va_arg(vl, int);
                 break;
-              }
-          }
-      }
+            }
+        }
+        else
+        {
+            buffer[buffer_index++] = c;
+        }
+
+        if (buffer_index >= buffer_size - 1)
+        {
+            break;
+        }
+    }
 
     buffer[buffer_index] = '\0';
 
     return buffer_index;
 }
 
-int sprintf(char* buffer, const char *format, ...)
+int sprintf(char* buffer, uint32_t buffer_size, const char *format, ...)
 {
     int result = 0;
 
     __builtin_va_list vl;
     __builtin_va_start(vl, format);
 
-    result = sprintf_va(buffer, format, vl);
+    result = sprintf_va(buffer, buffer_size, PF_NONE, format, vl);
 
     __builtin_va_end(vl);
 
@@ -392,11 +424,14 @@ void printkf(const char *format, ...)
     __builtin_va_list vl;
     __builtin_va_start(vl, format);
 
-    sprintf_va(buffer+2, format, vl);
+    sprintf_va(buffer + 2, 1022, PF_REPLACE_NEWLINE_RN, format, vl);
 
     __builtin_va_end(vl);
 
-    //TODO: send printkf output to a terminal
+    if (g_active_terminal)
+    {
+        terminal_put_text(g_active_terminal, buffer, 1024);
+    }
 }
 
 void panic(const char *message, const char *file, uint32_t line)
