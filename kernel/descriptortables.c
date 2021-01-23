@@ -56,7 +56,7 @@ static void gdt_initialize()
     g_tss.cs   = 0x0B; //from ring 3 - 0x08 | 3 = 0x0B
     g_tss.ss = g_tss.ds = g_tss.es = g_tss.fs = g_tss.gs = 0x13; //from ring 3 = 0x10 | 3 = 0x13
     uint32_t tss_base = (uint32_t) &g_tss;
-    uint32_t tss_limit = tss_base + sizeof(g_tss);
+    uint32_t tss_limit = sizeof(g_tss);
     set_gdt_entry(5, tss_base, tss_limit, 0xE9, 0x00);
 
     set_gdt_entry(6, 0, 0xFFFFFFFF, 0x80, 0xCF); // Thread Local Storage pointer segment
