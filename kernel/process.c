@@ -73,7 +73,7 @@ void tasking_initialize()
     thread->birth_time = get_uptime_milliseconds();
 
     thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->message_queue_lock));
+    spinlock_init(&(thread->message_queue_lock));
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -116,7 +116,7 @@ void thread_create_kthread(Function0 func)
     thread->birth_time = get_uptime_milliseconds();
 
     thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->message_queue_lock));
+    spinlock_init(&(thread->message_queue_lock));
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -376,7 +376,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     thread->birth_time = get_uptime_milliseconds();
 
     thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    Spinlock_Init(&(thread->message_queue_lock));
+    spinlock_init(&(thread->message_queue_lock));
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
@@ -526,7 +526,7 @@ void thread_destroy(Thread* thread)
 
         kfree((void*)thread->kstack.stack_start);
 
-        Spinlock_Lock(&(thread->message_queue_lock));
+        spinlock_lock(&(thread->message_queue_lock));
         fifobuffer_destroy(thread->message_queue);
 
         fifobuffer_destroy(thread->signals);
@@ -562,7 +562,7 @@ void process_destroy(Process* process)
 
                 kfree((void*)thread->kstack.stack_start);
 
-                Spinlock_Lock(&(thread->message_queue_lock));
+                spinlock_lock(&(thread->message_queue_lock));
                 fifobuffer_destroy(thread->message_queue);
 
                 fifobuffer_destroy(thread->signals);

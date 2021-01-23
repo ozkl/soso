@@ -44,7 +44,7 @@ void initialize_mouse()
 
     g_readers = list_create();
 
-    Spinlock_Init(&g_readers_lock);
+    spinlock_init(&g_readers_lock);
 
     prepare_for_write();
 
@@ -67,22 +67,22 @@ static BOOL mouse_open(File *file, uint32_t flags)
 
     file->private_data = (void*)fifo;
 
-    Spinlock_Lock(&g_readers_lock);
+    spinlock_lock(&g_readers_lock);
 
     list_append(g_readers, file);
 
-    Spinlock_Unlock(&g_readers_lock);
+    spinlock_unlock(&g_readers_lock);
 
     return TRUE;
 }
 
 static void mouse_close(File *file)
 {
-    Spinlock_Lock(&g_readers_lock);
+    spinlock_lock(&g_readers_lock);
 
     list_remove_first_occurrence(g_readers, file);
 
-    Spinlock_Unlock(&g_readers_lock);
+    spinlock_unlock(&g_readers_lock);
 
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
@@ -173,7 +173,7 @@ static void handle_mouse_interrupt(Registers *regs)
     {
         g_mouse_byte_counter = 0;
 
-        Spinlock_Lock(&g_readers_lock);
+        spinlock_lock(&g_readers_lock);
 
         //Wake readers
         list_foreach(n, g_readers)
@@ -193,7 +193,7 @@ static void handle_mouse_interrupt(Registers *regs)
             }
         }
 
-        Spinlock_Unlock(&g_readers_lock);
+        spinlock_unlock(&g_readers_lock);
     }
 
     //printkf("mouse:%d\n", data);

@@ -1,32 +1,32 @@
 #include "spinlock.h"
 
-static inline int32_t exchangeAtomic(volatile int32_t* oldValueAddress, int32_t newValue)
+static inline int32_t exchange_atomic(volatile int32_t* old_value_address, int32_t new_value)
 {
     //no need to use lock instruction on xchg
 
     asm volatile ("xchgl %0, %1"
-                   : "=r"(newValue)
-                   : "m"(*oldValueAddress), "0"(newValue)
+                   : "=r"(new_value)
+                   : "m"(*old_value_address), "0"(new_value)
                    : "memory");
-    return newValue;
+    return new_value;
 }
 
-void Spinlock_Init(Spinlock* spinlock)
+void spinlock_init(Spinlock* spinlock)
 {
     *spinlock = 0;
 }
 
-void Spinlock_Lock(Spinlock* spinlock)
+void spinlock_lock(Spinlock* spinlock)
 {
-    while (exchangeAtomic((int32_t*)spinlock, 1))
+    while (exchange_atomic((int32_t*)spinlock, 1))
     {
         halt();
     }
 }
 
-BOOL Spinlock_TryLock(Spinlock* spinlock)
+BOOL spinlock_try_lock(Spinlock* spinlock)
 {
-    if (exchangeAtomic((int32_t*)spinlock, 1))
+    if (exchange_atomic((int32_t*)spinlock, 1))
     {
         return FALSE;
     }
@@ -34,7 +34,7 @@ BOOL Spinlock_TryLock(Spinlock* spinlock)
     return TRUE;
 }
 
-void Spinlock_Unlock(Spinlock* spinlock)
+void spinlock_unlock(Spinlock* spinlock)
 {
     *spinlock = 0;
 }

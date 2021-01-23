@@ -5,22 +5,22 @@
 
 void message_send(Thread* thread, SosoMessage* message)
 {
-    Spinlock_Lock(&(thread->message_queue_lock));
+    spinlock_lock(&(thread->message_queue_lock));
 
     fifobuffer_enqueue(thread->message_queue, (uint8_t*)message, sizeof(SosoMessage));
 
-    Spinlock_Unlock(&(thread->message_queue_lock));
+    spinlock_unlock(&(thread->message_queue_lock));
 }
 
 uint32_t message_get_queue_count(Thread* thread)
 {
     int result = 0;
 
-    Spinlock_Lock(&(thread->message_queue_lock));
+    spinlock_lock(&(thread->message_queue_lock));
 
     result = fifobuffer_get_size(thread->message_queue) / sizeof(SosoMessage);
 
-    Spinlock_Unlock(&(thread->message_queue_lock));
+    spinlock_unlock(&(thread->message_queue_lock));
 
     return result;
 }
@@ -30,7 +30,7 @@ int32_t message_get_next(Thread* thread, SosoMessage* message)
 {
     uint32_t result = -1;
 
-    Spinlock_Lock(&(thread->message_queue_lock));
+    spinlock_lock(&(thread->message_queue_lock));
 
     result = fifobuffer_get_size(thread->message_queue) / sizeof(SosoMessage);
 
@@ -45,7 +45,7 @@ int32_t message_get_next(Thread* thread, SosoMessage* message)
         result = -1;
     }
 
-    Spinlock_Unlock(&(thread->message_queue_lock));
+    spinlock_unlock(&(thread->message_queue_lock));
 
     return result;
 }

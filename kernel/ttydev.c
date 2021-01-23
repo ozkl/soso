@@ -12,8 +12,8 @@ static BOOL master_open(File *file, uint32_t flags);
 static void master_close(File *file);
 static int32_t master_read(File *file, uint32_t size, uint8_t *buffer);
 static int32_t master_write(File *file, uint32_t size, uint8_t *buffer);
-static BOOL master_readTestReady(File *file);
-static BOOL master_writeTestReady(File *file);
+static BOOL master_read_rest_ready(File *file);
+static BOOL master_write_test_ready(File *file);
 
 static BOOL slave_open(File *file, uint32_t flags);
 static void slave_close(File *file);
@@ -69,9 +69,9 @@ FileSystemNode* ttydev_create()
     tty_dev->slave_readers = list_create();
 
     
-    Spinlock_Init(&tty_dev->buffer_master_write_lock);
-    Spinlock_Init(&tty_dev->buffer_master_read_lock);
-    Spinlock_Init(&tty_dev->slave_readers_lock);
+    spinlock_init(&tty_dev->buffer_master_write_lock);
+    spinlock_init(&tty_dev->buffer_master_read_lock);
+    spinlock_init(&tty_dev->slave_readers_lock);
 
     ++g_name_generator;
 
@@ -83,8 +83,8 @@ FileSystemNode* ttydev_create()
     master.close = master_close;
     master.read = master_read;
     master.write = master_write;
-    master.read_test_ready = master_readTestReady;
-    master.write_test_ready = master_writeTestReady;
+    master.read_test_ready = master_read_rest_ready;
+    master.write_test_ready = master_write_test_ready;
     master.private_data = tty_dev;
 
     Device slave;
@@ -111,7 +111,7 @@ FileSystemNode* ttydev_create()
 
 static void wake_slave_readers(TtyDev* tty)
 {
-    Spinlock_Lock(&tty->slave_readers_lock);
+    spinlock_lock(&tty->slave_readers_lock);
     list_foreach(n, tty->slave_readers)
     {
         Thread* thread = (Thread*)n->data;
@@ -120,7 +120,7 @@ static void wake_slave_readers(TtyDev* tty)
             thread_resume(thread);
         }
     }
-    Spinlock_Unlock(&tty->slave_readers_lock);
+    spinlock_unlock(&tty->slave_readers_lock);
 }
 
 static BOOL master_open(File *file, uint32_t flags)
@@ -133,15 +133,15 @@ static void master_close(File *file)
     
 }
 
-static BOOL master_readTestReady(File *file)
+static BOOL master_read_rest_ready(File *file)
 {
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
-    if (Spinlock_TryLock(&tty->buffer_master_read_lock))
+    if (spinlock_try_lock(&tty->buffer_master_read_lock))
     {
         uint32_t needed_size = 1;
         uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
-        Spinlock_Unlock(&tty->buffer_master_read_lock);
+        spinlock_unlock(&tty->buffer_master_read_lock);
 
         if (buffer_len >= needed_size)
         {
@@ -163,7 +163,7 @@ static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
         
         while (TRUE)
         {
-            Spinlock_Lock(&tty->buffer_master_read_lock);
+            spinlock_lock(&tty->buffer_master_read_lock);
 
             uint32_t needed_size = 1;
             uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
@@ -175,7 +175,7 @@ static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
                 read_size = fifobuffer_dequeue(tty->buffer_master_read, buffer, MIN(buffer_len, size));
             }
 
-            Spinlock_Unlock(&tty->buffer_master_read_lock);
+            spinlock_unlock(&tty->buffer_master_read_lock);
 
             if (read_size > 0)
             {
@@ -198,7 +198,7 @@ int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer)
         TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
         int read_size = 0;
-        if (Spinlock_TryLock(&tty->buffer_master_read_lock))
+        if (spinlock_try_lock(&tty->buffer_master_read_lock))
         {
             uint32_t needed_size = 1;
             uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_read);
@@ -208,7 +208,7 @@ int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer)
                 read_size = fifobuffer_dequeue(tty->buffer_master_read, buffer, MIN(buffer_len, size));
             }
 
-            Spinlock_Unlock(&tty->buffer_master_read_lock);
+            spinlock_unlock(&tty->buffer_master_read_lock);
         }
         return read_size;
     }
@@ -216,12 +216,12 @@ int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer)
     return -1;
 }
 
-static BOOL master_writeTestReady(File *file)
+static BOOL master_write_test_ready(File *file)
 {
     return TRUE;
 }
 
-static BOOL overrideCharacterMasterWrite(TtyDev* tty, uint8_t* character)
+static BOOL override_character_master_write(TtyDev* tty, uint8_t* character)
 {
     BOOL result = TRUE;
 
@@ -270,7 +270,7 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
 
     //enableInterrupts(); //TODO: check
 
-    Spinlock_Lock(&tty->buffer_master_write_lock);
+    spinlock_lock(&tty->buffer_master_write_lock);
 
     uint32_t free = fifobuffer_get_free(tty->buffer_master_write);
 
@@ -282,7 +282,7 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
     {
         uint8_t character = buffer[k];
 
-        BOOL use_character = overrideCharacterMasterWrite(tty, &character);
+        BOOL use_character = override_character_master_write(tty, &character);
 
         if (use_character == FALSE)
         {
@@ -389,7 +389,7 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
         }
     }
     
-    Spinlock_Unlock(&tty->buffer_master_write_lock);
+    spinlock_unlock(&tty->buffer_master_write_lock);
 
     if (written > 0)
     {
@@ -398,13 +398,13 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
 
     if (fifobuffer_get_size(tty->buffer_echo) > 0)
     {
-        Spinlock_Lock(&tty->buffer_master_read_lock);
+        spinlock_lock(&tty->buffer_master_read_lock);
 
         int32_t w = fifobuffer_enqueue_from_other(tty->buffer_master_read, tty->buffer_echo);
 
         uint32_t bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
 
-        Spinlock_Unlock(&tty->buffer_master_read_lock);
+        spinlock_unlock(&tty->buffer_master_read_lock);
 
         if (bytes_usable > 0 && tty->master_read_ready)
         {
@@ -532,7 +532,7 @@ static BOOL slave_read_test_ready(File *file)
 {
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
-    if (Spinlock_TryLock(&tty->buffer_master_write_lock))
+    if (spinlock_try_lock(&tty->buffer_master_write_lock))
     {
         uint32_t needed_size = 1;
         if ((tty->term.c_lflag & ICANON) != ICANON) //if noncanonical
@@ -542,7 +542,7 @@ static BOOL slave_read_test_ready(File *file)
 
         uint32_t buffer_len = fifobuffer_get_size(tty->buffer_master_write);
 
-        Spinlock_Unlock(&tty->buffer_master_write_lock);
+        spinlock_unlock(&tty->buffer_master_write_lock);
 
         if (buffer_len >= needed_size)
         {
@@ -567,7 +567,7 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
         
         while (TRUE)
         {
-            Spinlock_Lock(&tty->buffer_master_write_lock);
+            spinlock_lock(&tty->buffer_master_write_lock);
 
             uint32_t needed_size = 1;
             if ((tty->term.c_lflag & ICANON) != ICANON) //if noncanonical
@@ -588,7 +588,7 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
                 read_size = fifobuffer_dequeue(tty->buffer_master_write, buffer, MIN(buffer_len, size));
             }
 
-            Spinlock_Unlock(&tty->buffer_master_write_lock);
+            spinlock_unlock(&tty->buffer_master_write_lock);
 
             if (read_size > 0)
             {
@@ -604,10 +604,10 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
             }
 
             //TODO: remove reader from list
-            Spinlock_Lock(&tty->slave_readers_lock);
+            spinlock_lock(&tty->slave_readers_lock);
             list_remove_first_occurrence(tty->slave_readers, file->thread);
             list_append(tty->slave_readers, file->thread);
-            Spinlock_Unlock(&tty->slave_readers_lock);
+            spinlock_unlock(&tty->slave_readers_lock);
 
             thread_change_state(file->thread, TS_WAITIO, tty);
             halt();
@@ -682,7 +682,7 @@ static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer)
 
     enable_interrupts();
 
-    Spinlock_Lock(&tty->buffer_master_read_lock);
+    spinlock_lock(&tty->buffer_master_read_lock);
 
     uint32_t free = fifobuffer_get_free(tty->buffer_master_read);
 
@@ -695,7 +695,7 @@ static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer)
 
     uint32_t bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
 
-    Spinlock_Unlock(&tty->buffer_master_read_lock);
+    spinlock_unlock(&tty->buffer_master_read_lock);
 
     if (bytes_usable > 0 && tty->master_read_ready)
     {

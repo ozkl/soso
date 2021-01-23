@@ -45,7 +45,7 @@ void devfs_initialize()
     g_dev_root->readdir = devfs_readdir;
 
     g_device_list = list_create();
-    Spinlock_Init(&g_device_list_lock);
+    spinlock_init(&g_device_list_lock);
 }
 
 static BOOL devfs_open(File *node, uint32_t flags)
@@ -59,7 +59,7 @@ static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32_t index)
 
     uint32_t counter = 0;
 
-    Spinlock_Lock(&g_device_list_lock);
+    spinlock_lock(&g_device_list_lock);
 
     list_foreach(n, g_device_list)
     {
@@ -75,7 +75,7 @@ static FileSystemDirent *devfs_readdir(FileSystemNode *node, uint32_t index)
 
         ++counter;
     }
-    Spinlock_Unlock(&g_device_list_lock);
+    spinlock_unlock(&g_device_list_lock);
 
     return result;
 }
@@ -85,7 +85,7 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
     FileSystemNode* result = NULL;
 
 
-    Spinlock_Lock(&g_device_list_lock);
+    spinlock_lock(&g_device_list_lock);
 
     list_foreach(n, g_device_list)
     {
@@ -98,14 +98,14 @@ static FileSystemNode *devfs_finddir(FileSystemNode *node, char *name)
         }
     }
 
-    Spinlock_Unlock(&g_device_list_lock);
+    spinlock_unlock(&g_device_list_lock);
 
     return result;
 }
 
 FileSystemNode* devfs_register_device(Device* device)
 {
-    Spinlock_Lock(&g_device_list_lock);
+    spinlock_lock(&g_device_list_lock);
 
     list_foreach(n, g_device_list)
     {
@@ -114,7 +114,7 @@ FileSystemNode* devfs_register_device(Device* device)
         if (strcmp(device->name, device_node->name) == 0)
         {
             //There is already a device with the same name
-            Spinlock_Unlock(&g_device_list_lock);
+            spinlock_unlock(&g_device_list_lock);
             return NULL;
         }
     }
@@ -140,7 +140,7 @@ FileSystemNode* devfs_register_device(Device* device)
 
     list_append(g_device_list, device_node);
 
-    Spinlock_Unlock(&g_device_list_lock);
+    spinlock_unlock(&g_device_list_lock);
 
     return device_node;
 }
