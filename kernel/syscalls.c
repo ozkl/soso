@@ -21,6 +21,7 @@
 #include "syscall_select.h"
 #include "errno.h"
 #include "ipc.h"
+#include "socket.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -190,6 +191,22 @@ void syscalls_initialize()
     g_syscall_table[SYS_shmat] = syscall_shmat;
     g_syscall_table[SYS_shmdt] = syscall_shmdt;
     g_syscall_table[SYS_shmctl] = syscall_shmctl;
+    g_syscall_table[SYS_socket] = syscall_socket;
+    g_syscall_table[SYS_socketpair] = syscall_socketpair;
+    g_syscall_table[SYS_bind] = syscall_bind;
+    g_syscall_table[SYS_connect] = syscall_connect;
+    g_syscall_table[SYS_listen] = syscall_listen;
+    g_syscall_table[SYS_accept4] = syscall_accept4;
+    g_syscall_table[SYS_getsockopt] = syscall_getsockopt;
+    g_syscall_table[SYS_setsockopt] = syscall_setsockopt;
+    g_syscall_table[SYS_getsockname] = syscall_getsockname;
+    g_syscall_table[SYS_getpeername] = syscall_getpeername;
+    g_syscall_table[SYS_sendto] = syscall_sendto;
+    g_syscall_table[SYS_sendmsg] = syscall_sendmsg;
+    g_syscall_table[SYS_recvfrom] = syscall_recvfrom;
+    g_syscall_table[SYS_recvmsg] = syscall_recvmsg;
+    g_syscall_table[SYS_shutdown] = syscall_shutdown;
+    g_syscall_table[SYS_accept] = syscall_accept;
 
     // Register our syscall handler.
     interrupt_register (0x80, &handle_syscall);
@@ -1742,7 +1759,7 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
     if (shmaddr != NULL)
     {
         //We don't support preferred address through this interface for now!
-        return -EINVAL;
+        return (void*)-EINVAL;
     }
 
     FileSystemNode* node = NULL;
@@ -1765,13 +1782,13 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
 
                 if (file->node == node)
                 {
-                    return syscall_mmap(shmaddr, file->node->length, shmflg, 0, file->fd, 0);
+                    return syscall_mmap((void*)shmaddr, file->node->length, shmflg, 0, file->fd, 0);
                 }
             }
         }
     }
 
-    return -EINVAL;
+    return (void*)-EINVAL;
 }
 
 int syscall_shmdt(const void *shmaddr)

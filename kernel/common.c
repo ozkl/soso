@@ -430,7 +430,7 @@ void printkf(const char *format, ...)
 
     if (g_active_terminal)
     {
-        terminal_put_text(g_active_terminal, buffer, 1024);
+        terminal_put_text(g_active_terminal, (uint8_t*)buffer, 1024);
     }
 }
 

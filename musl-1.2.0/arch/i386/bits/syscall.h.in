@@ -357,21 +357,21 @@
 #define __NR_memfd_create	1356
 #define __NR_bpf		1357
 #define __NR_execveat		1358
-#define __NR_socket		1359
-#define __NR_socketpair		1360
-#define __NR_bind		1361
-#define __NR_connect		1362
-#define __NR_listen		1363
-#define __NR_accept4		1364
-#define __NR_getsockopt		1365
-#define __NR_setsockopt		1366
-#define __NR_getsockname	1367
-#define __NR_getpeername	1368
-#define __NR_sendto		1369
-#define __NR_sendmsg		1370
-#define __NR_recvfrom		1371
-#define __NR_recvmsg		1372
-#define __NR_shutdown		1373
+#define __NR_socket		54 //1359
+#define __NR_socketpair		55 //1360
+#define __NR_bind		56 //1361
+#define __NR_connect		57 //1362
+#define __NR_listen		58 //1363
+#define __NR_accept4		59 //1364
+#define __NR_getsockopt		60 //1365
+#define __NR_setsockopt		61 //1366
+#define __NR_getsockname	62 //1367
+#define __NR_getpeername	63 //1368
+#define __NR_sendto		64 //1369
+#define __NR_sendmsg		65 //1370
+#define __NR_recvfrom		66 //1371
+#define __NR_recvmsg		67 //1372
+#define __NR_shutdown		68 //1373
 #define __NR_userfaultfd	1374
 #define __NR_membarrier		1375
 #define __NR_mlock2		1376
@@ -431,3 +431,4 @@
 //soso
 #define __NR_posix_openpt		35
 #define __NR_ptsname_r		36
+#define __NR_accept		69

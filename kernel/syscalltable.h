@@ -65,6 +65,23 @@ enum
     SYS_shmdt,
     SYS_shmctl,
 
+    SYS_socket,
+    SYS_socketpair,
+    SYS_bind,
+    SYS_connect,
+    SYS_listen,
+    SYS_accept4,
+    SYS_getsockopt,
+    SYS_setsockopt,
+    SYS_getsockname,
+    SYS_getpeername,
+    SYS_sendto,
+    SYS_sendmsg,
+    SYS_recvfrom,
+    SYS_recvmsg,
+    SYS_shutdown,
+    SYS_accept,
+
     SYSCALL_COUNT
 };
 

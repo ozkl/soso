@@ -25,6 +25,7 @@
 #include "mouse.h"
 #include "sleep.h"
 #include "console.h"
+#include "socket.h"
 
 extern uint32_t _start;
 extern uint32_t _end;
@@ -164,6 +165,8 @@ int kmain(struct Multiboot *mboot_ptr)
     ramdisk_create("ramdisk1", 20*1024*1024);
 
     fatfs_initialize();
+
+    net_initialize();
 
     printkf("System started!\n");
 
