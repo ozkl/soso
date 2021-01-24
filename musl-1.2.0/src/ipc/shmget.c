@@ -3,6 +3,8 @@
 #include "syscall.h"
 #include "ipc.h"
 
+#undef SYS_ipc
+
 int shmget(key_t key, size_t size, int flag)
 {
 	if (size > PTRDIFF_MAX) size = SIZE_MAX;

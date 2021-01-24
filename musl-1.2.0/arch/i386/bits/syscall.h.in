@@ -387,10 +387,10 @@
 #define __NR_rseq		1386
 #define __NR_semget		1393
 #define __NR_semctl		1394
-#define __NR_shmget		1395
-#define __NR_shmctl		1396
-#define __NR_shmat		1397
-#define __NR_shmdt		1398
+#define __NR_shmget		50 //1395
+#define __NR_shmctl		53 //1396
+#define __NR_shmat		51 //1397
+#define __NR_shmdt		52 //1398
 #define __NR_msgget		1399
 #define __NR_msgsnd		1400
 #define __NR_msgrcv		1401

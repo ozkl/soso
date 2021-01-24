@@ -2,6 +2,8 @@
 #include "syscall.h"
 #include "ipc.h"
 
+#undef SYS_ipc
+
 #ifndef SYS_ipc
 void *shmat(int id, const void *addr, int flag)
 {

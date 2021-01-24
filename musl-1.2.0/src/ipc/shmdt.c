@@ -2,6 +2,8 @@
 #include "syscall.h"
 #include "ipc.h"
 
+#undef SYS_ipc
+
 int shmdt(const void *addr)
 {
 #ifndef SYS_ipc

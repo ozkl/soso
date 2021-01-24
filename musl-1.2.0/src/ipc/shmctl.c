@@ -7,6 +7,8 @@
 #undef SYSCALL_IPC_BROKEN_MODE
 #endif
 
+#undef SYS_ipc
+
 int shmctl(int id, int cmd, struct shmid_ds *buf)
 {
 #ifdef SYSCALL_IPC_BROKEN_MODE

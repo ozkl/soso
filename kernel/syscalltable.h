@@ -59,6 +59,11 @@ enum
     SYS_clock_gettime64,
     SYS_clock_settime64,
     SYS_clock_getres64,
+    
+    SYS_shmget,
+    SYS_shmat,
+    SYS_shmdt,
+    SYS_shmctl,
 
     SYSCALL_COUNT
 };

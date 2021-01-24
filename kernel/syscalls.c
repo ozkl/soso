@@ -20,6 +20,7 @@
 #include "ttydev.h"
 #include "syscall_select.h"
 #include "errno.h"
+#include "ipc.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -57,6 +58,8 @@ struct k_sigaction {
 	void (*restorer)(void);
 	unsigned mask[2];
 };
+
+struct shmid_ds;
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -123,6 +126,10 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
 int32_t syscall_clock_gettime64(int32_t clockid, struct timespec *tp);
 int32_t syscall_clock_settime64(int32_t clockid, const struct timespec *tp);
 int32_t syscall_clock_getres64(int32_t clockid, struct timespec *res);
+int syscall_shmget(int32_t key, size_t size, int flag);
+void * syscall_shmat(int shmid, const void *shmaddr, int shmflg);
+int syscall_shmdt(const void *shmaddr);
+int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 
 void syscalls_initialize()
 {
@@ -179,6 +186,10 @@ void syscalls_initialize()
     g_syscall_table[SYS_clock_gettime64] = syscall_clock_gettime64;
     g_syscall_table[SYS_clock_settime64] = syscall_clock_settime64;
     g_syscall_table[SYS_clock_getres64] = syscall_clock_getres64;
+    g_syscall_table[SYS_shmget] = syscall_shmget;
+    g_syscall_table[SYS_shmat] = syscall_shmat;
+    g_syscall_table[SYS_shmdt] = syscall_shmdt;
+    g_syscall_table[SYS_shmctl] = syscall_shmctl;
 
     // Register our syscall handler.
     interrupt_register (0x80, &handle_syscall);
@@ -1628,6 +1639,8 @@ int syscall_shm_unlink(const char *name)
         return -EFAULT;
     }
 
+    //TODO:
+
     return -1;
 }
 
@@ -1660,6 +1673,117 @@ int syscall_ftruncate(int fd, int size)
     }
 
     return -1;
+}
+
+//Old way of shared memory, modern systems prefer shm_open/mmap
+//For simplicity, we return the same key as an identifier for now!
+int syscall_shmget(int32_t key, size_t size, int flag)
+{
+    FileSystemNode* node = NULL;
+
+    //printkf("shmget(key:%d, size:%d, flag:%d)\n", key, size, flag);
+
+    //Let's simulate shm_open
+
+    char name[64];
+    sprintf(name, 64, "%d", key);
+
+    node = sharedmemory_get_node(name);
+
+    if (node) //found existing
+    {
+        if ((flag & IPC_CREAT) && (flag & IPC_EXCL)) //was ensuring create new, so fail!
+        {
+            return -EEXIST;
+        }
+    }
+    else
+    {
+        if (flag & IPC_CREAT)
+        {
+            node = sharedmemory_create(name);
+        }
+    }
+    
+    if (node)
+    {
+        Process* process = thread_get_current()->owner;
+        if (process)
+        {
+            BOOL already_opened = FALSE;
+            for (size_t i = 0; i < MAX_OPENED_FILES; i++)
+            {
+                File* file = process->fd[i];
+
+                if (file->node == node)
+                {
+                    already_opened = TRUE;
+                    break;
+                }
+            }
+            
+            if (already_opened == FALSE)
+            {
+                File* file = fs_open(node, O_RDWR);
+                if (file)
+                {
+                    syscall_ftruncate(file->fd, size);
+                }
+            }
+        }
+        return key;
+    }
+
+    return -1;
+}
+
+void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
+{
+    if (shmaddr != NULL)
+    {
+        //We don't support preferred address through this interface for now!
+        return -EINVAL;
+    }
+
+    FileSystemNode* node = NULL;
+
+    //printkf("shmat(shmid:%d, shmaddr:%x, shmflg:%d)\n", shmid, shmaddr, shmflg);
+
+    char name[64];
+    sprintf(name, 64, "%d", shmid);
+
+    node = sharedmemory_get_node(name);
+
+    if (node)
+    {
+        Process* process = thread_get_current()->owner;
+        if (process)
+        {
+            for (size_t i = 0; i < MAX_OPENED_FILES; i++)
+            {
+                File* file = process->fd[i];
+
+                if (file->node == node)
+                {
+                    return syscall_mmap(shmaddr, file->node->length, shmflg, 0, file->fd, 0);
+                }
+            }
+        }
+    }
+
+    return -EINVAL;
+}
+
+int syscall_shmdt(const void *shmaddr)
+{
+    //TODO:
+    return -EINVAL;
+}
+
+int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf)
+{
+    //TODO:
+    return -EINVAL;
 }
 
 int syscall_posix_openpt(int flags)
