@@ -9,7 +9,7 @@
 
 #define DOMAIN_SIZE 3
 
-static List* g_socket_list = NULL;
+List* g_socket_list = NULL;
 
 
 static SocketFunction g_domain_setup_functions[DOMAIN_SIZE];
@@ -25,6 +25,48 @@ void net_initialize()
     g_domain_setup_functions[AF_UNIX] = unixsocket_setup;
 }
 
+static Socket* get_socket(int sockfd, int* error)
+{
+    Process* process = g_current_thread->owner;
+    if (process)
+    {
+        if (sockfd >= 0 && sockfd < MAX_OPENED_FILES)
+        {
+            File* file = process->fd[sockfd];
+
+            if (file)
+            {
+                if (file->node->node_type != FT_SOCKET)
+                {
+                    *error = -ENOTSOCK;
+                    return NULL;
+                }
+
+                Socket* socket = (Socket*)file->node->private_node_data;
+
+                socket->last_thread = g_current_thread;
+
+                return socket;
+            }
+            else
+            {
+                *error = -EBADF;
+                return NULL;
+            }
+            
+        }
+        else
+        {
+            *error = -EBADF;
+            return NULL;
+        }
+        
+    }
+
+    *error = -1;
+    return NULL;
+}
+
 static Socket* socket_create()
 {
     Socket* socket = (Socket*)kmalloc(sizeof(Socket));
@@ -32,6 +74,8 @@ static Socket* socket_create()
 
     socket->buffer_out = fifobuffer_create(SOCKET_BUFFER_SIZE);
     socket->buffer_in = fifobuffer_create(SOCKET_BUFFER_SIZE);
+
+    socket->accept_queue = queue_create();
 
     list_append(g_socket_list, socket);
 
@@ -44,6 +88,8 @@ static void socket_destroy(Socket* socket)
 
     fifobuffer_destroy(socket->buffer_out);
     fifobuffer_destroy(socket->buffer_in);
+
+    queue_destroy(socket->accept_queue);
 
     kfree(socket);
 }
@@ -71,6 +117,13 @@ static void socket_fs_close(File* file)
         socket->socket_closing(socket);
     }
 
+    if (socket->connection)
+    {
+        //disconnect other end as well
+
+        socket->connection->connection = NULL;
+    }
+
     kfree(socket->node);
     socket->node = NULL;
 
@@ -90,8 +143,12 @@ int syscall_socket(int domain, int type, int protocol)
         FileSystemNode* node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
         memset((uint8_t*)node, 0, sizeof(FileSystemNode));
 
+        socket->last_thread = g_current_thread;
+
         socket->node = node;
         node->private_node_data = socket;
+
+        node->node_type = FT_SOCKET;
 
         node->open = socket_fs_open;
         node->close = socket_fs_close;
@@ -119,41 +176,54 @@ int syscall_shutdown(int sockfd, int how)
 
 int syscall_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    Process* process = thread_get_current()->owner;
-    if (process)
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_bind)
     {
-        if (sockfd >= 0 && sockfd < MAX_OPENED_FILES)
-        {
-            File* file = process->fd[sockfd];
-
-            if (file)
-            {
-                Socket* socket = (Socket*)file->node->private_node_data;
-
-                if (socket->socket_bind)
-                {
-                    return socket->socket_bind(socket, sockfd, addr, addrlen);
-                }
-            }
-        }
+        return socket->socket_bind(socket, sockfd, addr, addrlen);
     }
 
-    return -1;
+    return error;
 }
 
 int syscall_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    return -EPERM;
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_connect)
+    {
+        return socket->socket_connect(socket, sockfd, addr, addrlen);
+    }
+
+    return error;
 }
 
 int syscall_listen(int sockfd, int backlog)
 {
-    return -EPERM;
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_listen)
+    {
+        return socket->socket_listen(socket, sockfd, backlog);
+    }
+
+    return error;
 }
 
 int syscall_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    return -EPERM;
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_accept)
+    {
+        return socket->socket_accept(socket, sockfd, addr, addrlen);
+    }
+
+    return error;
 }
 
 int syscall_accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
@@ -175,12 +245,28 @@ int syscall_getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 
 ssize_t syscall_send(int sockfd, const void *buf, size_t len, int flags)
 {
-    return -EPERM;
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_send)
+    {
+        return socket->socket_send(socket, sockfd, buf, len, flags);
+    }
+
+    return error;
 }
 
 ssize_t syscall_recv(int sockfd, void *buf, size_t len, int flags)
 {
-    return -EPERM;
+    int error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+
+    if (socket && socket->socket_recv)
+    {
+        return socket->socket_recv(socket, sockfd, buf, len, flags);
+    }
+
+    return error;
 }
 
 ssize_t syscall_sendto(int sockfd, const void *buf, size_t len, int flags,

@@ -16,6 +16,7 @@ typedef enum FileType
     FT_BLOCK_DEVICE       = 3,
     FT_PIPE               = 4,
     FT_SYMBOLIC_LINK      = 5,
+    FT_SOCKET             = 6,
     FT_DIRECTORY          = 128,
     FT_MOUNT_POINT        = 256
 } FileType;

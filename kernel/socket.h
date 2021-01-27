@@ -2,6 +2,10 @@
 #define SOCKET_H
 
 #include "stdint.h"
+#include "common.h"
+#include "spinlock.h"
+#include "process.h"
+#include "list.h"
 
 #define SOCKET_NAME_SIZE 64
 #define SOCKET_BUFFER_SIZE 1024
@@ -329,7 +333,11 @@ typedef struct FifoBuffer FifoBuffer;
 typedef struct Socket Socket;
 
 typedef void (*SocketFunction)(Socket* socket);
-typedef int (*SocketBindFunction)(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+typedef int (*SocketICAddrLen)(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+typedef int (*SocketIIFunction)(Socket* socket, int, int);
+typedef int (*SocketIAddrLen)(Socket* socket, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+typedef ssize_t (*SocketSend)(Socket* socket, int sockfd, const void *buf, size_t len, int flags);
+typedef ssize_t (*SocketRecv)(Socket* socket, int sockfd, void *buf, size_t len, int flags);
 
 typedef struct Socket
 {
@@ -338,9 +346,23 @@ typedef struct Socket
     FifoBuffer* buffer_in;
     Socket* connection;
     int32_t domain;
+    Thread* last_thread;
+    BITMAP_DEFINE(opts, 128);
+
+    Queue* accept_queue; //no lock required
+    
     void* custom_socket;
     SocketFunction socket_closing;
-    SocketBindFunction socket_bind;
+    SocketICAddrLen socket_bind;
+    SocketIIFunction socket_listen;
+    SocketIAddrLen socket_accept;
+    SocketICAddrLen socket_connect;
+    SocketSend socket_send;
+    SocketRecv socket_recv;
 } Socket;
+
+typedef struct List List;
+
+extern List* g_socket_list;
 
 #endif //SOCKET_H

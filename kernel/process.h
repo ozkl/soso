@@ -161,6 +161,7 @@ void wait_for_schedule();
 int32_t process_get_empty_fd(Process* process);
 int32_t process_add_file(Process* process, File* file);
 int32_t process_remove_file(Process* process, File* file);
+File* process_find_file(Process* process, FileSystemNode* node);
 Thread* thread_get_by_id(uint32_t thread_id);
 Thread* thread_get_previous(Thread* thread);
 Thread* thread_get_first();

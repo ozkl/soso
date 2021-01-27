@@ -824,6 +824,22 @@ int32_t process_remove_file(Process* process, File* file)
     return result;
 }
 
+File* process_find_file(Process* process, FileSystemNode* node)
+{
+    File* result = NULL;
+
+    for (int i = 0; i < MAX_OPENED_FILES; ++i)
+    {
+        if (process->fd[i] && process->fd[i]->node == node)
+        {
+            result = process->fd[i];
+            break;
+        }
+    }
+
+    return result;
+}
+
 Thread* thread_get_by_id(uint32_t threadId)
 {
     Thread* p = g_first_thread;
