@@ -185,17 +185,41 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
 
 static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags)
 {
-    if (socket->connection)
+    if (len == 0)
     {
+        return -1;
+    }
+
+
+    while (TRUE)
+    {
+        disable_interrupts();
+
+        if (!socket->connection)
+        {
+            return -1;
+        }
+
         uint32_t free = fifobuffer_get_free(socket->connection->buffer_in);
 
-        uint32_t smaller = MIN(free, len);
-
-        if (smaller > 0)
+        if (free > 0)
         {
+            uint32_t smaller = MIN(free, len);
+
             uint32_t written = fifobuffer_enqueue(socket->connection->buffer_in, (uint8_t*)buf, smaller);
 
+            if (socket->connection->last_thread->state == TS_WAITIO && socket->connection->last_thread->state_privateData == unixsocket_recv)
+            {
+                thread_resume(socket->connection->last_thread);
+            }
+
             return written;
+        }
+        else
+        {
+            thread_change_state(g_current_thread, TS_WAITIO, unixsocket_send);
+            enable_interrupts();
+            halt();
         }
     }
 
@@ -204,17 +228,34 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
 
 static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags)
 {
-    uint32_t size = fifobuffer_get_size(socket->buffer_in);
-
-    uint32_t smaller = MIN(size, len);
-
-    if (smaller > 0)
+    if (len == 0)
     {
-        uint32_t read = fifobuffer_dequeue(socket->buffer_in, (uint8_t*)buf, smaller);
+        return -1;
+    }
 
-        //TODO: blocking support
+    while (TRUE)
+    {
+        disable_interrupts();
 
-        return read;
+        uint32_t size = fifobuffer_get_size(socket->buffer_in);
+
+        if (size > 0)
+        {
+            uint32_t smaller = MIN(size, len);
+
+            uint32_t read = fifobuffer_dequeue(socket->buffer_in, (uint8_t*)buf, smaller);
+
+            if (socket->connection->last_thread->state == TS_WAITIO && socket->connection->last_thread->state_privateData == unixsocket_send)
+            {
+                thread_resume(socket->connection->last_thread);
+            }
+
+            return read;
+        }
+
+        thread_change_state(g_current_thread, TS_WAITIO, unixsocket_recv);
+        enable_interrupts();
+        halt();
     }
 
     return -1;
