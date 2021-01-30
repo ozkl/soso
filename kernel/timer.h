@@ -4,6 +4,8 @@
 #include "common.h"
 #include "time.h"
 
+extern uint64_t g_system_tick_count;
+
 void timer_initialize();
 uint32_t get_system_tick_count();
 uint64_t get_system_tick_count64();

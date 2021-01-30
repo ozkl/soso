@@ -21,6 +21,7 @@ Process* g_kernel_process = NULL;
 
 Thread* g_first_thread = NULL;
 Thread* g_current_thread = NULL;
+Thread* g_previous_scheduled_thread = NULL;
 
 Thread* g_destroyed_thread = NULL;
 
@@ -1055,6 +1056,8 @@ static void end_context(TimerInt_Registers* registers, Thread* thread)
 
 static void start_context(Thread* thread)
 {
+    g_previous_scheduled_thread = g_current_thread;
+    
     g_current_thread = thread;//Now g_current_thread is the thread we are about to schedule to
 
     thread->context_start_time = get_uptime_milliseconds();

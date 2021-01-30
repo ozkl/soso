@@ -344,6 +344,7 @@ typedef struct Socket
     FileSystemNode* node;
     FifoBuffer* buffer_out;
     FifoBuffer* buffer_in;
+    BOOL disconnected;
     Socket* connection;
     int32_t domain;
     Thread* last_thread;

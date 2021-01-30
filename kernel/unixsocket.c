@@ -26,7 +26,7 @@ static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf);
 
 void unixsocket_setup(Socket* socket)
 {
-    printkf("unixsocket_setup\n");
+    //printkf("unixsocket_setup\n");
 
     UnixSocket* unix_socket = (UnixSocket*)kmalloc(sizeof(UnixSocket));
     memset((uint8_t*)unix_socket, 0, sizeof(UnixSocket));
@@ -49,7 +49,7 @@ void unixsocket_setup(Socket* socket)
 
 static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    printkf("unixsocket_bind\n");
+    //printkf("unixsocket_bind\n");
 
     UnixSocket* unix_socket = (UnixSocket*)socket->custom_socket;
 
@@ -237,6 +237,11 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
     {
         disable_interrupts();
 
+        if (socket->disconnected)
+        {
+            return 0;
+        }
+
         uint32_t size = fifobuffer_get_size(socket->buffer_in);
 
         if (size > 0)
@@ -263,7 +268,7 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
 
 static void unixsocket_closing(Socket* socket)
 {
-    printkf("unixsocket_closing\n");
+    //printkf("unixsocket_closing\n");
 
     UnixSocket* unix_socket = (UnixSocket*)socket->custom_socket;
 
@@ -284,6 +289,11 @@ static BOOL unixsocket_fs_read_test_ready(File *file)
     }
 
     if (fifobuffer_get_size(socket->buffer_in) > 0)
+    {
+        return TRUE;
+    }
+
+    if (socket->disconnected)
     {
         return TRUE;
     }

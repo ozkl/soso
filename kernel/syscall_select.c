@@ -2,6 +2,8 @@
 #include "timer.h"
 #include "common.h"
 #include "errno.h"
+#include "log.h"
+#include "isr.h"
 #include "syscall_select.h"
 
 void select_update(Thread* thread)
@@ -129,26 +131,25 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
             thread->select.target_time = get_uptime_milliseconds64() + tv->tv_sec * 1000 + tv->tv_usec / 1000;
         }
 
-        select_update(thread);
-
-        if (thread->select.select_state == SS_FINISHED)
+        while (TRUE)
         {
-            int result = select_finish(thread, rfds, wfds);
+            disable_interrupts();
 
-            return result;
+            select_update(thread);
+
+            if (thread->select.select_state == SS_FINISHED)
+            {
+                int result = select_finish(thread, rfds, wfds);
+
+                thread_resume(thread);
+
+                return result;
+            }
+
+            thread_change_state(thread, TS_SELECT, NULL);
+            enable_interrupts();
+            halt();
         }
-
-        thread_change_state(thread, TS_SELECT, NULL);
-        enable_interrupts();
-        halt();
-
-        if (thread->select.select_state == SS_FINISHED)
-        {
-            int result = select_finish(thread, rfds, wfds);
-
-            return result;
-        }
-
     }
 
     return -1;

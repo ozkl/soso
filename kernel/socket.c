@@ -122,6 +122,7 @@ static void socket_fs_close(File* file)
         //disconnect other end as well
 
         socket->connection->connection = NULL;
+        socket->connection->disconnected = TRUE;
     }
 
     kfree(socket->node);

@@ -172,5 +172,6 @@ BOOL process_is_valid(Process* process);
 uint32_t get_system_context_switch_count();
 
 extern Thread* g_current_thread;
+extern Thread* g_previous_scheduled_thread;
 
 #endif // PROCESS_H

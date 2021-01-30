@@ -1,9 +1,11 @@
 #include "common.h"
+#include "timer.h"
 #include "isr.h"
 
 IsrFunction g_interrupt_handlers[256];
 
-extern uint32_t g_system_tick_count;
+uint32_t g_isr_count = 0;
+uint32_t g_irq_count = 0;
 
 void interrupt_register(uint8_t n, IsrFunction handler)
 {
@@ -13,6 +15,8 @@ void interrupt_register(uint8_t n, IsrFunction handler)
 void handle_isr(Registers regs)
 {
     //Screen_PrintF("handle_isr interrupt no:%d\n", regs.int_no);
+
+    g_isr_count++;
 
     uint8_t int_no = regs.interruptNumber & 0xFF;
 
@@ -24,13 +28,15 @@ void handle_isr(Registers regs)
     else
     {
         printkf("unhandled interrupt: %d\n", int_no);
-        printkf("Tick: %d\n", g_system_tick_count);
+        printkf("Tick: %d\n", get_system_tick_count());
         PANIC("unhandled interrupt");
     }
 }
 
 void handle_irq(Registers regs)
 {
+    g_irq_count++;
+    
     // end of interrupt message
     if (regs.interruptNumber >= 40)
     {

@@ -35,6 +35,9 @@ typedef void (*IsrFunction)(Registers*);
 
 extern IsrFunction g_interrupt_handlers[];
 
+extern uint32_t g_isr_count;
+extern uint32_t g_irq_count;
+
 void interrupt_register(uint8_t n, IsrFunction handler);
 
 
