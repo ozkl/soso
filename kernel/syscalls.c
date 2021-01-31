@@ -131,6 +131,7 @@ int syscall_shmget(int32_t key, size_t size, int flag);
 void * syscall_shmat(int shmid, const void *shmaddr, int shmflg);
 int syscall_shmdt(const void *shmaddr);
 int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf);
+int syscall_nanosleep(const struct timespec *req, struct timespec *rem);
 
 void syscalls_initialize()
 {
@@ -207,6 +208,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_recvmsg] = syscall_recvmsg;
     g_syscall_table[SYS_shutdown] = syscall_shutdown;
     g_syscall_table[SYS_accept] = syscall_accept;
+    g_syscall_table[SYS_nanosleep] = syscall_nanosleep;
 
     // Register our syscall handler.
     interrupt_register (0x80, &handle_syscall);
@@ -942,7 +944,10 @@ int syscall_wait(int *wstatus)
                 thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                 enable_interrupts();
-                while (current_thread->state == TS_WAITCHILD);
+                while (current_thread->state == TS_WAITCHILD)
+                {
+                    halt();
+                }
 
                 break;
             }
@@ -985,7 +990,10 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
                     thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                     enable_interrupts();
-                    while (current_thread->state == TS_WAITCHILD);
+                    while (current_thread->state == TS_WAITCHILD)
+                    {
+                        halt();
+                    }
 
                     break;
                 }
@@ -1874,4 +1882,26 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
     }
 
     return -1;//on error
+}
+
+int syscall_nanosleep(const struct timespec *req, struct timespec *rem)
+{
+    if (!check_user_access(req))
+    {
+        return -EFAULT;
+    }
+
+    if (!check_user_access(rem))
+    {
+        return -EFAULT;
+    }
+
+    if (req)
+    {
+        sleep_ms(g_current_thread, req->tv_sec * 1000);
+
+        return 0;
+    }
+
+    return -1;
 }

@@ -161,7 +161,7 @@
 #define __NR_sched_get_priority_max	1159
 #define __NR_sched_get_priority_min	1160
 #define __NR_sched_rr_get_interval	1161
-#define __NR_nanosleep		1162
+#define __NR_nanosleep		70 //1162
 #define __NR_mremap		1163
 #define __NR_setresuid		1164
 #define __NR_getresuid		1165

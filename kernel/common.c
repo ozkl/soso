@@ -2,6 +2,7 @@
 #include "serial.h"
 #include "console.h"
 #include "terminal.h"
+#include "process.h"
 #include "log.h"
 
 static BOOL g_interrupts_were_enabled = FALSE;
@@ -428,9 +429,26 @@ void printkf(const char *format, ...)
 
     __builtin_va_end(vl);
 
-    if (g_active_terminal)
+    Terminal* terminal = NULL;
+
+    if (g_current_thread &&
+        g_current_thread->owner &&
+        g_current_thread->owner->tty
+        )
     {
-        terminal_put_text(g_active_terminal, (uint8_t*)buffer, 1024);
+        TtyDev* tty = (TtyDev*)g_current_thread->owner->tty->private_node_data;
+
+        terminal = console_get_terminal_by_master(tty->master_node);
+    }
+
+    if (!terminal)
+    {
+        terminal = console_get_terminal(0);
+    }
+
+    if (terminal)
+    {
+        terminal_put_text(terminal, (uint8_t*)buffer, 1024);
     }
 }
 

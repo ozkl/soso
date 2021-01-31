@@ -11,7 +11,10 @@ void sleep_ms(Thread* thread, uint32_t ms)
 
     thread_change_state(thread, TS_SLEEP, (void*)target);
 
-    enable_interrupts();
+    while (thread->state == TS_SLEEP)
+    {
+        enable_interrupts();
 
-    halt();
+        halt();
+    }
 }

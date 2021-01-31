@@ -31,7 +31,7 @@ static void set_active_terminal(uint32_t index);
 
 void console_initialize(BOOL graphicMode)
 {
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < TERMINAL_COUNT; ++i)
     {
         Terminal* terminal = NULL;
         FileSystemNode* ttyNode = ttydev_create();
@@ -108,6 +108,31 @@ static void set_active_terminal(uint32_t index)
             g_active_terminal->move_cursor_function(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
         }
     }
+}
+
+Terminal* console_get_terminal_by_master(FileSystemNode* master_node)
+{
+    for (int i = 0; i < TERMINAL_COUNT; ++i)
+    {
+        Terminal* terminal = g_terminals[i];
+        
+        if (terminal->tty->master_node == master_node)
+        {
+            return terminal;
+        }
+    }
+
+    return NULL;
+}
+
+Terminal* console_get_terminal(uint32_t index)
+{
+    if (index >= 0 && index < TERMINAL_COUNT)
+    {
+        return g_terminals[index];
+    }
+
+    return NULL;
 }
 
 static uint8_t get_character_for_scancode(KeyModifier modifier, uint8_t scancode)
