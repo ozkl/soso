@@ -114,7 +114,7 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
         {
             int new_socket_fd = syscall_socket(socket->domain, 1, 0);
 
-            if (new_socket_fd >= 0 && new_socket_fd < MAX_OPENED_FILES)
+            if (new_socket_fd >= 0 && new_socket_fd < SOSO_MAX_OPENED_FILES)
             {
                 File* file = g_current_thread->owner->fd[new_socket_fd];
 

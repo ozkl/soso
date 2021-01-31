@@ -22,6 +22,7 @@
 #include "errno.h"
 #include "ipc.h"
 #include "socket.h"
+#include "syscall_getthreads.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -209,6 +210,8 @@ void syscalls_initialize()
     g_syscall_table[SYS_shutdown] = syscall_shutdown;
     g_syscall_table[SYS_accept] = syscall_accept;
     g_syscall_table[SYS_nanosleep] = syscall_nanosleep;
+    g_syscall_table[SYS_getthreads] = syscall_getthreads;
+    g_syscall_table[SYS_getprocs] = syscall_getprocs;
 
     // Register our syscall handler.
     interrupt_register (0x80, &handle_syscall);
@@ -305,7 +308,7 @@ int syscall_close(int fd)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -345,7 +348,7 @@ int syscall_read(int fd, void *buf, int nbytes)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -392,7 +395,7 @@ int syscall_write(int fd, void *buf, int nbytes)
     {
         //Screen_PrintF("syscall_write() called from process: %d. fd:%d\n", process->pid, fd);
 
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -513,7 +516,7 @@ int syscall_lseek(int fd, int offset, int whence)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -612,7 +615,7 @@ int syscall_fstat(int fd, struct stat *buf)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -649,7 +652,7 @@ int syscall_ioctl(int fd, int32_t request, void *arg)
     {
         //serial_printf("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
 
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -1181,7 +1184,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -1234,7 +1237,7 @@ int syscall_read_dir_(int fd, void *dirent, int index)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -1447,7 +1450,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
         }
         else
         {
-            if (fd < MAX_OPENED_FILES)
+            if (fd < SOSO_MAX_OPENED_FILES)
             {
                 File* file = process->fd[fd];
 
@@ -1506,7 +1509,7 @@ int syscall_munmap(void *addr, int length)
         }
         else
         {
-            if (fd < MAX_OPENED_FILES)
+            if (fd < SOSO_MAX_OPENED_FILES)
             {
                 File* file = process->fd[fd];
 
@@ -1580,7 +1583,7 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
                 {
                     node = fs_get_node_relative_to_node(pathname, process->working_directory);
                 }
-                else if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
+                else if (dirfd >= 0 && dirfd < SOSO_MAX_OPENED_FILES)
                 {
                     File* dir_fd_dir = process->fd[dirfd];
                     if ((dir_fd_dir->node->node_type & FT_DIRECTORY) == FT_DIRECTORY) //pathname is relative to the directory that dirfd refers to
@@ -1594,7 +1597,7 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
         {
             if ((flags & AT_EMPTY_PATH) == AT_EMPTY_PATH)
             {
-                if (dirfd >= 0 && dirfd < MAX_OPENED_FILES)
+                if (dirfd >= 0 && dirfd < SOSO_MAX_OPENED_FILES)
                 {
                     node = process->fd[dirfd]->node;
                 }
@@ -1674,7 +1677,7 @@ int syscall_ftruncate(int fd, int size)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 
@@ -1736,7 +1739,7 @@ int syscall_shmget(int32_t key, size_t size, int flag)
         if (process)
         {
             BOOL already_opened = FALSE;
-            for (size_t i = 0; i < MAX_OPENED_FILES; i++)
+            for (size_t i = 0; i < SOSO_MAX_OPENED_FILES; i++)
             {
                 File* file = process->fd[i];
 
@@ -1784,7 +1787,7 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
         Process* process = thread_get_current()->owner;
         if (process)
         {
-            for (size_t i = 0; i < MAX_OPENED_FILES; i++)
+            for (size_t i = 0; i < SOSO_MAX_OPENED_FILES; i++)
             {
                 File* file = process->fd[i];
 
@@ -1849,7 +1852,7 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        if (fd < MAX_OPENED_FILES)
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[fd];
 

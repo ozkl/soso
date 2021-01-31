@@ -81,7 +81,10 @@ enum
     SYS_recvmsg,
     SYS_shutdown,
     SYS_accept,
+
     SYS_nanosleep,
+    SYS_getthreads,
+    SYS_getprocs,
 
     SYSCALL_COUNT
 };

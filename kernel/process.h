@@ -4,9 +4,9 @@
 #define KERNELMODE	0
 #define USERMODE	1
 
-#define MAX_OPENED_FILES 20
+#define SOSO_MAX_OPENED_FILES 20
 
-#define PROCESS_NAME_MAX 32
+#define SOSO_PROCESS_NAME_MAX 32
 
 #include "common.h"
 #include "fs.h"
@@ -44,7 +44,7 @@ typedef enum SelectState
 
 struct Process
 {
-    char name[PROCESS_NAME_MAX];
+    char name[SOSO_PROCESS_NAME_MAX];
 
     uint32_t pid;
 
@@ -68,7 +68,7 @@ struct Process
 
     Process* parent;
 
-    File* fd[MAX_OPENED_FILES];
+    File* fd[SOSO_MAX_OPENED_FILES];
 
 } __attribute__ ((packed));
 

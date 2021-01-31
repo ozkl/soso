@@ -432,3 +432,5 @@
 #define __NR_posix_openpt		35
 #define __NR_ptsname_r		36
 #define __NR_accept		69
+#define __NR_getthreads 71
+#define __NR_getprocs 72

@@ -30,7 +30,7 @@ static Socket* get_socket(int sockfd, int* error)
     Process* process = g_current_thread->owner;
     if (process)
     {
-        if (sockfd >= 0 && sockfd < MAX_OPENED_FILES)
+        if (sockfd >= 0 && sockfd < SOSO_MAX_OPENED_FILES)
         {
             File* file = process->fd[sockfd];
 

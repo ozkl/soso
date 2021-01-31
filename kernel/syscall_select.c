@@ -12,7 +12,7 @@ void select_update(Thread* thread)
 
     int total_ready = 0;
     uint32_t count = (uint32_t)thread->select.nfds;
-    count = MIN(count, MAX_OPENED_FILES);
+    count = MIN(count, SOSO_MAX_OPENED_FILES);
 
     for (uint32_t fd = 0; fd < count; ++fd)
     {
