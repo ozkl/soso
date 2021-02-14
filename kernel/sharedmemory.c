@@ -7,7 +7,7 @@
 #include "sharedmemory.h"
 
 static List* g_shm_list = NULL;
-static Spinlock g_shm_list_lock;
+//static Spinlock g_shm_list_lock;
 
 static FileSystemNode* g_shm_root = NULL;
 
@@ -21,13 +21,17 @@ typedef struct SharedMemory
 {
     FileSystemNode* node;
     List* physical_address_list;
-    Spinlock physical_address_list_lock;
+    //Spinlock physical_address_list_lock;
+    List* mapped_process_list;
+    BOOL marked_unlink;
     //TODO: permissions
 } SharedMemory;
 
+void sharedmemory_destroy(SharedMemory* shared_mem);
+
 void sharedmemory_initialize()
 {
-    spinlock_init(&g_shm_list_lock);
+    //spinlock_init(&g_shm_list_lock);
 
     g_shm_list = list_create();
 
@@ -56,7 +60,7 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t 
 
     int counter = 0;
 
-    spinlock_lock(&g_shm_list_lock);
+    //spinlock_lock(&g_shm_list_lock);
 
     list_foreach (n, g_shm_list)
     {
@@ -74,7 +78,7 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t 
         ++counter;
     }
 
-    spinlock_unlock(&g_shm_list_lock);
+    //spinlock_unlock(&g_shm_list_lock);
 
     return result;
 }
@@ -83,7 +87,7 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
 {
     FileSystemNode* result = NULL;
 
-    spinlock_lock(&g_shm_list_lock);
+    //spinlock_lock(&g_shm_list_lock);
 
     list_foreach (n, g_shm_list)
     {
@@ -96,7 +100,7 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
         }
     }
 
-    spinlock_unlock(&g_shm_list_lock);
+    //spinlock_unlock(&g_shm_list_lock);
 
     return result;
 }
@@ -106,9 +110,26 @@ static BOOL sharedmemory_open(File *file, uint32_t flags)
     return TRUE;
 }
 
-static void sharedmemory_unlink(File *file)
+static int32_t sharedmemory_unlink(FileSystemNode* node, uint32_t flags)
 {
-    sharedmemory_destroy(file->node->name);
+    SharedMemory* shared_mem = (SharedMemory*)node->private_node_data;
+
+    if (list_get_count(shared_mem->mapped_process_list) == 0)
+    {
+        printkf("unlink(): destroying (pid:%d)\n", g_current_thread->owner->pid);
+
+        sharedmemory_destroy(shared_mem);
+        
+        return 0;
+    }
+    else
+    {
+        printkf("unlink(): marked_unlink (pid:%d)\n", g_current_thread->owner->pid);
+
+        shared_mem->marked_unlink = TRUE;
+    }
+
+    return -1;
 }
 
 static int32_t sharedmemory_ftruncate(File *file, int32_t length)
@@ -128,7 +149,7 @@ static int32_t sharedmemory_ftruncate(File *file, int32_t length)
 
     int page_count = PAGE_COUNT(length);
 
-    spinlock_lock(&shared_mem->physical_address_list_lock);
+    //spinlock_lock(&shared_mem->physical_address_list_lock);
 
     for (int i = 0; i < page_count; ++i)
     {
@@ -140,7 +161,7 @@ static int32_t sharedmemory_ftruncate(File *file, int32_t length)
 
     file->node->length = length;
 
-    spinlock_unlock(&shared_mem->physical_address_list_lock);
+    //spinlock_unlock(&shared_mem->physical_address_list_lock);
 
     return 0;
 }
@@ -151,7 +172,7 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
 
     SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
 
-    spinlock_lock(&shared_mem->physical_address_list_lock);
+    //spinlock_lock(&shared_mem->physical_address_list_lock);
 
     int count = list_get_count(shared_mem->physical_address_list);
     if (count > 0)
@@ -166,10 +187,12 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
         }
         result = vmm_map_memory(file->thread->owner, USER_MMAP_START, physical_address_array, count, FALSE);
 
+        list_append(shared_mem->mapped_process_list, g_current_thread->owner);
+
         kfree(physical_address_array);
     }
 
-    spinlock_unlock(&shared_mem->physical_address_list_lock);
+    //spinlock_unlock(&shared_mem->physical_address_list_lock);
 
     return result;
 }
@@ -178,7 +201,7 @@ FileSystemNode* sharedmemory_get_node(const char* name)
 {
     FileSystemNode* result = NULL;
 
-    spinlock_lock(&g_shm_list_lock);
+    //spinlock_lock(&g_shm_list_lock);
 
     list_foreach (n, g_shm_list)
     {
@@ -191,7 +214,7 @@ FileSystemNode* sharedmemory_get_node(const char* name)
         }
     }
 
-    spinlock_unlock(&g_shm_list_lock);
+    //spinlock_unlock(&g_shm_list_lock);
 
     return result;
 }
@@ -212,53 +235,70 @@ FileSystemNode* sharedmemory_create(const char* name)
     strcpy(node->name, name);
     node->node_type = FT_CHARACTER_DEVICE;
     node->open = sharedmemory_open;
-    //TODO: node->shm_unlink = sharedmemory_unlink;
+    node->unlink = sharedmemory_unlink;
     node->ftruncate = sharedmemory_ftruncate;
     node->mmap = sharedmemory_mmap;
     node->private_node_data = shared_mem;
 
     shared_mem->node = node;
     shared_mem->physical_address_list = list_create();
-    spinlock_init(&shared_mem->physical_address_list_lock);
+    //spinlock_init(&shared_mem->physical_address_list_lock);
 
-    spinlock_lock(&g_shm_list_lock);
+    shared_mem->mapped_process_list = list_create();
+
+    //spinlock_lock(&g_shm_list_lock);
     list_append(g_shm_list, shared_mem);
-    spinlock_unlock(&g_shm_list_lock);
+    //spinlock_unlock(&g_shm_list_lock);
 
     return node;
 }
 
-void sharedmemory_destroy(const char* name)
+SharedMemory* sharedmemory_find(const char* name)
 {
-    SharedMemory* shared_mem = NULL;
-
-    spinlock_lock(&g_shm_list_lock);
-
     list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
         if (strcmp(name, p->node->name) == 0)
         {
-            shared_mem = (SharedMemory*)p;
-            break;
+            return (SharedMemory*)p;
         }
     }
 
+    return NULL;
+}
+
+void sharedmemory_destroy(SharedMemory* shared_mem)
+{
+    //spinlock_lock(&g_shm_list_lock);
+
+    //spinlock_lock(&shared_mem->physical_address_list_lock);
+
+    kfree(shared_mem->node);
+
+    list_destroy(shared_mem->physical_address_list);
+
+    list_destroy(shared_mem->mapped_process_list);
+
+    list_remove_first_occurrence(g_shm_list, shared_mem);
+
+    //spinlock_unlock(&shared_mem->physical_address_list_lock);
+
+    kfree(shared_mem);
+
+    //spinlock_unlock(&g_shm_list_lock);
+}
+
+BOOL sharedmemory_destroy_by_name(const char* name)
+{
+    SharedMemory* shared_mem = sharedmemory_find(name);
+
     if (shared_mem)
     {
-        spinlock_lock(&shared_mem->physical_address_list_lock);
+        sharedmemory_destroy(shared_mem);
 
-        kfree(shared_mem->node);
-
-        list_destroy(shared_mem->physical_address_list);
-
-        list_remove_first_occurrence(g_shm_list, shared_mem);
-
-        spinlock_unlock(&shared_mem->physical_address_list_lock);
-
-        kfree(shared_mem);
+        return TRUE;
     }
 
-    spinlock_unlock(&g_shm_list_lock);
+    return FALSE;
 }

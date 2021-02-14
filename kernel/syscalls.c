@@ -109,7 +109,7 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
-int syscall_shm_unlink(const char *name);
+int syscall_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
 int syscall_posix_openpt(int flags);
 int syscall_ptsname_r(int fd, char *buf, int buflen);
@@ -172,7 +172,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_mmap] = syscall_mmap;
     g_syscall_table[SYS_munmap] = syscall_munmap;
     g_syscall_table[SYS_shm_open] = syscall_shm_open;
-    g_syscall_table[SYS_shm_unlink] = syscall_shm_unlink;
+    g_syscall_table[SYS_unlink] = syscall_unlink;
     g_syscall_table[SYS_ftruncate] = syscall_ftruncate;
     g_syscall_table[SYS_posix_openpt] = syscall_posix_openpt;
     g_syscall_table[SYS_ptsname_r] = syscall_ptsname_r;
@@ -1660,14 +1660,28 @@ int syscall_shm_open(const char *name, int oflag, int mode)
     return -1;
 }
 
-int syscall_shm_unlink(const char *name)
+int syscall_unlink(const char *name)
 {
     if (!check_user_access((char*)name))
     {
         return -EFAULT;
     }
 
-    //TODO:
+    Process* process = g_current_thread->owner;
+
+    FileSystemNode* node = fs_get_node_absolute_or_relative(name, process);
+
+    if (NULL == node)
+    {
+        //maybe it is a shared mem
+
+        node = sharedmemory_get_node(name);
+    }
+
+    if (node && node->unlink)
+    {
+        return node->unlink(node, 0);
+    }
 
     return -1;
 }

@@ -40,7 +40,7 @@ enum
     SYS_mmap,
     SYS_munmap,
     SYS_shm_open,
-    SYS_shm_unlink,
+    SYS_unlink,
     SYS_ftruncate,
     SYS_posix_openpt,
     SYS_ptsname_r,

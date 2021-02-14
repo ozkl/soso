@@ -259,6 +259,16 @@ void fs_close(File *file)
     kfree(file);
 }
 
+int32_t fs_unlink(FileSystemNode* node, uint32_t flags)
+{
+    if (node->unlink)
+    {
+        return node->unlink(node, flags);
+    }
+
+    return -1;
+}
+
 int32_t fs_ioctl(File *file, int32_t request, void * argp)
 {
     if (file->node->ioctl != NULL)
