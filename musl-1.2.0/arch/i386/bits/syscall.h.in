@@ -9,7 +9,7 @@
 #define __NR_waitpid		  1007
 #define __NR_creat		  1008
 #define __NR_link		  1009
-#define __NR_unlink		 1010
+#define __NR_unlink		 33 //1010
 #define __NR_execve		 13 //11
 #define __NR_chdir		 1012
 #define __NR_time		 1013
@@ -434,3 +434,4 @@
 #define __NR_accept		69
 #define __NR_getthreads 71
 #define __NR_getprocs 72
+#define __NR_shm_open 32

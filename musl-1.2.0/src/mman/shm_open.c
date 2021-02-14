@@ -36,7 +36,7 @@ int shm_open(const char *name, int flag, mode_t mode)
 	pthread_setcancelstate(cs, 0);
 	return fd;
 	*/
-	return __syscall3(32, name, flag, mode);
+	return __syscall3(SYS_shm_open, name, flag, mode);
 }
 
 int shm_unlink(const char *name)
@@ -46,5 +46,5 @@ int shm_unlink(const char *name)
 	if (!(name = __shm_mapname(name, buf))) return -1;
 	return unlink(name);
 	*/
-	return __syscall1(33, name);
+	return __syscall1(SYS_unlink, name);
 }
