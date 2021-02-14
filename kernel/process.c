@@ -10,6 +10,7 @@
 #include "message.h"
 #include "list.h"
 #include "ttydev.h"
+#include "sharedmemory.h"
 
 #define MESSAGE_QUEUE_SIZE 64
 
@@ -551,6 +552,8 @@ void thread_destroy(Thread* thread)
 //This function should be called in interrupts disabled state
 void process_destroy(Process* process)
 {
+    sharedmemory_unmap_for_process_all(process);
+    
     Thread* thread = g_first_thread;
     Thread* previous = NULL;
     while (thread)

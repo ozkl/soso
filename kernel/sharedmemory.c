@@ -17,12 +17,19 @@ static BOOL sharedmemorydir_open(File *file, uint32_t flags);
 static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name);
 
+typedef struct MapInfo
+{
+    Process* process;
+    uint32_t v_address;
+    uint32_t page_count;
+} MapInfo;
+
 typedef struct SharedMemory
 {
     FileSystemNode* node;
     List* physical_address_list;
     //Spinlock physical_address_list_lock;
-    List* mapped_process_list;
+    List* mmapped_list;
     BOOL marked_unlink;
     //TODO: permissions
 } SharedMemory;
@@ -110,26 +117,34 @@ static BOOL sharedmemory_open(File *file, uint32_t flags)
     return TRUE;
 }
 
+static void sharedmemory_destroy_if_suitable(SharedMemory* shared_memory)
+{
+    if (shared_memory->marked_unlink && list_get_count(shared_memory->mmapped_list) == 0)
+    {
+        //printkf("DESTORYING sharedmem (pid:%d)\n", g_current_thread->owner->pid);
+
+        list_foreach (e, shared_memory->physical_address_list)
+        {
+            uint32_t p_address = (uint32_t)e->data;
+
+            vmm_release_page_frame_4k(p_address);
+        }
+
+        sharedmemory_destroy(shared_memory);
+    }
+}
+
 static int32_t sharedmemory_unlink(FileSystemNode* node, uint32_t flags)
 {
     SharedMemory* shared_mem = (SharedMemory*)node->private_node_data;
 
-    if (list_get_count(shared_mem->mapped_process_list) == 0)
-    {
-        printkf("unlink(): destroying (pid:%d)\n", g_current_thread->owner->pid);
+    //printkf("sharedmemory_unlink(): (pid:%d)\n", g_current_thread->owner->pid);
 
-        sharedmemory_destroy(shared_mem);
-        
-        return 0;
-    }
-    else
-    {
-        printkf("unlink(): marked_unlink (pid:%d)\n", g_current_thread->owner->pid);
+    shared_mem->marked_unlink = TRUE;
 
-        shared_mem->marked_unlink = TRUE;
-    }
+    sharedmemory_destroy_if_suitable(shared_mem);
 
-    return -1;
+    return 0;
 }
 
 static int32_t sharedmemory_ftruncate(File *file, int32_t length)
@@ -153,7 +168,6 @@ static int32_t sharedmemory_ftruncate(File *file, int32_t length)
 
     for (int i = 0; i < page_count; ++i)
     {
-        //TODO: where should this be released? maybe on destroy?
         uint32_t p_address = vmm_acquire_page_frame_4k();
 
         list_append(shared_mem->physical_address_list, (void*)p_address);
@@ -187,7 +201,13 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
         }
         result = vmm_map_memory(file->thread->owner, USER_MMAP_START, physical_address_array, count, FALSE);
 
-        list_append(shared_mem->mapped_process_list, g_current_thread->owner);
+        MapInfo* info = (MapInfo*)kmalloc(sizeof(MapInfo));
+        memset((uint8_t*)info, 0, sizeof(MapInfo));
+        info->process = g_current_thread->owner;
+        info->v_address = result;
+        info->page_count = count;
+
+        list_append(shared_mem->mmapped_list, info);
 
         kfree(physical_address_array);
     }
@@ -195,6 +215,64 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
     //spinlock_unlock(&shared_mem->physical_address_list_lock);
 
     return result;
+}
+
+BOOL sharedmemory_unmap_if_exists(Process* process, uint32_t address)
+{
+    list_foreach (n, g_shm_list)
+    {
+        SharedMemory* p = (SharedMemory*)n->data;
+
+        list_foreach (e, p->mmapped_list)
+        {
+            MapInfo* info = (MapInfo*)e->data;
+
+            if (info->process == process)
+            {
+                if (info->v_address == address)
+                {
+                    list_remove_first_occurrence(p->mmapped_list, info);
+
+                    kfree(info);
+
+                    sharedmemory_destroy_if_suitable(p);
+
+                    return TRUE;
+                }
+            }
+        }
+    }
+
+    return FALSE;
+}
+
+void sharedmemory_unmap_for_process_all(Process* process)
+{
+    List* process_shared_mapped_list = list_create();
+
+    list_foreach (n, g_shm_list)
+    {
+        SharedMemory* p = (SharedMemory*)n->data;
+
+        list_foreach (e, p->mmapped_list)
+        {
+            MapInfo* info = (MapInfo*)e->data;
+
+            if (info->process == process)
+            {
+                list_append(process_shared_mapped_list, (void*)info->v_address);
+            }
+        }
+    }
+
+    list_foreach (n, process_shared_mapped_list)
+    {
+        uint32_t address = (uint32_t)n->data;
+
+        sharedmemory_unmap_if_exists(process, address);
+    }
+
+    list_destroy(process_shared_mapped_list);
 }
 
 FileSystemNode* sharedmemory_get_node(const char* name)
@@ -244,7 +322,7 @@ FileSystemNode* sharedmemory_create(const char* name)
     shared_mem->physical_address_list = list_create();
     //spinlock_init(&shared_mem->physical_address_list_lock);
 
-    shared_mem->mapped_process_list = list_create();
+    shared_mem->mmapped_list = list_create();
 
     //spinlock_lock(&g_shm_list_lock);
     list_append(g_shm_list, shared_mem);
@@ -278,7 +356,7 @@ void sharedmemory_destroy(SharedMemory* shared_mem)
 
     list_destroy(shared_mem->physical_address_list);
 
-    list_destroy(shared_mem->mapped_process_list);
+    list_destroy(shared_mem->mmapped_list);
 
     list_remove_first_occurrence(g_shm_list, shared_mem);
 

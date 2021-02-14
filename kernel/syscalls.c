@@ -1482,6 +1482,7 @@ void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offs
     return (void*)-1;
 }
 
+//WARNING: if length is smaller than previous mmap, what will do to those remaining pages?
 int syscall_munmap(void *addr, int length)
 {
     if (!check_user_access(addr))
@@ -1493,43 +1494,19 @@ int syscall_munmap(void *addr, int length)
 
     if (process)
     {
-        int fd = -1;
-        if (fd < 0)
+        if ((uint32_t)addr < USER_OFFSET)
         {
-            if ((uint32_t)addr < USER_OFFSET)
-            {
-                return -1;
-            }
-
-            if (TRUE == vmm_unmap_memory(process, (uint32_t)addr, PAGE_COUNT(length)))
-            {
-                return 0;
-            }
             return -1;
         }
-        else
-        {
-            if (fd < SOSO_MAX_OPENED_FILES)
-            {
-                File* file = process->fd[fd];
 
-                if (file)
-                {
-                    if (fs_munmap(file, addr, length))
-                    {
-                        return 0;//on success
-                    }
-                }
-                else
-                {
-                    return -EBADF;
-                }
-            }
-            else
-            {
-                return -EBADF;
-            }
+        sharedmemory_unmap_if_exists(process, (uint32_t)addr);
+
+        if (TRUE == vmm_unmap_memory(process, (uint32_t)addr, PAGE_COUNT(length)))
+        {
+            return 0;
         }
+
+        return -1;
     }
     else
     {

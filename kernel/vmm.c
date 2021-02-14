@@ -606,7 +606,7 @@ BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
     uint32_t old = v_address;
     v_address &= 0xFFFFF000;
 
-    log_printf("pageFrame dealloc from munmap:%x aligned:%x\n", old, v_address);
+    //log_printf("pageFrame dealloc from munmap:%x aligned:%x\n", old, v_address);
 
     uint32_t start_index = PAGE_INDEX_4K(v_address);
     uint32_t end_index = start_index + needed_pages;
@@ -621,7 +621,7 @@ BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
 
             vmm_remove_page_from_pd(v_addr);
 
-            log_printf("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, v_addr);
+            //log_printf("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, v_addr);
 
             SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, v_addr);
 
