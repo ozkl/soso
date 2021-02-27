@@ -11,7 +11,7 @@
 #define __NR_link		  1009
 #define __NR_unlink		 33 //1010
 #define __NR_execve		 13 //11
-#define __NR_chdir		 1012
+#define __NR_chdir		 22 //1012
 #define __NR_time		 1013
 #define __NR_mknod		 1014
 #define __NR_chmod		 1015
@@ -182,7 +182,7 @@
 #define __NR_pread64		1180
 #define __NR_pwrite64		1181
 #define __NR_chown		1182
-#define __NR_getcwd		1183
+#define __NR_getcwd		21 //1183
 #define __NR_capget		1184
 #define __NR_capset		1185
 #define __NR_sigaltstack	1186

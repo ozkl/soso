@@ -33,8 +33,6 @@ typedef struct FileSystemDirent
 int getdents(int fd, char *buf, int nbytes);
 int execute(const char *path, char *const argv[], char *const envp[]);
 int executep(const char *filename, char *const argv[], char *const envp[]);
-int getWorkingDirectory(char *buf, int size);
-int setWorkingDirectory(const char *path);
 
 int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 
@@ -277,12 +275,13 @@ int main(int argc, char **argv)
     int shellPid = getpid();
 
     printf("User shell v0.3 (pid:%d)!\n", shellPid);
+    //printf("sizeof(size_t)=%d\n", sizeof(size_t));
 
     while (1)
     {
-        int result = getWorkingDirectory(cwd, 128);
+        char* result = getcwd(cwd, 128);
 
-        if (result >= 0)
+        if (result == cwd)
         {
             printf("[%s]", cwd);
         }
@@ -425,7 +424,7 @@ int main(int argc, char **argv)
                 {
                     const char* path = bufferIn + 3;
 
-                    if (setWorkingDirectory(path) < 0)
+                    if (chdir(path) < 0)
                     {
                         printf("Directory unavailable:%s\n", path);
                         fflush(stdout);

@@ -97,8 +97,8 @@ int syscall_unmount(const char *target);
 int syscall_mkdir(const char *path, uint32_t mode);
 int syscall_rmdir(const char *path);
 int syscall_getdents(int fd, char *buf, int nbytes);
-int syscall_get_working_directory(char *buf, int size);
-int syscall_set_working_directory(const char *path);
+int syscall_getcwd(char *buf, size_t size);
+int syscall_chdir(const char *path);
 int syscall_manage_pipe(const char *pipe_name, int operation, int data);
 int syscall_read_dir_(int fd, void *dirent, int index);
 int syscall_get_uptime_ms();
@@ -160,8 +160,8 @@ void syscalls_initialize()
     g_syscall_table[SYS_mkdir] = syscall_mkdir;
     g_syscall_table[SYS_rmdir] = syscall_rmdir;
     g_syscall_table[SYS_getdents] = syscall_getdents;
-    g_syscall_table[SYS_getWorkingDirectory] = syscall_get_working_directory;
-    g_syscall_table[SYS_setWorkingDirectory] = syscall_set_working_directory;
+    g_syscall_table[SYS_getcwd] = syscall_getcwd;
+    g_syscall_table[SYS_chdir] = syscall_chdir;
     g_syscall_table[SYS_managePipe] = syscall_manage_pipe;
     g_syscall_table[SYS_readDir] = syscall_read_dir_;
     g_syscall_table[SYS_getUptimeMilliseconds] = syscall_get_uptime_ms;
@@ -1270,7 +1270,7 @@ int syscall_read_dir_(int fd, void *dirent, int index)
     return -1;//on error
 }
 
-int syscall_get_working_directory(char *buf, int size)
+int syscall_getcwd(char *buf, size_t size)
 {
     if (!check_user_access(buf))
     {
@@ -1293,7 +1293,7 @@ int syscall_get_working_directory(char *buf, int size)
     return -1;//on error
 }
 
-int syscall_set_working_directory(const char *path)
+int syscall_chdir(const char *path)
 {
     if (!check_user_access((char*)path))
     {
