@@ -17,7 +17,6 @@ enum
     SYS_fork,
     SYS_getpid,
 
-    //non-posix
     SYS_execute,
     SYS_execve,
     SYS_wait,
@@ -29,12 +28,12 @@ enum
     SYS_getdents,
     SYS_getcwd,
     SYS_chdir,
-    SYS_managePipe,
-    SYS_readDir,
-    SYS_getUptimeMilliseconds,
-    SYS_sleepMilliseconds,
-    SYS_executeOnTTY,
-    SYS_manageMessage,
+    SYS_manage_pipe,
+    SYS_soso_read_dir,
+    SYS_get_uptime_ms,
+    SYS_sleep_ms,
+    SYS_execute_on_tty,
+    SYS_manage_message,
     SYS_rt_sigaction,
 
     SYS_mmap,

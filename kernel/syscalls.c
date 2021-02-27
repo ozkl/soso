@@ -10,7 +10,6 @@
 #include "sleep.h"
 #include "spinlock.h"
 #include "message.h"
-#include "commonuser.h"
 #include "syscalltable.h"
 #include "isr.h"
 #include "sharedmemory.h"
@@ -100,8 +99,8 @@ int syscall_getdents(int fd, char *buf, int nbytes);
 int syscall_getcwd(char *buf, size_t size);
 int syscall_chdir(const char *path);
 int syscall_manage_pipe(const char *pipe_name, int operation, int data);
-int syscall_read_dir_(int fd, void *dirent, int index);
-int syscall_get_uptime_ms();
+int syscall_soso_read_dir(int fd, void *dirent, int index);
+uint32_t syscall_get_uptime_ms();
 int syscall_sleep_ms(int ms);
 int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
 int syscall_manage_message(int command, void* message);
@@ -162,12 +161,12 @@ void syscalls_initialize()
     g_syscall_table[SYS_getdents] = syscall_getdents;
     g_syscall_table[SYS_getcwd] = syscall_getcwd;
     g_syscall_table[SYS_chdir] = syscall_chdir;
-    g_syscall_table[SYS_managePipe] = syscall_manage_pipe;
-    g_syscall_table[SYS_readDir] = syscall_read_dir_;
-    g_syscall_table[SYS_getUptimeMilliseconds] = syscall_get_uptime_ms;
-    g_syscall_table[SYS_sleepMilliseconds] = syscall_sleep_ms;
-    g_syscall_table[SYS_executeOnTTY] = syscall_execute_on_tty;
-    g_syscall_table[SYS_manageMessage] = syscall_manage_message;
+    g_syscall_table[SYS_manage_pipe] = syscall_manage_pipe;
+    g_syscall_table[SYS_soso_read_dir] = syscall_soso_read_dir;
+    g_syscall_table[SYS_get_uptime_ms] = syscall_get_uptime_ms;
+    g_syscall_table[SYS_sleep_ms] = syscall_sleep_ms;
+    g_syscall_table[SYS_execute_on_tty] = syscall_execute_on_tty;
+    g_syscall_table[SYS_manage_message] = syscall_manage_message;
     g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
     g_syscall_table[SYS_mmap] = syscall_mmap;
     g_syscall_table[SYS_munmap] = syscall_munmap;
@@ -1227,7 +1226,7 @@ int syscall_getdents(int fd, char *buf, int nbytes)
     return -1;//on error
 }
 
-int syscall_read_dir_(int fd, void *dirent, int index)
+int syscall_soso_read_dir(int fd, void *dirent, int index)
 {
     if (!check_user_access(dirent))
     {
@@ -1345,7 +1344,7 @@ int syscall_manage_pipe(const char *pipe_name, int operation, int data)
     return result;
 }
 
-int syscall_get_uptime_ms()
+uint32_t syscall_get_uptime_ms()
 {
     return get_uptime_milliseconds();
 }

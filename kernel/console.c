@@ -8,7 +8,6 @@
 #include "fifobuffer.h"
 #include "gfx.h"
 #include "log.h"
-#include "commonuser.h"
 #include "termios.h"
 #include "keymap.h"
 #include "console.h"
