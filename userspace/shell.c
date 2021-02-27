@@ -7,47 +7,10 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <termios.h>
 
-#include <sosousdk.h>
+#include <soso.h>
 
-#include "../kernel/termios.h"
-
-typedef enum FileType
-{
-    FT_File               = 1,
-    FT_CharacterDevice    = 2,
-    FT_BlockDevice        = 3,
-    FT_Pipe               = 4,
-    FT_SymbolicLink       = 5,
-    FT_Directory          = 128,
-    FT_MountPoint         = 256
-} FileType;
-
-typedef struct FileSystemDirent
-{
-    char name[128];
-    FileType fileType;
-    int inode;
-} FileSystemDirent;
-
-int getdents(int fd, char *buf, int nbytes);
-int execute(const char *path, char *const argv[], char *const envp[]);
-int executep(const char *filename, char *const argv[], char *const envp[]);
-
-int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
-
-//TODO: when readDir merged into C library, remove the definition below
-static int syscall3(int num, int p1, int p2, int p3)
-{
-  int a;
-  asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d"((int)p3));
-  return a;
-}
-
-int readDir(int fd, void *dirent, int index)
-{
-    return syscall3(/*SYS_readDir*/24, fd, (int)dirent, index);
-}
 
 static void listDirectory(const char* path)
 {
@@ -63,7 +26,7 @@ static void listDirectory(const char* path)
     memset(&dirEntry, 0, sizeof(FileSystemDirent));
 
     int index = 0;
-    while (readDir(fd, &dirEntry, index++) != -1)
+    while (soso_read_dir(fd, &dirEntry, index++) != -1)
     {
         char pathBuffer[128];
 
@@ -274,7 +237,7 @@ int main(int argc, char **argv)
 
     int shellPid = getpid();
 
-    printf("User shell v0.3 (pid:%d)!\n", shellPid);
+    printf("User shell v0.4 (pid:%d)!\n", shellPid);
     //printf("sizeof(size_t)=%d\n", sizeof(size_t));
 
     while (1)
@@ -335,7 +298,7 @@ int main(int argc, char **argv)
             int result = 0;
             if (background)
             {
-                result = executeOnTTY(exe, argArray, environ, "/dev/null");
+                result = execute_on_tty(exe, argArray, environ, "/dev/null");
             }
             else
             {

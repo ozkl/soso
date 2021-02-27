@@ -8,7 +8,7 @@
 #include <GL/gl.h>
 #include <zbuffer.h>
 
-#include <sosousdk.h>
+#include <soso.h>
 
 #ifndef M_PI
 #  define M_PI 3.14159265
@@ -239,7 +239,7 @@ int main(int argc, char** argv)
 
         if (buffer != (int*)-1)
         {
-            unsigned int previousTime = getUptimeMilliseconds();
+            unsigned int previousTime = get_uptime_ms();
             unsigned int frameCounter = 0;
             while (1)
             {
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
 
                 ++frameCounter;
 
-                unsigned int time = getUptimeMilliseconds();
+                unsigned int time = get_uptime_ms();
                 unsigned int diff = time - previousTime;
                 if (diff >= 1000)
                 {

@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include <sosousdk.h>
+#include <soso.h>
 
 int main(int argc, char** argv)
 {
@@ -17,7 +17,7 @@ int main(int argc, char** argv)
         {
             printf("mapped to %p\n", buffer);
 
-            sleepMilliseconds(2000);
+            sleep_ms(2000);
 
             while (1)
             {

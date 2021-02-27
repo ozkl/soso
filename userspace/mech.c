@@ -1743,7 +1743,7 @@ extern int count_triangles;
 
 int __errno = 0;
 
-#include <sosousdk.h>
+#include <soso.h>
 
 int
 main(int argc, char **argv)
@@ -1785,7 +1785,7 @@ main(int argc, char **argv)
       {
           Toggle();
 
-          unsigned int previousTime = getUptimeMilliseconds();
+          unsigned int previousTime = get_uptime_ms();
           unsigned int frameCounter = 0;
           while (1)
           {
@@ -1797,7 +1797,7 @@ main(int argc, char **argv)
 
               ++frameCounter;
 
-              unsigned int time = getUptimeMilliseconds();
+              unsigned int time = get_uptime_ms();
               unsigned int diff = time - previousTime;
               if (diff >= 1000)
               {

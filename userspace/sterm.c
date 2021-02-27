@@ -5,13 +5,11 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
-#include <sosousdk.h>
+#include <soso.h>
 
 #define BUFFER_SIZE 128
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
-
-int executeOnTTY(const char *path, char *const argv[], char *const envp[], const char *ttyPath);
 
 extern char **environ;
 
@@ -42,7 +40,7 @@ int main()
     argv[0] = "/initrd/shell";
     argv[1] = NULL;
 
-    executeOnTTY(argv[0], argv, environ, slavePath);
+    execute_on_tty(argv[0], argv, environ, slavePath);
 
     int maxFd = MAX(fdSerial, fdMaster);
 
