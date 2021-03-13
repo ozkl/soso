@@ -17,6 +17,7 @@ static uint32_t g_key_buffer_read_index = 0;
 static BOOL keyboard_open(File *file, uint32_t flags);
 static void keyboard_close(File *file);
 static int32_t keyboard_read(File *file, uint32_t size, uint8_t *buffer);
+static BOOL keyboard_read_test_ready(File *file);
 static int32_t keyboard_ioctl(File *file, int32_t request, void * argp);
 
 typedef enum ReadMode
@@ -44,6 +45,7 @@ void keyboard_initialize()
     device.open = keyboard_open;
     device.close = keyboard_close;
     device.read = keyboard_read;
+    device.read_test_ready = keyboard_read_test_ready;
     device.ioctl = keyboard_ioctl;
 
     g_key_buffer = kmalloc(KEYBUFFER_SIZE);
@@ -56,11 +58,19 @@ void keyboard_initialize()
     interrupt_register(IRQ1, handle_keyboard_interrupt);
 }
 
+# define O_NONBLOCK	  04000
+
 static BOOL keyboard_open(File *file, uint32_t flags)
 {
     Reader* reader = (Reader*)kmalloc(sizeof(Reader));
     reader->read_index = 0;
     reader->read_mode = RM_BLOCKING;
+
+    if (flags & O_NONBLOCK)
+    {
+        reader->read_mode = RM_NON_BLOCKING;
+        //printkf("keyboard opened as non blocking by %d\n", g_current_thread->owner->pid);
+    }
 
     if (g_key_buffer_write_index > 0)
     {
@@ -75,8 +85,6 @@ static BOOL keyboard_open(File *file, uint32_t flags)
 
 static void keyboard_close(File *file)
 {
-    //Screen_PrintF("keyboard_close\n");
-
     Reader* reader = (Reader*)file->private_data;
 
     kfree(reader);
@@ -106,7 +114,7 @@ static int32_t keyboard_read(File *file, uint32_t size, uint8_t *buffer)
     if (read_index == g_key_buffer_write_index)
     {
         //non-blocking return here
-        return -1;
+        return 0;
     }
 
     buffer[0] = g_key_buffer[read_index];
@@ -116,6 +124,20 @@ static int32_t keyboard_read(File *file, uint32_t size, uint8_t *buffer)
     reader->read_index = read_index;
 
     return 1;
+}
+
+static BOOL keyboard_read_test_ready(File *file)
+{
+    Reader* reader = (Reader*)file->private_data;
+
+    uint32_t read_index = reader->read_index;
+
+    if (read_index == g_key_buffer_write_index)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 static int32_t keyboard_ioctl(File *file, int32_t request, void * argp)
@@ -140,6 +162,7 @@ static int32_t keyboard_ioctl(File *file, int32_t request, void * argp)
         else if (cmd == 1)
         {
             reader->read_mode = RM_NON_BLOCKING;
+            //printkf("keyboard set as non blocking by %d\n", g_current_thread->owner->pid);
             return 0;
         }
         break;

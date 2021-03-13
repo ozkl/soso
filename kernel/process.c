@@ -55,7 +55,7 @@ void tasking_initialize()
 {
     Process* process = (Process*)kmalloc(sizeof(Process));
     memset((uint8_t*)process, 0, sizeof(Process));
-    strcpy(process->name, "[kernel]");
+    strcpy(process->name, "[idle]");
     process->pid = generate_process_id();
     process->pd = (uint32_t*) KERN_PAGE_DIRECTORY;
     process->working_directory = fs_get_root_node();
