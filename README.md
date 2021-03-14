@@ -26,22 +26,15 @@ These applications run on Soso:
 - Lua
 - Doom
 
+![Soso](screenshots/soso-v0.3.png)
+
 # running
 
-You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU. When it is started, you can run: "doom", "ls", "lua".
+You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try it in a PC emulator like QEMU. When it is started, you can run: "doom", "lua" in a terminal window.
 
 To try Soso in QEMU, just run:
 
     qemu-system-i386 -cdrom soso.iso
-
-## Lua
-![Soso](screenshots/soso-v0.2_1.png)
-
-
-## Doom
-To demonstrate multitasking, two doom processes running at the same time:
-
-![Doom on Soso](screenshots/soso-doom.png)
 
 # building
 To build kernel just run:
