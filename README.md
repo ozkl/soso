@@ -17,12 +17,18 @@ Soso is a 32-bit x86 operating system and its features are
 - Shared memory
 - Serial port
 - PS/2 mouse
+- Unix sockets
+- TTY driver
 
-Soso has Libc, so existing applications depending only on a small part of Libc can easly be ported to Soso. I have managed to build and run Lua and Doom on Soso!
+Soso has Libc, so existing applications depending only on Libc can easly be ported to Soso.
+These applications run on Soso:
+- Nano-X (client/server)
+- Lua
+- Doom
 
 # running
 
-You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU. When it is started, you can run: "doom", "ls", "lua". Executables are in /initrd.
+You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try in a virtualization software like VirtualBox or in a PC emulator like QEMU. When it is started, you can run: "doom", "ls", "lua".
 
 To try Soso in QEMU, just run:
 
