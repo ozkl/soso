@@ -25,12 +25,25 @@ static int get_process_cpu_usage(uint32_t pid, ThreadInfo* threads, uint32_t cou
     return 0;
 }
 
+typedef struct ProcessInfo
+{
+    ProcInfo* info;
+    uint32_t usage;
+} ProcessInfo;
+
+#define MAX_PROCESS 30
+
+static ProcessInfo g_process_infos[MAX_PROCESS];
+
+
 GR_WINDOW_ID  wid;
 GR_GC_ID      gc;
 
 const int winSizeX = 300;
-const int winSizeY = 300;
+const int winSizeY = 360;
 unsigned char* windowBuffer = 0;
+
+extern char **environ;
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -71,14 +84,49 @@ void handle_nuklear_input(GR_EVENT* event)
     }
 }
 
+void sort_process(ProcInfo* procs, ThreadInfo* threads, int process_count, int thread_count)
+{
+    memset(g_process_infos, 0, sizeof(g_process_infos));
+
+    for (int i = 0; i < MAX_PROCESS; ++i)
+    {
+        ProcInfo* p = NULL;
+        uint32_t usage = 0;
+
+        if (i < process_count)
+        {
+            p = procs + i;
+
+            usage = get_process_cpu_usage(p->process_id, threads, thread_count);
+        }
+
+        g_process_infos[i].info = p;
+        g_process_infos[i].usage = usage;
+    }
+
+    for (int c = 0; c < process_count - 1; c++)
+    {
+        for (int d = 0; d < process_count - c - 1; d++)
+        {
+            if (g_process_infos[d].usage < g_process_infos[d + 1].usage)
+            {
+                ProcessInfo swap = g_process_infos[d];
+                g_process_infos[d] = g_process_infos[d + 1];
+                g_process_infos[d + 1] = swap;
+            }
+        }
+    }
+}
+
 void frame(GR_EVENT* event)
 {
-    ProcInfo procs[30];
-    int process_count = getprocs(procs, 20, 0);
+    ProcInfo procs[MAX_PROCESS];
+    int process_count = getprocs(procs, MAX_PROCESS, 0);
 
+    ThreadInfo threads[MAX_PROCESS];
+    int thread_count = getthreads(threads, MAX_PROCESS, 0);
 
-    ThreadInfo threads[30];
-    int thread_count = getthreads(threads, 20, 0);
+    sort_process(procs, threads, process_count, thread_count);
 
     char buffer[64];
 
@@ -90,6 +138,16 @@ void frame(GR_EVENT* event)
 
     if (nk_begin(ctx, "Win1", nk_rect(0, 0, winSizeX, winSizeY), 0))
     {
+        nk_layout_row_dynamic(ctx, 22, 4);
+        if (nk_button_label(ctx, "Term"))
+        {
+            char* argv[2];
+            argv[0] = "/initrd/term";
+            argv[1] = NULL;
+
+            execute_on_tty(argv[0], argv, environ, "/dev/null");
+        }
+
         nk_layout_row_dynamic(ctx, 22, 1);
         sprintf(buffer, "Count: %d", process_count);
         nk_label_colored(ctx, buffer, NK_TEXT_ALIGN_LEFT | NK_TEXT_ALIGN_MIDDLE, nk_rgb(255, 0, 0));
@@ -104,9 +162,10 @@ void frame(GR_EVENT* event)
 
         for (int i = 0; i < process_count; ++i)
         {
-            ProcInfo* p = procs + i;
+            ProcessInfo* info = &g_process_infos[i];
 
-            uint32_t usage = get_process_cpu_usage(p->process_id, threads, thread_count);
+            ProcInfo* p = info->info;
+            uint32_t usage = info->usage;
 
             nk_layout_row_dynamic(ctx, 22, 4);
             

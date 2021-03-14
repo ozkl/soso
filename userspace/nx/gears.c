@@ -301,7 +301,6 @@ int main(int argc, char** argv)
 
     initScene();
 
-
     buffer = malloc(4 * winSizeX * winSizeY);
 
     while (1)
