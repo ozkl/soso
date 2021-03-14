@@ -30,7 +30,7 @@ These applications run on Soso:
 
 # running
 
-You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.2/soso.iso.zip) from releases and try it in a PC emulator like QEMU. When it is started, you can run: "doom", "lua" in a terminal window.
+You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.3/soso.zip) from releases and try it in a PC emulator like QEMU. When it is started, you can run: "doom", "lua" in a terminal window.
 
 To try Soso in QEMU, just run:
 
