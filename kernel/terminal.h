@@ -21,6 +21,7 @@ typedef struct Terminal
     uint16_t current_column;
     uint8_t color;
     File* opened_master;
+    BOOL disabled;
     TerminalRefresh refresh_function;
     TerminalAddCharacter add_character_function;
     TerminalMoveCursor move_cursor_function;

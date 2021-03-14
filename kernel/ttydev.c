@@ -464,6 +464,9 @@ static int32_t slave_ioctl(File *file, int32_t request, void * argp)
             return -EFAULT;
         }
         tty->foreground_process = *(int32_t*)argp;
+        //char path[80];
+        //fs_get_node_path(file->node, path, 80);
+        //printkf("setting fg %d of %s by %d\n", tty->foreground_process, path, g_current_thread->owner->pid);
         return 0;
         break;
     case TIOCGWINSZ:

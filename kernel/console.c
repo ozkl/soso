@@ -12,8 +12,9 @@
 #include "keymap.h"
 #include "console.h"
 
+#define VT_ACTIVATE	0x5606
+
 static Terminal* g_terminals[TERMINAL_COUNT];
-static uint32_t g_active_terminal_index = 0;
 Terminal* g_active_terminal = NULL;
 
 static uint8_t g_key_modifier = 0;
@@ -25,8 +26,6 @@ static int32_t console_ioctl(File *file, int32_t request, void * argp);
 
 static uint8_t get_character_for_scancode(KeyModifier modifier, uint8_t scancode);
 static void process_scancode(uint8_t scancode);
-
-static void set_active_terminal(uint32_t index);
 
 void console_initialize(BOOL graphicMode)
 {
@@ -44,7 +43,7 @@ void console_initialize(BOOL graphicMode)
         g_terminals[i] = terminal;
     }
 
-    set_active_terminal(0);
+    console_set_active_terminal_index(0);
 
     Device device;
     memset((uint8_t*)&device, 0, sizeof(Device));
@@ -84,28 +83,41 @@ static void console_close(File *file)
 
 static int32_t console_ioctl(File *file, int32_t request, void * argp)
 {
-    //we can use ioctl for chvt multiplexing
+    if (request == VT_ACTIVATE)
+    {
+        uint32_t index = (uint32_t)argp - 1;
+        Terminal* terminal = console_get_terminal(index);
+        if (terminal)
+        {
+            console_set_active_terminal(terminal);
+        }
+        return 0;
+    }
     return -1;
 }
 
-static void set_active_terminal(uint32_t index)
+void console_set_active_terminal_index(uint32_t index)
 {
     if (index >= 0 && index < TERMINAL_COUNT)
     {
-        g_active_terminal_index = index;
-        g_active_terminal = g_terminals[g_active_terminal_index];
+        console_set_active_terminal(g_terminals[index]);
+    }
+}
 
-        gfx_fill(0xFFFFFFFF);
+void console_set_active_terminal(Terminal* terminal)
+{
+    g_active_terminal = terminal;
 
-        if (g_active_terminal->refresh_function)
-        {
-            g_active_terminal->refresh_function(g_active_terminal);
-        }
+    gfx_fill(0xFFFFFFFF);
 
-        if (g_active_terminal->move_cursor_function)
-        {
-            g_active_terminal->move_cursor_function(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
-        }
+    if (g_active_terminal->refresh_function)
+    {
+        g_active_terminal->refresh_function(g_active_terminal);
+    }
+
+    if (g_active_terminal->move_cursor_function)
+    {
+        g_active_terminal->move_cursor_function(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
     }
 }
 
@@ -116,6 +128,21 @@ Terminal* console_get_terminal_by_master(FileSystemNode* master_node)
         Terminal* terminal = g_terminals[i];
         
         if (terminal->tty->master_node == master_node)
+        {
+            return terminal;
+        }
+    }
+
+    return NULL;
+}
+
+Terminal* console_get_terminal_by_slave(FileSystemNode* slave_node)
+{
+    for (int i = 0; i < TERMINAL_COUNT; ++i)
+    {
+        Terminal* terminal = g_terminals[i];
+        
+        if (terminal->tty->slave_node == slave_node)
         {
             return terminal;
         }
@@ -194,7 +221,7 @@ static void process_scancode(uint8_t scancode)
         {
             int ttyIndex = scancode - KEY_F1;
             
-            set_active_terminal(ttyIndex);
+            console_set_active_terminal_index(ttyIndex);
         }
     }
 }

@@ -25,6 +25,7 @@
 #include "mouse.h"
 #include "sleep.h"
 #include "console.h"
+#include "terminal.h"
 #include "socket.h"
 
 extern uint32_t _start;
@@ -199,6 +200,17 @@ int kmain(struct Multiboot *mboot_ptr)
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
+
+            FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");
+            Terminal* terminal_x = console_get_terminal_by_slave(tty_node_x);
+            if (terminal_x)
+            {
+                terminal_x->disabled = TRUE;
+
+                console_set_active_terminal(terminal_x);
+            }
+            execute_file("/initrd/nano-X", argv, envp, tty_node_x);
+            execute_file("/initrd/tasks", argv, envp, fs_get_node("/dev/null"));
         }
         else
         {

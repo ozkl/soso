@@ -431,6 +431,7 @@ void printkf(const char *format, ...)
 
     Terminal* terminal = NULL;
 
+    /*
     if (g_current_thread &&
         g_current_thread->owner &&
         g_current_thread->owner->tty
@@ -440,6 +441,9 @@ void printkf(const char *format, ...)
 
         terminal = console_get_terminal_by_master(tty->master_node);
     }
+    */
+
+   //Now printkf always prints to first terminal
 
     if (!terminal)
     {

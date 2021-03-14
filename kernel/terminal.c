@@ -31,6 +31,7 @@ Terminal* terminal_create(TtyDev* tty, BOOL graphic_mode)
     terminal_clear(terminal);
 
     terminal->opened_master = fs_open_for_process(NULL, tty->master_node, 0);
+    terminal->disabled = FALSE;
     tty->private_data = terminal;
 
     tty->master_read_ready = master_read_ready;
@@ -48,6 +49,11 @@ void terminal_destroy(Terminal* terminal)
 
 void terminal_print(Terminal* terminal, int row, int column, const char* text)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     unsigned char * video = terminal->buffer;
 
     video += (row * terminal->tty->winsize.ws_col + column) * 2;
@@ -99,6 +105,11 @@ void terminal_scroll_up(Terminal* terminal)
 
 void terminal_clear(Terminal* terminal)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     unsigned char * video = terminal->buffer;
     int i = 0;
 
@@ -113,6 +124,11 @@ void terminal_clear(Terminal* terminal)
 
 void terminal_put_character(Terminal* terminal, uint8_t c)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     unsigned char * video = terminal->buffer;
 
     if ('\n' == c)
@@ -187,6 +203,11 @@ void terminal_put_character(Terminal* terminal, uint8_t c)
 
 void terminal_put_text(Terminal* terminal, const uint8_t* text, uint32_t size)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     const uint8_t* c = text;
     uint32_t i = 0;
     while (*c && i < size)
@@ -199,6 +220,11 @@ void terminal_put_text(Terminal* terminal, const uint8_t* text, uint32_t size)
 
 void terminal_move_cursor(Terminal* terminal, uint16_t line, uint16_t column)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     if (line >= terminal->tty->winsize.ws_row)
     {
         line = terminal->tty->winsize.ws_row - 1;
@@ -220,6 +246,11 @@ void terminal_move_cursor(Terminal* terminal, uint16_t line, uint16_t column)
 
 void terminal_send_key(Terminal* terminal, uint8_t modifier, uint8_t character)
 {
+    if (terminal->disabled)
+    {
+        return;
+    }
+    
     uint8_t seq[8];
     memset(seq, 0, 8);
     uint32_t size = 0;
