@@ -1,0 +1,740 @@
+diff --git a/src/Arch.rules b/src/Arch.rules
+index fa57559..d005532 100644
+--- a/src/Arch.rules
++++ b/src/Arch.rules
+@@ -37,12 +37,14 @@
+ # Default tools names (overriden in platform-specific section below)
+ ##############################################################################
+ TOOLSPREFIX = $(NATIVETOOLSPREFIX)
+-HOSTCC = gcc				# host compiler
+-COMPILER = gcc				# cross compiler
+-CXX_COMPILER = g++			# c++ compiler
+-ARCHIVER = ar				# static library creator
++HOSTCC = soso-clang				# host compiler
++COMPILER = soso-clang				# cross compiler
++CXX_COMPILER = clang++			# c++ compiler
++ARCHIVER = i386-soso-ar				# static library creator
+ ARFLAGS = rs				# ar flags
+-LINKER = ld					# linker
++LINKER = i386-soso-ld					# linker
++LDFLAGS+=-T$(SOSO_ROOT)/../userspace/link.ld -m elf_i386 $(SOSO_ROOT)/lib/crt1.o -L$(SOSO_ROOT)/lib -lc -L/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux -lclang_rt.builtins-i386
++DEFINES+=-DHAVE_SELECT=1
+ CP = cp						# copy
+ MV = mv						# move
+ SHELL = /bin/sh
+diff --git a/src/config b/src/config
+index 00064d4..dfbf763 100644
+--- a/src/config
++++ b/src/config
+@@ -2,6 +2,7 @@
+ # config - Microwindows and Nano-X configuration file
+ #
+ # Set target architecture using ARCH= from options in Arch.rules
++# Set drawing method: X11 or FRAMEBUFFER/MOUSE/KEYBOARD options
+ # Set SCREEN/MOUSE/KEYBOARD drivers (typically X11 or FB)
+ # Set various libraries to build or include and their locations
+ #
+@@ -14,42 +15,45 @@
+ # Target platform and compilation options
+ #
+ ####################################################################
+-ARCH                     = MACOSX
+-SHAREDLIBS               = Y
+-SHAREDLINK               = Y
+-#EXTRAFLAGS               = -Wall -Wno-missing-prototypes
++ARCH                     = LINUX-NATIVE
++SHAREDLIBS               = N
++SHAREDLINK               = N
++#EXTRAFLAGS               = -Wno-unused-result -Wno-implicit-int
+ DEBUG                    = N
+-OPTIMIZE                 = Y
+-#OPTIMIZE                 = -O1
++#OPTIMIZE                 = N
++OPTIMIZE                 = -O3
+ VERBOSE                  = N
+-THREADSAFE               = Y
++THREADSAFE               = N
+ PARALLEL                 = N
+ 
++NOKBD                    = Y
++
+ ####################################################################
+ # Screen Driver
+ # Set SCREEN=X11 for X11, SCREEN=FB for framebuffer drawing
+ # Screen size/depth for X11, FBE and non-dynamic framebuffer systems
+ ####################################################################
+-SCREEN                   = X11
+-MOUSE                    =
+-KEYBOARD                 =
++SCREEN                   = FBE
++MOUSE                    = SERMOUSE
++KEYBOARD                 = SCANKBD
+ SCREEN_WIDTH             = 1024
+ SCREEN_HEIGHT            = 768
+-X11LIBLOCATION           = /usr/X11/lib
+-X11HDRLOCATION           = /usr/X11/include
+-EXTENGINELIBS            +=
++#X11HDRLOCATION           = /usr/X11R6/include
++#X11LIBLOCATION           = /usr/X11R6/lib
++#X11HDRLOCATION           = /usr/include/X11
++#X11LIBLOCATION           = /usr/lib/x86_64-linux-gnu
+ 
+ ####################################################################
+ #
+ # Libraries to build: microwin, nano-X, nxlib, engine
+ #
+ ####################################################################
+-MICROWIN                 = Y
++MICROWIN                 = N
+ NANOX                    = Y
+ NUKLEARUI                = Y
+-NX11                     = Y
++NX11                     = N
+ ENGINE                   = N
+-TINYWIDGETS              = Y
++TINYWIDGETS              = N
+ 
+ ####################################################################
+ #
+@@ -58,7 +62,7 @@ TINYWIDGETS              = Y
+ ####################################################################
+ FBEMULATOR               = Y
+ MICROWINDEMO             = Y
+-MICROWINMULTIAPP         = Y
++MICROWINMULTIAPP         = N
+ NANOXDEMO                = Y
+ HAVE_VNCSERVER_SUPPORT   = N
+ VNCSERVER_PTHREADED      = N
+@@ -104,7 +108,7 @@ LIBJPEG                  = -ljpeg
+ ####################################################################
+ # PNG support via libpng and libz
+ ####################################################################
+-HAVE_PNG_SUPPORT         = Y
++HAVE_PNG_SUPPORT         = N
+ INCPNG                   =
+ LIBPNG                   = -lpng
+ INCZ                     =
+@@ -127,10 +131,10 @@ PCF_FONT_DIR             = "fonts/pcf"
+ ####################################################################
+ # Truetype fonts - .ttf and .otf loadable fonts thru Freetype 2.x
+ ####################################################################
+-HAVE_FREETYPE_2_SUPPORT  = Y
++HAVE_FREETYPE_2_SUPPORT  = N
+ HAVE_HARFBUZZ_SUPPORT    = N
+-INCFT2LIB                = /usr/local/include
+-LIBFT2LIB                = -lfreetype -lbz2
++INCFT2LIB                = /usr/include
++LIBFT2LIB                = -lfreetype
+ #LIBFT2LIB                += -lharfbuzz
+ FREETYPE_FONT_DIR        = "fonts/truetype"
+ 
+@@ -229,7 +233,6 @@ HAVETEXTMODE             = N
+ SCREEN_PIXTYPE           = MWPF_TRUECOLORARGB
+ #SCREEN_PIXTYPE           = MWPF_TRUECOLORABGR
+ #SCREEN_PIXTYPE           = MWPF_TRUECOLOR565
+-#SCREEN_PIXTYPE           = MWPF_PALETTE
+ SCREEN_DEPTH             = 8
+ 
+ ####################################################################
+diff --git a/src/demos/nanox/Makefile b/src/demos/nanox/Makefile
+index c0d2c24..c727599 100644
+--- a/src/demos/nanox/Makefile
++++ b/src/demos/nanox/Makefile
+@@ -192,12 +192,12 @@ NANOX_DEMOS_WITH_STANDARD_LINK := \
+ 
+ # Standard link rule used for most demos.
+ $(NANOX_DEMOS_WITH_STANDARD_LINK): $(MW_DIR_BIN)/%: $(MW_DIR_OBJ)/demos/nanox/%.o $(NANOXCLIENTLIBS) $(CONFIG)
+-	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
++	@echo "Linking for soso $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+ #	echo $(CC) $(CFLAGS) $(LDFLAGS) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
+ ifeq ($(ARCH), ANDROID)
+ 	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@-apk/lib/$(ANDROID_ARCH_VER)/$(subst -,,$(patsubst $(MW_DIR_BIN)/%,%,$@)).so $(NANOXCLIENTLIBS) $(LDFLAGS)
+ else
+-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
++	$(LD) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
+ endif
+ 
+ # Link rule used for demos with libm.
+@@ -206,7 +206,7 @@ $(NANOX_DEMOS_WITH_LIBM_LINK): $(MW_DIR_BIN)/%: $(MW_DIR_OBJ)/demos/nanox/%.o $(
+ ifeq ($(ARCH), ANDROID)
+ 	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@-apk/lib/$(ANDROID_ARCH_VER)/$(subst -,,$(patsubst $(MW_DIR_BIN)/%,%,$@)).so $(NANOXCLIENTLIBS) $(LDFLAGS) $(LIBM)
+ else
+-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS) $(LIBM)
++	$(LD) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS) $(LIBM)
+ endif
+ 
+ $(MW_DIR_BIN)/nxkbd: $(NXKBDOBJS) $(NANOXCLIENTLIBS) $(CONFIG)
+@@ -214,7 +214,7 @@ $(MW_DIR_BIN)/nxkbd: $(NXKBDOBJS) $(NANOXCLIENTLIBS) $(CONFIG)
+ ifeq ($(ARCH), ANDROID)
+ 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@-apk/lib/$(ANDROID_ARCH_VER)/$(subst -,,$(patsubst $(MW_DIR_BIN)/%,%,$@)).so $(NXKBDOBJS) $(NANOXCLIENTLIBS) $(LDFLAGS)
+ else
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(NXKBDOBJS) $(NANOXCLIENTLIBS) $(LDFLAGS)
++	$(LD) -o $@ $(NXKBDOBJS) $(NANOXCLIENTLIBS) $(LDFLAGS)
+ endif
+ 
+ $(MW_DIR_BIN)/demo-convimage: $(CANNYOBJS) $(NANOXCLIENTLIBS) $(CONFIG)
+diff --git a/src/demos/nuklear/Makefile b/src/demos/nuklear/Makefile
+index 8048748..f528356 100644
+--- a/src/demos/nuklear/Makefile
++++ b/src/demos/nuklear/Makefile
+@@ -57,8 +57,8 @@ LDFLAGS := $(filter-out $(EXTENGINELIBS),$(LDFLAGS))
+ endif
+ 
+ $(TARGETS): $(MW_DIR_BIN)/%: $(MW_DIR_OBJ)/demos/nuklear/%.o $(NANOXCLIENTLIBS) $(CONFIG)
+-	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
++	@echo "Linking for soso $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
++	$(LD) $< -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
+ 
+ DEMO_NUKLEAR=$(MW_DIR_SRC)/demos/nuklear/demo-nuklear.c $(MW_DIR_SRC)/demos/nuklear/nuklear_nxlib.h nuklear.h
+ 
+diff --git a/src/demos/nxscribble/Makefile b/src/demos/nxscribble/Makefile
+index 806a4b5..40df6fe 100644
+--- a/src/demos/nxscribble/Makefile
++++ b/src/demos/nxscribble/Makefile
+@@ -66,8 +66,8 @@ include $(MW_DIR_SRC)/Makefile.rules
+ ######################## Tools targets section ###############################
+ 
+ $(MW_DIR_BIN)/nxscribble: $(OBJS) $(NANOXCLIENTLIBS) $(CONFIG)
+-	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS) $(LIBM)
++	@echo "Linking for soso $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
++	$(LD) $(OBJS) -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS) $(LIBM)
+ 
+ ifeq ($(ARCH), ECOS)
+ $(MW_DIR_BIN)/nxscribble.o: $(OBJS) $(CONFIG)
+diff --git a/src/demos/tuxchess/Makefile b/src/demos/tuxchess/Makefile
+index e5b0e85..93756d0 100644
+--- a/src/demos/tuxchess/Makefile
++++ b/src/demos/tuxchess/Makefile
+@@ -55,5 +55,6 @@ include $(MW_DIR_SRC)/Makefile.rules
+ ######################## Tools targets section ###############################
+ 
+ $(MW_DIR_BIN)/tuxchess: $(OBJS) $(NANOXCLIENTLIBS) $(CONFIG)
+-	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
++	@echo "Linking for soso $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
++	@echo "LDFLAGS is $(LDFLAGS)"
++	$(LD) $(OBJS) -o $@ $(NANOXCLIENTLIBS) $(LDFLAGS)
+diff --git a/src/drivers/Objects.rules b/src/drivers/Objects.rules
+index c5d0961..93dd4b3 100644
+--- a/src/drivers/Objects.rules
++++ b/src/drivers/Objects.rules
+@@ -76,8 +76,8 @@ ifeq ($(SCREEN), FBE)
+ MW_CORE_OBJS += \
+ 	$(MW_DIR_OBJ)/drivers/scr_fbe.o \
+ 	$(MW_DIR_OBJ)/drivers/copyframebuffer.o \
+-	$(MW_DIR_OBJ)/drivers/mou_fbe.o \
+-	$(MW_DIR_OBJ)/drivers/kbd_fbe.o
++#	$(MW_DIR_OBJ)/drivers/mou_null.o \
++	$(MW_DIR_OBJ)/drivers/kbd_null.o
+ endif
+ 
+ #### The following platforms when defined include specific screen, keyboard and mouse drivers
+diff --git a/src/drivers/kbd_ttyscan.c b/src/drivers/kbd_ttyscan.c
+index 814d868..b631db3 100644
+--- a/src/drivers/kbd_ttyscan.c
++++ b/src/drivers/kbd_ttyscan.c
+@@ -1,7 +1,5 @@
+ /*
+- * Copyright (c) 2000, 2003 Greg Haerr <greg@censoft.com>
+- *
+- * Microwindows /dev/tty console scancode keyboard driver for Linux
++ * Microwindows /dev/keyboard console scancode keyboard driver for soso
+  */
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -12,17 +10,12 @@
+ #include <errno.h>
+ #include <termios.h>
+ #include <sys/ioctl.h>
+-#include <linux/keyboard.h>
+-#include <linux/kd.h>
+-#include <linux/vt.h>
+ #include "device.h"
+ #include "fb.h"
+ 
+-#if UCLINUX
+-#define KEYBOARD	"/dev/console"
+-#else
+-#define KEYBOARD	"/dev/tty"	/* console kbd to open*/
+-#endif
++#define VT_ACTIVATE	0x5606
++
++#define KEYBOARD	"/dev/keyboard"
+ 
+ static int  TTY_Open(KBDDEVICE *pkd);
+ static void TTY_Close(void);
+@@ -40,7 +33,9 @@ KBDDEVICE kbddev = {
+ #define RELEASED	0
+ #define PRESSED		1
+ 
+-static	int		fd;		/* file descriptor for keyboard */
++static	int		fd;		// file descriptor for keyboard (/dev/keyboard)
++static	int		fd_tty = 0;		// file descriptor for tty
++static	int		fd_console = -1;		// file descriptor for tty
+ static	struct termios	old;		/* original terminal modes */
+ static  int 		old_kbd_mode;
+ static unsigned char 	key_state[MWKEY_LAST];	/* FIXME - make sparse array */
+@@ -48,7 +43,7 @@ static MWKEYMOD 	key_modstate;
+ 
+ /* kernel unicode tables per shiftstate and scancode*/
+ #define NUM_VGAKEYMAPS	(1<<KG_CAPSSHIFT)	/* kernel key maps*/
+-static unsigned short	os_keymap[NUM_VGAKEYMAPS][NR_KEYS];
++//static unsigned short	os_keymap[NUM_VGAKEYMAPS][NR_KEYS];
+ 
+ 
+ /* Pick the right scancode conversion table */
+@@ -64,6 +59,20 @@ static MWKEY	TranslateScancode(int scancode, MWKEYMOD modstate);
+ static void	LoadKernelKeymaps(int fd);
+ static MWBOOL	switch_vt(unsigned short which);
+ 
++static void disable_raw_mode()
++{
++  tcsetattr(fd_tty, TCSAFLUSH, &old);
++}
++
++static void enable_raw_mode()
++{
++  tcgetattr(fd_tty, &old);
++  struct termios raw = old;
++  raw.c_lflag &= ~(ECHO);
++  raw.c_cc[VMIN] = 0;
++  tcsetattr(fd_tty, TCSAFLUSH, &raw);
++}
++
+ /*
+  * Open the keyboard.
+  * This is real simple, we just use a special file handle
+@@ -78,40 +87,14 @@ TTY_Open(KBDDEVICE *pkd)
+ 	char *		kbd;
+ 	struct termios	new;
+ 
+-	/* Open "CONSOLE" or /dev/tty device*/
+-	if(!(kbd = getenv("CONSOLE")))
+-		kbd = KEYBOARD;
++	kbd = KEYBOARD;
+ 	fd = open(kbd, O_NONBLOCK);
+ 	if (fd < 0)
+ 		return DRIVER_FAIL;
+ 
+-	/* Save previous settings*/
+-#ifdef KDGKBMODE
+-	if (ioctl(fd, KDGKBMODE, &old_kbd_mode) < 0) {
+-		perror("KDGKMODE");
+-		goto err;
+-	}
+-	if (tcgetattr(fd, &old) < 0)
+-		goto err;
+-#endif
+-	
+-	/* Set medium-raw keyboard mode */
+-	new = old;
+-	/* ISIG and BRKINT must be set otherwise '2' is ^C (scancode 3)!!*/
+-	new.c_lflag &= ~(ICANON | ECHO | ISIG);
+-	new.c_iflag &= ~(ISTRIP | IGNCR | ICRNL | INLCR | IXOFF | IXON 
+-			| BRKINT);
+-	new.c_cc[VMIN] = 0;
+-	new.c_cc[VTIME] = 0;
+-
+-	if (tcsetattr(fd, TCSAFLUSH, &new) < 0) {
+-		TTY_Close();
+-		return DRIVER_FAIL;
+-	}
+-	if (ioctl(fd, KDSKBMODE, K_MEDIUMRAW) < 0) {
+-		TTY_Close();
+-		return DRIVER_FAIL;
+-	}
++	enable_raw_mode();
++
++	fd_console = open("/dev/console", O_NONBLOCK);
+ 
+ 	/* Load OS keymappings*/
+ 	LoadKernelKeymaps(fd);
+@@ -121,7 +104,8 @@ TTY_Open(KBDDEVICE *pkd)
+ 	for (i=0; i<MWKEY_LAST; ++i)
+ 		key_state[i] = RELEASED;
+ 	
+-	/* preset CAPSLOCK and NUMLOCK from startup LED state*/
++	/*
++	// preset CAPSLOCK and NUMLOCK from startup LED state
+ 	if (ioctl(fd, KDGETLED, &ledstate) == 0) {
+ 		if (ledstate & LED_CAP) {
+ 			key_modstate |= MWKMOD_CAPS;
+@@ -132,6 +116,7 @@ TTY_Open(KBDDEVICE *pkd)
+ 			key_state[MWKEY_NUMLOCK] = PRESSED;
+ 		}
+ 	}
++	*/
+ 	UpdateLEDState(key_modstate);
+ 
+ 	return fd;
+@@ -156,14 +141,15 @@ TTY_Close(void)
+ 		/* revert LEDs to follow key modifiers*/
+ 		if (ioctl(fd, KDSETLED, ledstate) < 0)
+ 			perror("KDSETLED");
+-#endif
+-#ifdef KDSKBMODE
+-		/* reset terminal mode*/
+-		if (ioctl(fd, KDSKBMODE, old_kbd_mode) < 0)
+-			perror("KDSKBMODE");
+-		tcsetattr(fd, TCSAFLUSH, &old);
+ #endif
+ 		close(fd);
++
++		disable_raw_mode();
++
++		if (fd_console >= 0)
++		{
++			ioctl(fd_console, VT_ACTIVATE, 1);
++		}
+ 	}
+ 	fd = -1;
+ }
+@@ -202,10 +188,12 @@ TTY_Read(MWKEY *kbuf, MWKEYMOD *modifiers, MWSCANCODE *pscancode)
+ 		scancode = *buf & 0x7f;
+ 		mwkey = keymap[scancode];
+ 
+-		/**if(pressed) {
+-			printf("scan %02x really: %08x\n", *buf&0x7F, *buf);
+-			printf("mwkey: %02x (%c)\n", mwkey, mwkey);
+-		}**/
++		if(pressed) {
++			//printf("scan %02x really: %08x\n", *buf&0x7F, *buf);
++			//printf("mwkey: %02x (%c)\n", mwkey, mwkey);
++		}
++
++		//printf("kbdscan: %X(%c) prs:%d\n", mwkey, mwkey, pressed);
+ 
+ 		/* Handle Alt-FN for vt switch */
+ 		switch (mwkey) {
+@@ -221,11 +209,15 @@ TTY_Read(MWKEY *kbuf, MWKEYMOD *modifiers, MWSCANCODE *pscancode)
+ 		case MWKEY_F10:
+ 		case MWKEY_F11:
+ 		case MWKEY_F12:
+-			if (key_modstate & MWKMOD_ALT) {
++			if ((key_modstate & MWKMOD_CTRL) && mwkey == MWKEY_F7)
++			{
++				mwkey = MWKEY_REDRAW;
++			}
++			/* if (key_modstate & MWKMOD_ALT) {
+ 				if (switch_vt(mwkey-MWKEY_F1+1)) {
+ 					mwkey = MWKEY_REDRAW;
+ 				}
+-			}
++			} */
+ 			break;
+ 			/* Fall through to normal processing */
+ 		default:
+@@ -318,10 +310,10 @@ TTY_Read(MWKEY *kbuf, MWKEYMOD *modifiers, MWSCANCODE *pscancode)
+ 		*modifiers = key_modstate;
+ 		*pscancode = scancode;
+ 
+-		/**if(pressed) {
+-			printf("Returning: mwkey: 0x%04x, mods: 0x%x,
+-				sc:0x%04x\n\n", *kbuf, *modifiers, *pscancode);
+-		}**/
++		if(pressed)
++		{
++			//printf("Returning: mwkey: 0x%04x, mods: 0x%x,sc:0x%04x\n\n", *kbuf, *modifiers, *pscancode);
++		}
+ 		return pressed ? KBD_KEYPRESS : KBD_KEYRELEASE;
+ 	}
+ 
+@@ -430,7 +422,7 @@ UpdateKeyState(int pressed, MWKEY mwkey)
+ 
+ static void
+ UpdateLEDState(MWKEYMOD modstate)
+-{
++{/*
+ 	int	ledstate = 0;
+ 
+ 	if (modstate & MWKMOD_CAPS)
+@@ -440,6 +432,7 @@ UpdateLEDState(MWKEYMOD modstate)
+ #ifdef KDSETLED
+ 	ioctl(fd, KDSETLED, ledstate);
+ #endif
++*/
+ }
+ 
+ /* translate a scancode and modifier state to an MWKEY*/
+@@ -448,10 +441,11 @@ TranslateScancode(int scancode, MWKEYMOD modstate)
+ {
+ 	unsigned short	mwkey = 0;
+ 	int		map = 0;
++	
++	//printf("Translate: 0x%04x\n", scancode);
+ 
+-	/*printf("Translate: 0x%04x\n", scancode);*/
+-
+-	/* determine appropriate kernel table*/
++	// determine appropriate kernel table
++	/*
+ 	if (modstate & MWKMOD_SHIFT)
+ 		map |= (1<<KG_SHIFT);
+ 	if (modstate & MWKMOD_CTRL)
+@@ -504,45 +498,46 @@ TranslateScancode(int scancode, MWKEYMOD modstate)
+ 		}
+ 	} else
+ 		mwkey = KVAL(os_keymap[map][scancode]);
+-	
++	*/
+ 	if (!mwkey)
+ 		mwkey = keymap[scancode];
+ 
+-	/* perform additional translations*/
++	// perform additional translations
+ 	switch (mwkey) {
+ 	case 127:
+ 		mwkey = MWKEY_BACKSPACE;
+ 		break;
+ 	case MWKEY_BREAK:
+ 	case MWKEY_PAUSE:
+-	case '\033':	/* ESC QUIT*/
++	case '\033':	// ESC QUIT
+ 		mwkey = MWKEY_QUIT;
+ 		break;
+-	case 0x1c:	/* kernel maps print key to ctrl-\ */
++	case 0x1c:	// kernel maps print key to ctrl-\ 
+ 	case MWKEY_SYSREQ:
+ 		mwkey = MWKEY_PRINT;
+ 		break;
+ 	}
+ 
+-	/* printf("TranslateScancode %02x to mwkey %d\n", scancode, mwkey); */
++	// printf("TranslateScancode %02x to mwkey %d\n", scancode, mwkey);
++	
+ 	return mwkey;
+ }
+ 
+ /* load Linux keyboard mappings, used as first try for scancode conversion*/
+ static void
+ LoadKernelKeymaps(int fd)
+-{
++{/*
+ 	int 		map, i;
+ 	struct kbentry 	entry;
+ 
+-	/* Load all the keysym mappings */
++	//Load all the keysym mappings
+ 	for (map=0; map<NUM_VGAKEYMAPS; ++map) {
+ 		memset(os_keymap[map], 0, NR_KEYS*sizeof(unsigned short));
+ 		for (i=0; i<NR_KEYS; ++i) {
+ 			entry.kb_table = map;
+ 			entry.kb_index = i;
+ 			if (ioctl(fd, KDGKBENT, &entry) == 0) {
+-				/* change K_ENTER to \r*/
++				// change K_ENTER to \r
+ 				if (entry.kb_value == K_ENTER)
+ 					entry.kb_value = K(KT_ASCII,13);
+ 
+@@ -555,42 +550,44 @@ LoadKernelKeymaps(int fd)
+ 			}
+ 		}
+ 	}
+-
++*/
+ }
+ /* Handle switching to another VC, returns when our VC is back */
+ static MWBOOL
+ switch_vt(unsigned short which)
+ {
++	/*
+ 	struct vt_stat vtstate;
+ 	unsigned short current;
+ 	static unsigned short r[16], g[16], b[16];
+ 
+-	/* Figure out whether or not we're switching to a new console */
++	// Figure out whether or not we're switching to a new console
+ 	if ((ioctl(fd, VT_GETSTATE, &vtstate) < 0) ||
+ 	    (which == vtstate.v_active)) {
+ 		return FALSE;
+ 	}
+ 	current = vtstate.v_active;
+ 
+-	/* save palette, goto text mode*/
++	// save palette, goto text mode
+ 	ioctl_getpalette(0, 16, r, g, b);
+ 	ioctl(fd, KDSETMODE, KD_TEXT);
+ 
+-	/* New console, switch to it */
++	// New console, switch to it
+ 	if (ioctl(fd, VT_ACTIVATE, which) == 0) {
+-		/* Wait for our console to be activated again */
++		// Wait for our console to be activated again
+ 		ioctl(fd, VT_WAITACTIVE, which);
+ 		while (ioctl(fd, VT_WAITACTIVE, current) < 0) {
+ 			if ((errno != EINTR) && (errno != EAGAIN)) {
+-				/* Unknown VT error, cancel*/
++				// Unknown VT error, cancel
+ 				break;
+ 			}
+ 			usleep(100000);
+ 		}
+ 	}
+ 
+-	/* Restore graphics mode and the contents of the screen */
++	// Restore graphics mode and the contents of the screen
+ 	ioctl(fd, KDSETMODE, KD_GRAPHICS);
+ 	ioctl_setpalette(0, 16, r, g, b);
++	*/
+ 	return TRUE;
+ }
+diff --git a/src/drivers/scr_fbe.c b/src/drivers/scr_fbe.c
+index 4b0bbe1..17f525a 100644
+--- a/src/drivers/scr_fbe.c
++++ b/src/drivers/scr_fbe.c
+@@ -61,7 +61,7 @@ SCREENDEVICE scrdev = {
+ static PSD
+ fbe_open(PSD psd)
+ {
+-	char *env;
++	char *env = "/dev/fb0";
+ 
+ 	int flags = PSF_SCREEN;		/* init psd, don't allocate framebuffer*/
+ 
+@@ -86,6 +86,7 @@ fbe_open(PSD psd)
+ 	/* open framebuffer file for mmap*/
+ 	if((env = getenv("FRAMEBUFFER")) == NULL)
+ 		env = MW_PATH_FBE_FRAMEBUFFER;
++	printf("openning %s\n", env);
+ 	fb = open(env, O_RDWR);
+ 	if (fb >= 0)
+ 	{
+diff --git a/src/images/Makefile b/src/images/Makefile
+index 424c2ec..2f06454 100644
+--- a/src/images/Makefile
++++ b/src/images/Makefile
+@@ -66,12 +66,12 @@ ifeq ($(MW_DIR_OBJ),$(MW_DIR_SRC))
+ endif
+ 
+ $(MW_DIR_BIN)/makebmp: $(MW_DIR_SRC)/images/tools/makebmp.c
+-	echo "Building $(patsubst $(MW_DIR_BIN)/%,%,$@) tool ..."
+-	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
++	echo "Building- $(patsubst $(MW_DIR_BIN)/%,%,$@) tool ..."
++#	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
+ 
+ $(MW_DIR_BIN)/convpbm: $(MW_DIR_SRC)/images/tools/convpbm.c
+-	echo "Building $(patsubst $(MW_DIR_BIN)/%,%,$@) tool ..."
+-	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
++	echo "Building- $(patsubst $(MW_DIR_BIN)/%,%,$@) tool ..."
++#	$(HOSTCC) $(HOSTCFLAGS) $< -o $@
+ 
+ # Sigh.  Old versions of make are completely broken and need this.
+ # They should be able to pick it up from the pattern rule in
+diff --git a/src/include/device.h b/src/include/device.h
+index 9cc0b0c..a577d77 100644
+--- a/src/include/device.h
++++ b/src/include/device.h
+@@ -24,9 +24,9 @@ extern "C" {
+ #define MW_PATH_FRAMEBUFFER			"/dev/fb0"					/* real framebuffer*/
+ 
+ /* paths for framebuffer emulator drivers*/
+-#define MW_PATH_FBE_FRAMEBUFFER		"/tmp/fbe-framebuffer"		/* framebuffer memory file for mmap()*/
++#define MW_PATH_FBE_FRAMEBUFFER		"/dev/fb0"		/* framebuffer memory file for mmap()*/
+ #define MW_PATH_FBE_COLORMAP		"/tmp/fbe-cmap"				/* framebuffer colormap for mmap()*/
+-#define MW_PATH_FBE_MOUSE			"/tmp/fbe-mouse"			/* mouse fifo*/
++#define MW_PATH_FBE_MOUSE			"/dev/psaux"			/* mouse fifo*/
+ #define MW_PATH_FBE_KEYBOARD		"/tmp/fbe-keyboard"			/* keyboard fifo*/
+ 
+ /* path for GR_WM_PROPS_BUFFER_MMAP mmap'd window*/
+diff --git a/src/nanox/Makefile b/src/nanox/Makefile
+index d457355..235d677 100644
+--- a/src/nanox/Makefile
++++ b/src/nanox/Makefile
+@@ -98,13 +98,13 @@ include $(MW_DIR_SRC)/Makefile.rules
+ # Server binary ...
+ $(MW_DIR_BIN)/nano-X: $(NANOXFILES) $(CONFIG)
+ 	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(NANOXFILES) $(NANOXSERVERLIBS) $(LDFLAGS)
++	$(LD) -o $@ $(NANOXFILES) $(NANOXSERVERLIBS) $(LDFLAGS)
+ 
+ ifeq ($(ARCH), ECOS) 
+ $(MW_DIR_BIN)/nano-X.o: $(OBJS) $(NANOXFILES) $(NANOXSERVERLIBS) $(CONFIG)
+ 	@echo "Linking $(patsubst $(MW_DIR_BIN)/%,%,$@) ..."
+ #	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) $(NANOXFILES) $(NANOXSERVERLIBS) -Wl,-r -Wl,--retain-symbols-file -Wl,nanox.syms -Wl,--defsym -Wl,nanox_main=main -o XX.o
+-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) $(NANOXFILES) $(NANOXSERVERLIBS) -Wl,-r -Wl,--defsym -Wl,nanox_main=main -o XX.o
++	$(LD) $(LDFLAGS) $(OBJS) $(NANOXFILES) $(NANOXSERVERLIBS) -Wl,-r -Wl,--defsym -Wl,nanox_main=main -o XX.o
+ 	$(NM) XX.o | grep -v _main | grep -v Gr | grep -v nx | grep ' T' | awk -f $(MW_DIR_SRC)/ecos/retain.awk | xargs $(OBJCOPY) XX.o $@
+ #	rm -f XX.o
+ endif
+diff --git a/src/nanox/clientfb.c b/src/nanox/clientfb.c
+index 0e0bfc2..c60a175 100644
+--- a/src/nanox/clientfb.c
++++ b/src/nanox/clientfb.c
+@@ -104,7 +104,8 @@ GrOpenClientFramebuffer(GR_WINDOW_ID wid)
+ 
+ 		/* Open /tmp/.nano-fb%d mmaped buffer using window ID*/
+ 		sprintf(path, MW_PATH_BUFFER_MMAP, wid);
+-		fd = open(path, O_RDWR);
++		//fd = open(path, O_RDWR);
++		fd = shm_open(path, O_RDWR, 0);
+ 		if (fd < 0) {
+ 			EPRINTF("GrOpenClientFramebuffer: Can't open mmap window buffer %s\n", path);
+ 			UNLOCK(&nxGlobalLock);
+diff --git a/src/nanox/srvnet.c b/src/nanox/srvnet.c
+index 2f30ac4..fbc7e83 100644
+--- a/src/nanox/srvnet.c
++++ b/src/nanox/srvnet.c
+@@ -1815,11 +1815,11 @@ GsOpenSocket(void)
+ 	sckt.sin_port = htons(6600);
+ 	sckt.sin_addr.s_addr = INADDR_ANY;
+ #else
+-	if (access(GR_NAMED_SOCKET, F_OK) == 0) {
+-		/* FIXME: should try connecting to see if server is active */
++	/*if (access(GR_NAMED_SOCKET, F_OK) == 0) {
++		
+ 		if(unlink(GR_NAMED_SOCKET))
+ 			return -1;
+-	}
++	}*/
+ 
+ 	/* Create the socket: */
+ 	if((un_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+@@ -1844,7 +1844,7 @@ GsCloseSocket(void)
+ 	if(un_sock != -1)
+ 		close(un_sock);
+ 	un_sock = -1;
+-	unlink(GR_NAMED_SOCKET);
++	//unlink(GR_NAMED_SOCKET);
+ }
+ 
+ /*
+diff --git a/src/nanox/srvutil.c b/src/nanox/srvutil.c
+index 1df8ddd..c5ba110 100644
+--- a/src/nanox/srvutil.c
++++ b/src/nanox/srvutil.c
+@@ -7,6 +7,7 @@
+  */
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <unistd.h>
+ #include "uni_std.h"
+ #include "serv.h"
+ #include "../drivers/fb.h"	/* for set_data_formatex()*/
+@@ -622,8 +623,11 @@ GsInitWindowBuffer(GR_WINDOW *wp, GR_SIZE width, GR_SIZE height)
+ 		/* buffer mmap'd to /tmp/.nano-fb{window id}*/
+ 		sprintf(path, MW_PATH_BUFFER_MMAP, wp->id);
+ 		/* create file and mmap*/
+-		if ((fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0666)) >= 0) {
+-			lseek(fd, psd->size - 1, SEEK_SET);
++		//if ((fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0666)) >= 0)
++		if ((fd = shm_open(path, 0x200, 0666)) >= 0)
++		{
++			//lseek(fd, psd->size - 1, SEEK_SET);
++			ftruncate(fd, psd->size - 1);
+ 			write(fd, "", 1);
+ 			addr = mmap(NULL, psd->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+ 			close(fd);
+diff --git a/src/nxcal.dat b/src/nxcal.dat
+new file mode 100644
+index 0000000..8eb7e2c
+--- /dev/null
++++ b/src/nxcal.dat
+@@ -0,0 +1,6 @@
++# Nano-X touchscreen data
++# Generated automatically, do not edit
++
++-1032444 0 67108864 0 -949653 49381994 65536
++
++# ---
