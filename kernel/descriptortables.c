@@ -14,7 +14,7 @@ static void idt_initialize();
 static void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
 static void set_idt_entry(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);
 
-GdtEntry g_gdt_entries[6];
+GdtEntry g_gdt_entries[7];
 GdtPointer g_gdt_pointer;
 IdtEntry g_idt_entries[256];
 IdtPointer g_idt_pointer;
