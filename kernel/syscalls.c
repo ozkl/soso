@@ -131,7 +131,7 @@ int syscall_shmget(int32_t key, size_t size, int flag);
 void * syscall_shmat(int shmid, const void *shmaddr, int shmflg);
 int syscall_shmdt(const void *shmaddr);
 int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf);
-int syscall_nanosleep(struct timespec *req, struct timespec *rem);
+int syscall_nanosleep(const struct timespec *req, struct timespec *rem);
 
 void syscalls_initialize()
 {
@@ -1877,9 +1877,9 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
     return -1;//on error
 }
 
-int syscall_nanosleep(struct timespec *req, struct timespec *rem)
+int syscall_nanosleep(const struct timespec *req, struct timespec *rem)
 {
-    if (!check_user_access(req))
+    if (!check_user_access((void*)req))
     {
         return -EFAULT;
     }

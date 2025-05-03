@@ -204,7 +204,7 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
         MapInfo* info = (MapInfo*)kmalloc(sizeof(MapInfo));
         memset((uint8_t*)info, 0, sizeof(MapInfo));
         info->process = g_current_thread->owner;
-        info->v_address = result == 0 ? 0 : (uint32_t)result;
+        info->v_address = (uint32_t)result;
         info->page_count = count;
 
         list_append(shared_mem->mmapped_list, info);
