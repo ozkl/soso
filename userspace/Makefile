@@ -2,9 +2,9 @@ SOURCES_C=$(patsubst %.c,%.o,$(wildcard ./*.c))
 
 
 CC=soso-clang
-LD=ld
+LD=soso-clang
 CFLAGS=-c -O3
-LDFLAGS=-T./link.ld -m elf_i386 ../root/lib/crt1.o -L../root/lib -lTinyGL -lc -L/usr/lib/llvm-10/lib/clang/10.0.0/lib/linux -lclang_rt.builtins-i386
+LDFLAGS=
 
 OBJ = $(SOURCES_C)
 

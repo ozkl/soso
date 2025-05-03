@@ -43,5 +43,5 @@ To build kernel just run:
 
 this will build only kernel (kernel.bin). 
 
-Building userspace binaries will be documented later.
+[Building userspace](https://github.com/ozkl/soso/tree/master/toolchain)
 
