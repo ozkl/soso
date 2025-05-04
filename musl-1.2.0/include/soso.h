@@ -59,6 +59,8 @@ typedef struct SosoMessage
     uint32_t parameter3;
 } SosoMessage;
 
+int ptsname_r(int, char *, size_t);
+
 int32_t getthreads(ThreadInfo* threads, uint32_t max_count, uint32_t flags);
 int32_t getprocs(ProcInfo* procs, uint32_t max_count, uint32_t flags);
 

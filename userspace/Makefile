@@ -4,7 +4,7 @@ SOURCES_C=$(patsubst %.c,%.o,$(wildcard ./*.c))
 CC=soso-clang
 LD=soso-clang
 CFLAGS=-c -O3
-LDFLAGS=
+LDFLAGS=-lTinyGL
 
 OBJ = $(SOURCES_C)
 

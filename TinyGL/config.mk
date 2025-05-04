@@ -6,6 +6,8 @@ CC=soso-clang
 CFLAGS=-Wall -O2
 LFLAGS=
 
+SOSO_SYSROOT=/opt/soso-toolchain/i386-soso/sys-root
+
 # for BeOS PPC
 #CC= mwcc
 #CFLAGS= -I. -i-

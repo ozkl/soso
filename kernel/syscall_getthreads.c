@@ -99,7 +99,7 @@ int32_t syscall_getprocs(ProcInfo* procs, uint32_t max_count, uint32_t flags)
                 }
             }
 
-            memcpy((uint8_t*)info->name, process->name, SOSO_PROCESS_NAME_MAX);
+            memcpy((uint8_t*)info->name, (const uint8_t*)process->name, SOSO_PROCESS_NAME_MAX);
 
             //TODO: tty, working_directory
 
