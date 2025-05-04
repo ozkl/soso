@@ -432,7 +432,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     initialize_program_break(process, size_in_memory);
 
 
-    const uint32_t stack_page_count = 50;
+    const uint32_t stack_page_count = 250; //1MB stack
     char* v_address_stack_page = (char *) (USER_STACK - PAGESIZE_4K * stack_page_count);
     uint32_t stack_frames[stack_page_count];
     for (uint32_t i = 0; i < stack_page_count; ++i)
