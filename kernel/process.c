@@ -1111,7 +1111,12 @@ void schedule(TimerInt_Registers* registers)
 
     if (ready_thread != g_first_thread)
     {
-        if (fifobuffer_get_size(ready_thread->signals) > 0)
+        if (ready_thread->owner->exiting)
+        {
+            process_destroy(ready_thread->owner);
+            ready_thread = look_threads(g_first_thread);
+        }
+        else if (fifobuffer_get_size(ready_thread->signals) > 0)
         {
             uint8_t signal = 0;
             fifobuffer_dequeue(ready_thread->signals, &signal, 1);

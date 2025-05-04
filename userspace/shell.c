@@ -238,7 +238,8 @@ int main(int argc, char **argv)
     int shellPid = getpid();
 
     printf("User shell v0.4 (pid:%d)!\n", shellPid);
-    //printf("sizeof(size_t)=%d\n", sizeof(size_t));
+    
+    tcsetpgrp(0, shellPid);
 
     while (1)
     {
@@ -308,7 +309,7 @@ int main(int argc, char **argv)
 
             if (result >= 0)
             {
-                printf("Started pid:%d\n", result);
+                //printf("Started pid:%d\n", result);
                 fflush(stdout);
 
                 if (background == 0)
@@ -319,7 +320,7 @@ int main(int argc, char **argv)
 
                     tcsetpgrp(0, shellPid);
 
-                    printf("Exited pid:%d\n", result);
+                    //printf("Exited pid:%d\n", result);
                     fflush(stdout);
                 }
             }
@@ -336,7 +337,7 @@ int main(int argc, char **argv)
             if (result >= 0)
             {
                 
-                printf("Started pid:%d\n", result);
+                //printf("Started pid:%d\n", result);
                 fflush(stdout);
 
                 if (background == 0)
@@ -347,7 +348,7 @@ int main(int argc, char **argv)
 
                     tcsetpgrp(0, shellPid);
 
-                    printf("Exited pid:%d\n", result);
+                    //printf("Exited pid:%d\n", result);
                     fflush(stdout);
                 }
             }

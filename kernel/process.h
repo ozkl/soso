@@ -70,6 +70,8 @@ struct Process
 
     File* fd[SOSO_MAX_OPENED_FILES];
 
+    BOOL exiting;
+
 } __attribute__ ((packed));
 
 typedef struct Process Process;

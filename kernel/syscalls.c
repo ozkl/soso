@@ -681,7 +681,11 @@ int syscall_exit()
 {
     Thread* thread = thread_get_current();
 
-    thread_signal(thread, SIGTERM);
+    Process* process = thread->owner;
+    if (process)
+    {
+        process->exiting = TRUE;
+    }
     
     wait_for_schedule();
 
