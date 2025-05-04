@@ -57,7 +57,6 @@
 #define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
 #define	MEMORY_END              0xFFC00000 //After this address is not usable. Because Page Tables sit there!
 
-#define	SIZE_2MB        	0x200000 //2MB
 
 #define	USER_STACK 			0xF0000000
 
