@@ -1426,7 +1426,7 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
     //TODO: syscall support for 6th argument
     offset = 0;
 
-    log_printf("syscall_mmap addr:%x length:%d prot:%d flags:%d fd:%d offset:%d\n", addr, length, prot, flags, fd, offset);
+    //log_printf("syscall_mmap addr:%x length:%d prot:%d flags:%d fd:%d offset:%d\n", addr, length, prot, flags, fd, offset);
 
     uint32_t v_address_hint = (uint32_t)addr;
 
