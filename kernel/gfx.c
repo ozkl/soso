@@ -31,7 +31,7 @@ void gfx_initialize(uint32_t* pixels, uint32_t width, uint32_t height, uint32_t 
     g_pitch = pitch;
 
     uint32_t size_bytes = g_width * g_height * g_bytes_per_pixel;
-    uint32_t needed_page_count = size_bytes / PAGESIZE_4K;
+    uint32_t needed_page_count = PAGE_COUNT(size_bytes);
 
     for (uint32_t i = 0; i < needed_page_count; ++i)
     {

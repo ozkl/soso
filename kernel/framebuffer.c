@@ -100,10 +100,20 @@ static int32_t fb_ioctl(File *node, int32_t request, void * argp)
 
 static void* fb_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 {
+    uint32_t framebuffer_size_bytes = gfx_get_width() * gfx_get_height() * gfx_get_bytes_per_pixel();
+    uint32_t framebuffer_page_count = PAGE_COUNT(framebuffer_size_bytes);
+
     uint32_t page_count = PAGE_COUNT(size);
+
+    if (page_count > framebuffer_page_count)
+    {
+        return NULL;
+    }
     uint32_t* physical_pages_array = (uint32_t*)kmalloc(page_count * sizeof(uint32_t));
 
-    //TODO: check pageCount(size). It should not exceed our framebuffer!
+
+    //printkf("FB mmap: size:%d page count:%d\n", size, page_count);
+    //printkf("FB mmap: start:%x end:%x\n", USER_MMAP_START, USER_MMAP_START + page_count * PAGESIZE_4K);
 
     for (uint32_t i = 0; i < page_count; ++i)
     {

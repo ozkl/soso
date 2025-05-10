@@ -105,7 +105,7 @@ int syscall_sleep_ms(int ms);
 int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
 int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
-void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset);
+void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_unlink(const char *name);
@@ -223,10 +223,23 @@ static void handle_syscall(Registers* regs)
 
     ++thread->called_syscall_count;
 
+    memset((uint8_t*)&thread->last_syscall, 0, sizeof(thread->last_syscall));
+    thread->last_syscall.number = regs->eax;
+    thread->last_syscall.user_ip = regs->eip;
+    thread->last_syscall.arguments[0] = regs->ebx;
+    thread->last_syscall.arguments[1] = regs->ecx;
+    thread->last_syscall.arguments[2] = regs->edx;
+    thread->last_syscall.arguments[3] = regs->esi;
+    thread->last_syscall.arguments[4] = regs->edi;
+    thread->last_syscall.state = SYSCALL_NOTSTARTED;
+    thread->last_syscall.return_value = 0;
+    
     if (regs->eax >= SYSCALL_COUNT)
     {
         printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
         log_printf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+
+        thread->last_syscall.state = SYSCALL_ERROR;
 
         regs->eax = -1;
         return;
@@ -239,6 +252,8 @@ static void handle_syscall(Registers* regs)
         printkf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
         log_printf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
+        thread->last_syscall.state = SYSCALL_ERROR;
+
         regs->eax = -1;
         return;
     }
@@ -247,6 +262,9 @@ static void handle_syscall(Registers* regs)
     //Screen_PrintInterruptsEnabled();
 
     //I think it is better to enable interrupts in syscall implementations if it is needed.
+
+    thread->last_syscall.state = SYSCALL_STARTED;
+
 
     int ret;
     asm volatile (" \
@@ -263,6 +281,9 @@ static void handle_syscall(Registers* regs)
       popl %%ebx; \
     " : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
     regs->eax = ret;
+
+    thread->last_syscall.state = SYSCALL_FINISHED;
+    thread->last_syscall.return_value = ret;
 }
 
 int syscall_printk(const char *str, int num)
@@ -1399,8 +1420,14 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
     return -1;
 }
 
-void* syscall_mmap(void *addr, int length, int flags, int prot, int fd, int offset)
+//we don't support mmap offset argument
+void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset)
 {
+    //TODO: syscall support for 6th argument
+    offset = 0;
+
+    log_printf("syscall_mmap addr:%x length:%d prot:%d flags:%d fd:%d offset:%d\n", addr, length, prot, flags, fd, offset);
+
     uint32_t v_address_hint = (uint32_t)addr;
 
     if (v_address_hint < USER_OFFSET)
@@ -1787,7 +1814,7 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
 
                 if (file->node == node)
                 {
-                    return syscall_mmap((void*)shmaddr, file->node->length, shmflg, 0, file->fd, 0);
+                    return syscall_mmap((void*)shmaddr, file->node->length, 0, shmflg, file->fd, 0);
                 }
             }
         }

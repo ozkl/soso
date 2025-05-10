@@ -440,6 +440,15 @@ static void print_page_fault_info(uint32_t faulting_address, Registers *regs)
     log_printf("CPU was in %s\n", us ? "user-mode" : "supervisor mode");
 }
 
+static void print_thread_syscall_info(Thread* thread)
+{
+    log_printf("Thread[%d] syscall is %d, syscall state is %d, user_ip:%x\nArgs: %x %x %x %x %x\n",
+            thread->threadId, thread->last_syscall.number, thread->last_syscall.state, thread->last_syscall.user_ip,
+            thread->last_syscall.arguments[0], thread->last_syscall.arguments[1],
+            thread->last_syscall.arguments[2], thread->last_syscall.arguments[3],
+            thread->last_syscall.arguments[4]);
+}
+
 static void handle_page_fault(Registers *regs)
 {
     // A page fault has occurred.
@@ -467,6 +476,8 @@ static void handle_page_fault(Registers *regs)
             print_page_fault_info(faulting_address, regs);
 
             log_printf("Faulting thread is %d and its state is %d\n", faulting_thread->threadId, faulting_thread->state);
+
+            print_thread_syscall_info(faulting_thread);
 
             if (faulting_thread->user_mode)
             {

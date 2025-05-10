@@ -42,6 +42,14 @@ typedef enum SelectState
     SS_ERROR
 } SelectState;
 
+typedef enum SyscallState
+{
+    SYSCALL_NOTSTARTED,
+    SYSCALL_STARTED,
+    SYSCALL_FINISHED,
+    SYSCALL_ERROR
+} SyscallState;
+
 struct Process
 {
     char name[SOSO_PROCESS_NAME_MAX];
@@ -126,6 +134,16 @@ struct Thread
     uint32_t consumed_cpu_time_ms_at_prev_mark;
     uint32_t usage_cpu; //FromPrevMark
     uint32_t called_syscall_count;
+
+    struct
+    {
+        uint32_t number;
+        uint32_t user_ip;
+        uint32_t arguments[5];
+        uint32_t return_value;
+        SyscallState state;
+    } last_syscall;
+    
 
 
     FifoBuffer* message_queue;
