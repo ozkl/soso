@@ -17,8 +17,8 @@ static void vmm_sync_all_from_kernel();
 
 void vmm_initialize(uint32_t high_mem)
 {
-    int pg;
-    unsigned long i;
+    uint32_t pg = 0;
+    uint32_t i = 0;
 
     interrupt_register(14, handle_page_fault);
 
@@ -37,19 +37,21 @@ void vmm_initialize(uint32_t high_mem)
     }
 
     //Mark pages reserved for the kernel as used
-    for (pg = PAGE_INDEX_4K(0x0); pg < (int)(PAGE_INDEX_4K(RESERVED_AREA)); ++pg)
+    for (pg = PAGE_INDEX_4K(0x0); pg < (int)(PAGE_INDEX_4K(g_modules_end)); ++pg)
     {
         SET_PAGEFRAME_USED(g_physical_page_frame_bitmap, pg);
     }
 
-    //Identity map for first 16MB
+    uint32_t end_index_4m = PAGE_INDEX_4M(g_modules_end);
+    
+    //Identity map the memory from beginning to the end of modules
     //First identity pages are 4MB sized for ease
-    for (i = 0; i < 4; ++i)
+    for (i = 0; i <= end_index_4m; ++i)
     {
         g_kernel_page_directory[i] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB));//add PG_USER for accesing kernel code in user mode
     }
 
-    for (i = 4; i < 1024; ++i)
+    for (i = end_index_4m + 1; i < 1024; ++i)
     {
         g_kernel_page_directory[i] = 0;
     }
@@ -58,7 +60,7 @@ void vmm_initialize(uint32_t high_mem)
     g_kernel_page_directory[1023] = (uint32_t)g_kernel_page_directory | PG_PRESENT | PG_WRITE;
 
     //zero out PD area
-    memset((uint8_t*)KERN_PD_AREA_BEGIN, 0, KERN_PD_AREA_END - KERN_PD_AREA_BEGIN);
+    memset((uint8_t*)g_pd_area_begin, 0, g_pd_area_end - g_pd_area_begin);
 
     //Enable paging
     asm("	mov %0, %%eax \n \
@@ -123,8 +125,8 @@ void vmm_release_page_frame_4k(uint32_t p_addr)
 
 uint32_t* vmm_acquire_page_directory()
 {
-    uint32_t address = KERN_PD_AREA_BEGIN;
-    for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
+    uint32_t address = g_pd_area_begin;
+    for (; address < g_pd_area_end; address += PAGESIZE_4K)
     {
         uint32_t* pd = (uint32_t*)address;
 
@@ -372,8 +374,8 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
 
 static void vmm_sync_all_from_kernel()
 {
-    uint32_t address = KERN_PD_AREA_BEGIN;
-    for (; address < KERN_PD_AREA_END; address += PAGESIZE_4K)
+    uint32_t address = g_pd_area_begin;
+    for (; address < g_pd_area_end; address += PAGESIZE_4K)
     {
         uint32_t* pd = (uint32_t*)address;
 

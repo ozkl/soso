@@ -7,6 +7,7 @@ typedef struct Ramdisk
 {
     uint8_t* buffer;
     uint32_t size;
+    BOOL is_preallocated;
 } Ramdisk;
 
 #define RAMDISK_BLOCKSIZE 512
@@ -17,11 +18,22 @@ static int32_t read_block(FileSystemNode* node, uint32_t block_number, uint32_t 
 static int32_t write_block(FileSystemNode* node, uint32_t block_number, uint32_t count, uint8_t* buffer);
 static int32_t ioctl(File *node, int32_t request, void * argp);
 
-BOOL ramdisk_create(const char* devName, uint32_t size)
+BOOL ramdisk_create(const char* devName, uint32_t size, uint8_t* preallocated_buffer)
 {
     Ramdisk* ramdisk = kmalloc(sizeof(Ramdisk));
     ramdisk->size = size;
-    ramdisk->buffer = kmalloc(size);
+    if (preallocated_buffer)
+    {
+        ramdisk->buffer = preallocated_buffer;
+        ramdisk->is_preallocated = TRUE;
+    }
+    else
+    {
+        ramdisk->buffer = kmalloc(size);
+        ramdisk->is_preallocated = FALSE;
+    }
+
+    printkf("Creating ramdisk %s (%d bytes) at %x\n", devName, size, ramdisk->buffer);
 
     Device device;
     memset((uint8_t*)&device, 0, sizeof(device));
@@ -39,7 +51,11 @@ BOOL ramdisk_create(const char* devName, uint32_t size)
         return TRUE;
     }
 
-    kfree(ramdisk->buffer);
+    if (ramdisk->is_preallocated == FALSE)
+    {
+        kfree(ramdisk->buffer);
+    }
+    
     kfree(ramdisk);
 
     return FALSE;

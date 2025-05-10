@@ -30,5 +30,22 @@ SECTIONS
                 *(.bss)
         }
 
-       _end = .;
+        _kernel_end = .;
+
+ 
+
+        . = ALIGN(4K);
+
+        _pd_area_begin = .;
+
+        /* reserve 4MB */
+        .pg_tables_reserve (NOLOAD) : ALIGN(4K)
+        {
+                . = 0x0400000;
+        }
+        
+        _pd_area_end = .;
+
+        _kernel_reserved_end = .;
+
 }

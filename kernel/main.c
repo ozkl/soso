@@ -29,9 +29,14 @@
 #include "socket.h"
 
 extern uint32_t _start;
-extern uint32_t _end;
+extern uint32_t _kernel_end;
+extern uint32_t _kernel_reserved_end;
 uint32_t g_physical_kernel_start_address = (uint32_t)&_start;
-uint32_t g_physical_kernel_end_address = (uint32_t)&_end;
+uint32_t g_physical_kernel_end_address = (uint32_t)&_kernel_end;
+uint32_t g_physical_kernel_reserved_end_address = (uint32_t)&_kernel_reserved_end;
+uint32_t g_pd_area_begin = (uint32_t)&_pd_area_begin;
+uint32_t g_pd_area_end = (uint32_t)&_pd_area_end;
+uint32_t g_modules_end = (uint32_t)&_kernel_reserved_end;
 
 static void* locate_initrd(struct Multiboot *mbi, uint32_t* size)
 {
@@ -109,7 +114,15 @@ int kmain(struct Multiboot *mboot_ptr)
 
     descriptor_tables_initialize();
 
-    uint32_t memory_kb = mboot_ptr->mem_upper;//96*1024;
+    uint32_t initrd_size = 0;
+    uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
+    uint8_t* initrd_end_location = initrd_location + initrd_size;
+    if (initrd_location)
+    {
+        g_modules_end = (uint32_t)initrd_end_location;
+    }
+
+    uint32_t memory_kb = mboot_ptr->mem_upper;
     vmm_initialize(memory_kb);
 
     fs_initialize();
@@ -127,13 +140,12 @@ int kmain(struct Multiboot *mboot_ptr)
     print_ascii_art();
 
     printkf("Kernel built on %s %s\n", __DATE__, __TIME__);
-    //printkf("Lower Memory: %d KB\n", mboot_ptr->mem_lower);
-    //printkf("Upper Memory: %d KB\n", mboot_ptr->mem_upper);
     printkf("Memory initialized for %d MB\n", memory_kb / 1024);
-    printkf("Kernel resides in %x - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address);
-    //printkf("Initial stack: %x\n", &stack);
-    printkf("Video: %x\n", (uint32_t)mboot_ptr->framebuffer_addr);
-    printkf("Video: %dx%dx%d Pitch:%d\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, mboot_ptr->framebuffer_pitch);
+    printkf("Kernel resides in %x - [code] - %x - [reserved] - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address, g_physical_kernel_reserved_end_address);
+    printkf("Page Directories: %x - %x\n", g_pd_area_begin, g_pd_area_end);
+    printkf("Modules End: %x (Index 4M:%d)\n", g_modules_end, PAGE_INDEX_4M(g_modules_end));
+    printkf("Kernel Heap: %x - %x\n", KERN_HEAP_BEGIN, KERN_HEAP_END);
+    printkf("Video: %dx%dx%d - %x\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, (uint32_t)mboot_ptr->framebuffer_addr);
 
     systemfs_initialize();
     pipe_initialize();
@@ -163,8 +175,6 @@ int kmain(struct Multiboot *mboot_ptr)
     random_initialize();
     null_initialize();
 
-    ramdisk_create("ramdisk1", 20*1024*1024);
-
     fatfs_initialize();
 
     net_initialize();
@@ -174,9 +184,6 @@ int kmain(struct Multiboot *mboot_ptr)
     char* argv[] = {"shell", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
 
-    uint32_t initrd_size = 0;
-    uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
-    uint8_t* initrd_end_location = initrd_location + initrd_size;
     if (initrd_location == NULL)
     {
         PANIC("Initrd not found!\n");
@@ -184,12 +191,8 @@ int kmain(struct Multiboot *mboot_ptr)
     else
     {
         printkf("Initrd found at %x - %x (%d bytes)\n", initrd_location, initrd_end_location, initrd_size);
-        if ((uint32_t)KERN_PD_AREA_BEGIN < (uint32_t)initrd_end_location)
-        {
-            printkf("Initrd must reside below %x !!!\n", KERN_PD_AREA_BEGIN);
-            PANIC("Initrd image is too big!");
-        }
-        memcpy((uint8_t*)*(uint32_t*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
+        ramdisk_create("ramdisk1", initrd_size, initrd_location);
+        //memcpy((uint8_t*)*(uint32_t*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
         BOOL mountSuccess = fs_mount("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 
         if (mountSuccess)
@@ -201,6 +204,7 @@ int kmain(struct Multiboot *mboot_ptr)
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
 
+            /*
             FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");
             Terminal* terminal_x = console_get_terminal_by_slave(tty_node_x);
             if (terminal_x)
@@ -211,6 +215,7 @@ int kmain(struct Multiboot *mboot_ptr)
             }
             execute_file("/initrd/nano-X", argv, envp, tty_node_x);
             execute_file("/initrd/tasks", argv, envp, fs_get_node("/dev/null"));
+            */
         }
         else
         {

@@ -20,17 +20,22 @@
 
 #define	KERN_PAGE_DIRECTORY			0x00001000
 
-//16M is identity mapped as below.
-//First 12M we don't touch. Kernel code and runtime initrd are there.
-//4M is reserved for 4K page directories.
-#define RESERVED_AREA           0x01000000 //16 mb
-#define KERN_PD_AREA_BEGIN      0x00C00000 //12 mb
-#define KERN_PD_AREA_END        0x01000000 //16 mb
+
+//Kernel code is first in the physical memory.
+//4M (4K*1024) is reserved in linker script for our 4K page directories. (_pd_area_begin - _pd_area_end)
+//After that GRUB modules are loaded.
+//From zero to end of modules are identity mapped.
+
+extern uint32_t _pd_area_begin;
+extern uint32_t _pd_area_end;
+extern uint32_t g_pd_area_begin;
+extern uint32_t g_pd_area_end;
+extern uint32_t g_modules_end;
 
 
-#define GFX_MEMORY              0x01000000 //16 mb
+#define GFX_MEMORY              0x04000000 //64 mb //TODO: move elsewhere
 
-#define KERN_HEAP_BEGIN 		0x02000000 //32 mb
+#define KERN_HEAP_BEGIN 		0x08000000 //128 mb
 #define KERN_HEAP_END    		0x40000000 // 1 gb
 
 #define	PAGING_FLAG 		0x80000000	// CR0 - bit 31
