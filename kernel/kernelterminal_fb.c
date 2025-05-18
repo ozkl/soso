@@ -1,5 +1,5 @@
 #include "gfx.h"
-#include "fbterminal.h"
+#include "kernelterminal_fb.h"
 
 static void fbterminal_refreshTerminal(Terminal* terminal);
 static void fbterminal_addCharacter(Terminal* terminal, uint8_t character);

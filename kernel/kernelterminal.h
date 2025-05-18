@@ -1,5 +1,5 @@
-#ifndef TERMINAL_H
-#define TERMINAL_H
+#ifndef KERNELTERMINAL_H
+#define KERNELTERMINAL_H
 
 #include "common.h"
 #include "fs.h"
@@ -41,4 +41,4 @@ void terminal_scroll_up(Terminal* terminal);
 
 void terminal_send_key(Terminal* terminal, uint8_t modifier, uint8_t character);
 
-#endif // TERMINAL_H
+#endif // KERNELTERMINAL_H

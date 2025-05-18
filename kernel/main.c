@@ -25,7 +25,7 @@
 #include "mouse.h"
 #include "sleep.h"
 #include "console.h"
-#include "terminal.h"
+#include "kernelterminal.h"
 #include "socket.h"
 
 extern uint32_t _start;

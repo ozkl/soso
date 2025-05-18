@@ -2,9 +2,9 @@
 #include "keymap.h"
 #include "fs.h"
 #include "console.h"
-#include "fbterminal.h"
-#include "vgaterminal.h"
-#include "terminal.h"
+#include "kernelterminal_fb.h"
+#include "kernelterminal_vga.h"
+#include "kernelterminal.h"
 
 static void master_read_ready(TtyDev* tty, uint32_t size);
 

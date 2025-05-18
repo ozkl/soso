@@ -1,7 +1,7 @@
 #include "common.h"
 #include "serial.h"
 #include "console.h"
-#include "terminal.h"
+#include "kernelterminal.h"
 #include "process.h"
 #include "log.h"
 

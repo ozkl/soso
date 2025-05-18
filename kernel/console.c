@@ -1,4 +1,4 @@
-#include "terminal.h"
+#include "kernelterminal.h"
 #include "device.h"
 #include "serial.h"
 #include "devfs.h"

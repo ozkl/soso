@@ -1,4 +1,4 @@
-#include "vgaterminal.h"
+#include "kernelterminal_vga.h"
 
 #define SCREEN_LINE_COUNT 25
 #define SCREEN_COLUMN_COUNT 80
