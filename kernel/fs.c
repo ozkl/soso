@@ -309,48 +309,51 @@ int32_t fs_stat(FileSystemNode *node, struct stat *buf)
 #define	__S_IFLNK	0120000	/* Symbolic link.  */
 #define	__S_IFSOCK	0140000	/* Socket.  */
 
+    int32_t val = 1;
+
     if (node->stat != NULL)
     {
-        int32_t val = node->stat(node, buf);
-
-        if (val == 1)
-        {
-            //return value of 1 from driver means we should fill buf here.
-
-            if ((node->node_type & FT_DIRECTORY) == FT_DIRECTORY)
-            {
-                buf->st_mode = __S_IFDIR;
-            }
-            else if ((node->node_type & FT_CHARACTER_DEVICE) == FT_CHARACTER_DEVICE)
-            {
-                buf->st_mode = __S_IFCHR;
-            }
-            else if ((node->node_type & FT_BLOCK_DEVICE) == FT_BLOCK_DEVICE)
-            {
-                buf->st_mode = __S_IFBLK;
-            }
-            else if ((node->node_type & FT_PIPE) == FT_PIPE)
-            {
-                buf->st_mode = __S_IFIFO;
-            }
-            else if ((node->node_type & FT_SYMBOLIC_LINK) == FT_SYMBOLIC_LINK)
-            {
-                buf->st_mode = __S_IFLNK;
-            }
-            else if ((node->node_type & FT_FILE) == FT_FILE)
-            {
-                buf->st_mode = __S_IFREG;
-            }
-
-            buf->st_size = node->length;
-
-            return 0;
-        }
-        else
-        {
-            return val;
-        }
+        val = node->stat(node, buf);
     }
+
+    if (val == 1)
+    {
+        //return value of 1 from driver means we should fill buf here.
+
+        if ((node->node_type & FT_DIRECTORY) == FT_DIRECTORY)
+        {
+            buf->st_mode = __S_IFDIR;
+        }
+        else if ((node->node_type & FT_CHARACTER_DEVICE) == FT_CHARACTER_DEVICE)
+        {
+            buf->st_mode = __S_IFCHR;
+        }
+        else if ((node->node_type & FT_BLOCK_DEVICE) == FT_BLOCK_DEVICE)
+        {
+            buf->st_mode = __S_IFBLK;
+        }
+        else if ((node->node_type & FT_PIPE) == FT_PIPE)
+        {
+            buf->st_mode = __S_IFIFO;
+        }
+        else if ((node->node_type & FT_SYMBOLIC_LINK) == FT_SYMBOLIC_LINK)
+        {
+            buf->st_mode = __S_IFLNK;
+        }
+        else if ((node->node_type & FT_FILE) == FT_FILE)
+        {
+            buf->st_mode = __S_IFREG;
+        }
+
+        buf->st_size = node->length;
+
+        return 0;
+    }
+    else
+    {
+        return val;
+    }
+    
 
     return -1;
 }

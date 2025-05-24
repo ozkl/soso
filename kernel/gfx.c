@@ -73,6 +73,8 @@ void gfx_put_char_at(
     /* foreground and background colors, say 0xFFFFFF and 0x000000 */
     uint32_t fg, uint32_t bg)
 {
+    uint32_t screen_size_bytes = g_width * g_height * g_bytes_per_pixel;
+
     /* cast the address to PSF header struct */
     PSF_font *font = (PSF_font*)&_binary_font_psf_start;
     /* we need to know how many bytes encode one row */
@@ -99,8 +101,14 @@ void gfx_put_char_at(
         line=offs;
         mask=1<<(font->width-1);
         /* display a row */
-        for(x=0;x<font->width;x++)
+        for(x=0;x<font->width+1;x++)
         {
+            if (line >= screen_size_bytes)
+            {
+                //safety check
+                break;
+            }
+            
             if (c == 0)
             {
                 *((uint32_t*)((uint8_t*)g_pixels + line)) = bg;
