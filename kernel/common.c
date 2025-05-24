@@ -411,7 +411,7 @@ typedef enum
     PF_REPLACE_NEWLINE_RN = 1
 } SprintfFlags;
 
-int sprintf_va(char *buffer, uint32_t buffer_size, SprintfFlags flags, const char *format, __builtin_va_list vl)
+int snprintf_va(char *buffer, uint32_t buffer_size, SprintfFlags flags, const char *format, __builtin_va_list vl)
 {
     char c;
     char buf[20];
@@ -494,14 +494,14 @@ int sprintf_va(char *buffer, uint32_t buffer_size, SprintfFlags flags, const cha
     return buffer_index;
 }
 
-int sprintf(char* buffer, uint32_t buffer_size, const char *format, ...)
+int snprintf(char* buffer, uint32_t buffer_size, const char *format, ...)
 {
     int result = 0;
 
     __builtin_va_list vl;
     __builtin_va_start(vl, format);
 
-    result = sprintf_va(buffer, buffer_size, PF_NONE, format, vl);
+    result = snprintf_va(buffer, buffer_size, PF_NONE, format, vl);
 
     __builtin_va_end(vl);
 
@@ -518,7 +518,7 @@ void printkf(const char *format, ...)
     __builtin_va_list vl;
     __builtin_va_start(vl, format);
 
-    sprintf_va(buffer + 2, 1022, PF_REPLACE_NEWLINE_RN, format, vl);
+    snprintf_va(buffer + 2, 1022, PF_REPLACE_NEWLINE_RN, format, vl);
 
     __builtin_va_end(vl);
 

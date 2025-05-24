@@ -183,7 +183,7 @@ static int32_t systemfs_read_meminfo_totalpages(File *file, uint32_t size, uint8
         {
             int total_pages = vmm_get_total_page_count();
 
-            sprintf((char*)buffer, size, "%d", total_pages);
+            snprintf((char*)buffer, size, "%d", total_pages);
 
             int len = strlen((char*)buffer);
 
@@ -207,7 +207,7 @@ static int32_t systemfs_read_meminfo_usedpages(File *file, uint32_t size, uint8_
         {
             int usedPages = vmm_get_used_page_count();
 
-            sprintf((char*)buffer, size, "%d", usedPages);
+            snprintf((char*)buffer, size, "%d", usedPages);
 
             int len = strlen((char*)buffer);
 
@@ -244,23 +244,23 @@ static int32_t systemfs_read_thread_file(File *file, uint32_t size, uint8_t *buf
             if (thread)
             {
                 uint32_t char_index = 0;
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "tid:%d\n", thread->threadId);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "birthTime:%d\n", thread->birth_time);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "userMode:%d\n", thread->user_mode);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "tid:%d\n", thread->threadId);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "birthTime:%d\n", thread->birth_time);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "userMode:%d\n", thread->user_mode);
                 uint8_t state[10];
                 thread_state_to_string(thread->state, state, 10);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "state:%s\n", state);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "syscalls:%d\n", thread->called_syscall_count);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "contextSwitches:%d\n", thread->context_switch_count);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "cpuTime:%d\n", thread->consumed_cpu_time_ms);
-                char_index += sprintf((char*)buffer + char_index, size - char_index, "cpuUsage:%d\n", thread->usage_cpu);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "state:%s\n", state);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "syscalls:%d\n", thread->called_syscall_count);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "contextSwitches:%d\n", thread->context_switch_count);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "cpuTime:%d\n", thread->consumed_cpu_time_ms);
+                char_index += snprintf((char*)buffer + char_index, size - char_index, "cpuUsage:%d\n", thread->usage_cpu);
                 if (thread->owner)
                 {
-                    char_index += sprintf((char*)buffer + char_index, size - char_index, "process:%d (%s)\n", thread->owner->pid, thread->owner->name);
+                    char_index += snprintf((char*)buffer + char_index, size - char_index, "process:%d (%s)\n", thread->owner->pid, thread->owner->name);
                 }
                 else
                 {
-                    char_index += sprintf((char*)buffer + char_index, size - char_index, "process:-\n");
+                    char_index += snprintf((char*)buffer + char_index, size - char_index, "process:-\n");
                 }
 
                 int len = char_index;
@@ -309,7 +309,7 @@ static BOOL systemfs_open_threads_dir(File *file, uint32_t flags)
         FileSystemNode* node_thread = kmalloc(sizeof(FileSystemNode));
         memset((uint8_t*)node_thread, 0, sizeof(FileSystemNode));
 
-        sprintf(buffer, 16, "%d", thread->threadId);
+        snprintf(buffer, 16, "%d", thread->threadId);
 
         strcpy(node_thread->name, buffer);
         node_thread->node_type = FT_FILE;

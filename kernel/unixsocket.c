@@ -74,7 +74,7 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
         }
     }
 
-    sprintf(unix_socket->name, SOCKET_NAME_SIZE, addr->sa_data);
+    snprintf(unix_socket->name, SOCKET_NAME_SIZE, addr->sa_data);
 
     return 0; //success
 }

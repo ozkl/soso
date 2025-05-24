@@ -39,7 +39,6 @@ void ozterm_clear_line_right(Ozterm* terminal);
 void ozterm_line_insert_characters(Ozterm* terminal, uint8_t c, int16_t count);
 void ozterm_line_delete_characters(Ozterm* terminal, int16_t count);
 void ozterm_put_character(Ozterm* terminal, uint8_t c);
-void ozterm_put_text(Ozterm* terminal, const uint8_t* text, int32_t size);
 void ozterm_move_cursor(Ozterm* terminal, int16_t row, int16_t column);
 void ozterm_move_cursor_diff(Ozterm* terminal, int16_t row, int16_t column);
 void ozterm_scroll_up_region(Ozterm* terminal, int lines);
@@ -535,7 +534,7 @@ void ozterm_put_character(Ozterm* terminal, uint8_t c)
                     if (strcmp(effective_param, "6") == 0)
                     {
                         char reply[32];
-                        sprintf(reply, sizeof(reply), "\033[%d;%dR",
+                        snprintf(reply, sizeof(reply), "\033[%d;%dR",
                             terminal->screen_active->cursor_row + 1,
                             terminal->screen_active->cursor_column + 1);
                         write_to_master(terminal, reply, strlen(reply));
@@ -832,13 +831,13 @@ static int write_csi_sequence(uint8_t *out, size_t max, int code, char final, in
     if (mod_value <= 1)
     {
         if (code == 1)
-            return sprintf((char*)out, max, "\033[%c", final); //emit like \033[H
+            return snprintf((char*)out, max, "\033[%c", final); //emit like \033[H
         else
-            return sprintf((char*)out, max, "\033[%d%c", code, final); //emit like \033[5~
+            return snprintf((char*)out, max, "\033[%d%c", code, final); //emit like \033[5~
     }
     else
     {
-        return sprintf((char*)out, max, "\033[%d;%d%c", code, mod_value, final); //emit like \033[1;2H
+        return snprintf((char*)out, max, "\033[%d;%d%c", code, mod_value, final); //emit like \033[1;2H
     }
 }
 

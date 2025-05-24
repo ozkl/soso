@@ -89,7 +89,7 @@ static BOOL mount(const char* source_path, const char* target_path, uint32_t fla
                 //FRESULT fr = f_mkfs("", FM_FAT | FM_SFD, 512, work, 512);
                 //Screen_PrintF("f_mkfs: %d\n", fr);
                 char path[8];
-                sprintf(path, 8, "%d:", volume);
+                snprintf(path, 8, "%d:", volume);
                 FRESULT fr = f_mount(fatFs, path, 1);
                 //Screen_PrintF("f_mount: fr:%d drv:%d\n", fr, fatFs->pdrv);
 
@@ -164,7 +164,7 @@ static FileSystemDirent* readdir(FileSystemNode *node, uint32_t index)
     }
 
     char number[8];
-    sprintf(number, 8, "%d", n->private_node_data);//volume nuber
+    snprintf(number, 8, "%d", n->private_node_data);//volume nuber
 
     target_path[char_index] = ':';
     int length = strlen(number);
@@ -265,7 +265,7 @@ static FileSystemNode* finddir(FileSystemNode *node, char *name)
     }
 
     char number[8];
-    sprintf(number, 8, "%d", n->private_node_data);//volume nuber
+    snprintf(number, 8, "%d", n->private_node_data);//volume nuber
 
     target_path[char_index] = ':';
     length = strlen(number);
@@ -439,7 +439,7 @@ static int32_t stat(FileSystemNode *node, struct stat* buf)
     }
 
     char number[8];
-    sprintf(number, 8, "%d", n->private_node_data);//volume nuber
+    snprintf(number, 8, "%d", n->private_node_data);//volume nuber
 
     target_path[char_index] = ':';
     int length = strlen(number);
@@ -510,7 +510,7 @@ static BOOL open(File *file, uint32_t flags)
     }
 
     char number[8];
-    sprintf(number, 8, "%d", n->private_node_data);//volume nuber
+    snprintf(number, 8, "%d", n->private_node_data);//volume nuber
 
     target_path[char_index] = ':';
     int length = strlen(number);

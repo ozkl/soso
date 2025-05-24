@@ -114,6 +114,7 @@ typedef enum OztermKeyModifier
 
 Ozterm* ozterm_create(uint16_t row_count, uint16_t column_count);
 void ozterm_destroy(Ozterm* terminal);
+void ozterm_put_text(Ozterm* terminal, const uint8_t* text, int32_t size);
 
 //this will cause a OztermWriteToMaster
 void ozterm_send_key(Ozterm* terminal, OztermKeyModifier modifier, uint8_t character);

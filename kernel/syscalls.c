@@ -1735,7 +1735,7 @@ int syscall_shmget(int32_t key, size_t size, int flag)
     //Let's simulate shm_open
 
     char name[64];
-    sprintf(name, 64, "%d", key);
+    snprintf(name, 64, "%d", key);
 
     node = sharedmemory_get_node(name);
 
@@ -1799,7 +1799,7 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
     //printkf("shmat(shmid:%d, shmaddr:%x, shmflg:%d)\n", shmid, shmaddr, shmflg);
 
     char name[64];
-    sprintf(name, 64, "%d", shmid);
+    snprintf(name, 64, "%d", shmid);
 
     node = sharedmemory_get_node(name);
 
