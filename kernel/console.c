@@ -27,18 +27,11 @@ static int32_t console_ioctl(File *file, int32_t request, void * argp);
 static uint8_t get_character_for_scancode(KeyModifier modifier, uint8_t scancode);
 static void process_scancode(uint8_t scancode);
 
-void console_initialize(BOOL graphicMode)
+void console_initialize(BOOL graphic_mode)
 {
     for (int i = 0; i < TERMINAL_COUNT; ++i)
     {
-        Terminal* terminal = NULL;
-        FileSystemNode* ttyNode = ttydev_create();
-        if (ttyNode)
-        {
-            TtyDev* ttyDev = (TtyDev*)ttyNode->private_node_data;
-        
-            terminal = terminal_create(ttyDev, graphicMode);
-        }
+        Terminal* terminal = terminal_create(graphic_mode);
         
         g_terminals[i] = terminal;
     }
@@ -110,14 +103,18 @@ void console_set_active_terminal(Terminal* terminal)
 
     gfx_fill(0xFFFFFFFF);
 
-    if (g_active_terminal->refresh_function)
+    if (g_active_terminal->term->refresh_function)
     {
-        g_active_terminal->refresh_function(g_active_terminal);
+        g_active_terminal->term->refresh_function(g_active_terminal->term);
     }
 
-    if (g_active_terminal->move_cursor_function)
+    if (g_active_terminal->term->move_cursor_function)
     {
-        g_active_terminal->move_cursor_function(g_active_terminal, g_active_terminal->current_line, g_active_terminal->current_column, g_active_terminal->current_line, g_active_terminal->current_column);
+        g_active_terminal->term->move_cursor_function(g_active_terminal,
+            g_active_terminal->term->screen_active->cursor_row,
+            g_active_terminal->term->screen_active->cursor_column,
+            g_active_terminal->term->screen_active->cursor_row,
+            g_active_terminal->term->screen_active->cursor_column);
     }
 }
 

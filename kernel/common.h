@@ -94,6 +94,7 @@ char *strncpy(char *dest, const char *src, uint32_t num);
 char* strncpy_null(char *dest, const char *src, uint32_t num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
+char* strchr(const char* str, int ch);
 int str_first_index_of(const char *src, char c);
 int sprintf(char* buffer, uint32_t buffer_size, const char *format, ...);
 
@@ -101,6 +102,7 @@ void printkf(const char *format, ...);
 
 int atoi(char *str);
 void itoa(char *buf, int base, int d);
+long strtol(const char *nptr, char **endptr, int base);
 
 uint32_t rand();
 

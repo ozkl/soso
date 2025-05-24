@@ -11,7 +11,7 @@ typedef struct FileSystemNode FileSystemNode;
 
 extern Terminal* g_active_terminal;
 
-void console_initialize(BOOL graphicMode);
+void console_initialize(BOOL graphic_mode);
 
 void console_send_key(uint8_t scancode);
 

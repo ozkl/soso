@@ -1840,7 +1840,7 @@ int syscall_posix_openpt(int flags)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        FileSystemNode* node = ttydev_create();
+        FileSystemNode* node = ttydev_create(80, 25);
         if (node)
         {
             TtyDev* tty_dev = (TtyDev*)node->private_node_data;

@@ -47,7 +47,7 @@ typedef struct TtyDev
 
 } TtyDev;
 
-FileSystemNode* ttydev_create();
+FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count);
 
 int32_t ttydev_master_read_nonblock(File *file, uint32_t size, uint8_t *buffer);
 

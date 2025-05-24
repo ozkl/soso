@@ -35,7 +35,7 @@ static BOOL is_erase_character(TtyDev* tty, uint8_t character)
     return FALSE;
 }
 
-FileSystemNode* ttydev_create()
+FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
 {
     TtyDev* tty_dev = kmalloc(sizeof(TtyDev));
     memset((uint8_t*)tty_dev, 0, sizeof(TtyDev));
@@ -43,8 +43,8 @@ FileSystemNode* ttydev_create()
     tty_dev->controlling_process = -1;
     tty_dev->foreground_process = -1;
 
-    tty_dev->winsize.ws_col = 80;
-    tty_dev->winsize.ws_row = 25;
+    tty_dev->winsize.ws_col = column_count;
+    tty_dev->winsize.ws_row = row_count;
     tty_dev->winsize.ws_xpixel = 0;
     tty_dev->winsize.ws_ypixel = 0;
 
