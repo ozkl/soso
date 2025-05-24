@@ -10,12 +10,17 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>  // For PATH_MAX
 
+// If PATH_MAX is not defined in limits.h, define it ourselves
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 #include <soso.h>
 
 
-
+int g_background = 0;
 struct termios orig_termios;
 
 // Add a global flag to indicate if we're in the shell or a child process
@@ -375,17 +380,20 @@ int run_command_soso(const char* command, char **argv, char **env)
     // Reset terminal to canonical mode for child
     tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
 
-    int executed_pid = 0;
-    if (strchr(command, '/') == NULL)
+    const char* tty = NULL;
+    if (g_background)
     {
-        executed_pid = executep(command, argv, env);
-    }
-    else
-    {
-        executed_pid = execute(command, argv, env);
+        tty = "/dev/null";
     }
 
-    if (executed_pid >= 0)
+    int executed_pid = execute_on_tty(command, argv, env, tty);
+
+    if (g_background)
+    {
+        printf("Running in background %s [%d]\n", command, executed_pid);
+    }
+
+    if (executed_pid >= 0 && g_background == 0)
     {
         tcsetpgrp(0, executed_pid);
         int waitStatus = 0;
@@ -590,6 +598,56 @@ void read_line(char *buffer) {
     }
 }
 
+// Find the full path of a command by searching the PATH environment variable
+const char* find_command_path(const char* command)
+{
+    static char command_path[PATH_MAX]; // Static buffer to store the result
+    
+    // If command contains a slash, it's already a path
+    if (strchr(command, '/') != NULL)
+    {
+        strncpy(command_path, command, PATH_MAX-1);
+        command_path[PATH_MAX-1] = '\0';
+        return command_path;
+    }
+    
+    // Get the PATH environment variable
+    char* path_env = getenv("PATH");
+    if (path_env == NULL)
+    {
+        return NULL;
+    }
+    
+    // Make a copy of PATH since strtok modifies the string
+    static char path_copy[PATH_MAX];
+    strncpy(path_copy, path_env, PATH_MAX-1);
+    path_copy[PATH_MAX-1] = '\0';
+    
+    char* path_token = strtok(path_copy, ":");
+    
+    // Try each directory in PATH
+    while (path_token != NULL)
+    {
+        // Construct the full path
+        snprintf(command_path, PATH_MAX, "%s/%s", path_token, command);
+        
+        // Check if the file exists and is executable
+        struct stat st;
+        if (stat(command_path, &st) == 0)
+        {
+            // Check if it's a regular file and has execute permission
+            if (S_ISREG(st.st_mode) /*&& (st.st_mode & S_IXUSR)*/)
+            {
+                return command_path;
+            }
+        }
+        
+        path_token = strtok(NULL, ":");
+    }
+    
+    return NULL; // Command not found
+}
+
 int main(int argc, char **argv)
 {
     char bufferIn[MAX_LINE];
@@ -644,9 +702,9 @@ int main(int argc, char **argv)
         int len = strlen(bufferIn);
         
         // Check for background operation
-        int background = 0;
+        g_background = 0;
         if (len > 1 && bufferIn[len-1] == '&') {
-            background = 1;
+            g_background = 1;
             bufferIn[len-1] = '\0';
             len--;
         }
@@ -672,112 +730,124 @@ int main(int argc, char **argv)
         printf("\r");
         fflush(stdout);
 
-        if (bufferIn[0] == '/')
+        if (strncmp(bufferIn, "ls", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
         {
-            //trying to execute something
-            int result = 0;
-            if (background)
+            char* path = bufferIn + 3;
+
+            if (strlen(path) == 0)
             {
-                //result = execute_on_tty(exe, argArray, environ, "/dev/null");
+                listDirectory2(cwd);
             }
             else
             {
-                result = run_command(exe, argArray, environ);
+                listDirectory2(path);
             }
+        }
+        else if (strncmp(bufferIn, "cd", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
+        {
+            const char* path = bufferIn + 3;
 
-            if (result < 0)
+            if (chdir(path) < 0)
             {
-                printf("Could not execute:%s\n", bufferIn);
+                printf("Directory unavailable:%s\n", path);
                 fflush(stdout);
             }
+        }
+        else if (strncmp(bufferIn, "kill", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
+        {
+            handleKill(bufferIn);
+        }
+        else if (strncmp(bufferIn, "file", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
+        {
+            const char* path = bufferIn + 5;
+            struct stat s;
+            if (stat(path, &s) == 0)
+            {
+                printf("Exists: %s (%d)\n", path, s.st_mode);
+            }
+            else
+            {
+                printf("Not Exists: %s\n", path);
+            }
+        }
+        else if (strncmp(bufferIn, "fork", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
+        {
+            int number = fork();
+
+            if (number == 0)
+            {
+                // We're in the child process
+                is_child_process = 1;
+                printf("fork I am zero and getpid:%d\n", getpid());
+                fflush(stdout);
+            }
+            else
+            {
+                printf("fork I am %d and getpid:%d\n", number, getpid());
+                fflush(stdout);
+            }
+        }
+        else if (strncmp(bufferIn, "env", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
+        {
+            printEnvironment();
+            fflush(stdout);
+        }
+        else if (strncmp(bufferIn, "putenv", 6) == 0 && (bufferIn[6] == '\0' || bufferIn[6] == ' '))
+        {
+            char* e = bufferIn + 7;
+            putenv(e);
+        }
+        else if (strncmp(bufferIn, "exit", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
+        {
+            printf("Exiting\n");
+            fflush(stdout);
+            destroyArray(argArray);
+            return 0;
+        }
+        else if (strncmp(bufferIn, "which", 5) == 0 && (bufferIn[5] == '\0' || bufferIn[5] == ' '))
+        {
+            char* cmd = bufferIn + 6;
+            const char* full_path = find_command_path(cmd);
+            if (full_path != NULL)
+            {
+                printf("%s\n", full_path);
+            }
+        }
+        else if (strncmp(bufferIn, "off", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
+        {
+            struct termios raw;
+            tcgetattr(STDIN_FILENO, &raw);
+            raw.c_lflag &= ~(ECHO);
+            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+        }
+        else if (strncmp(bufferIn, "on", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
+        {
+            struct termios raw;
+            tcgetattr(STDIN_FILENO, &raw);
+            raw.c_lflag |= ECHO;
+            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
         }
         else
         {
-            if (strncmp(bufferIn, "ls", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
+            // Find the full path of the command using PATH
+            const char* full_path = find_command_path(exe);
+            if (full_path != NULL)
             {
-                char* path = bufferIn + 3;
-
-                if (strlen(path) == 0)
+                //printf("Found comand: %s\n", full_path);
+                int result = run_command(full_path, argArray, environ);
+                if (result < 0)
                 {
-                    listDirectory2(cwd);
-                }
-                else
-                {
-                    listDirectory2(path);
-                }
-            }
-            else if (strncmp(bufferIn, "cd", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
-            {
-                const char* path = bufferIn + 3;
-
-                if (chdir(path) < 0)
-                {
-                    printf("Directory unavailable:%s\n", path);
+                    printf("Could not execute: %s\n", exe);
                     fflush(stdout);
                 }
-            }
-            else if (strncmp(bufferIn, "kill", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-            {
-                handleKill(bufferIn);
-            }
-            else if (strncmp(bufferIn, "fork", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-            {
-                int number = fork();
-
-                if (number == 0)
-                {
-                    // We're in the child process
-                    is_child_process = 1;
-                    printf("fork I am zero and getpid:%d\n", getpid());
-                    fflush(stdout);
-                }
-                else
-                {
-                    printf("fork I am %d and getpid:%d\n", number, getpid());
-                    fflush(stdout);
-                }
-            }
-            else if (strncmp(bufferIn, "env", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
-            {
-                printEnvironment();
-                fflush(stdout);
-            }
-            else if (strncmp(bufferIn, "putenv", 6) == 0 && (bufferIn[6] == '\0' || bufferIn[6] == ' '))
-            {
-                char* e = bufferIn + 7;
-                putenv(e);
-            }
-            else if (strncmp(bufferIn, "exit", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-            {
-                printf("Exiting\n");
-                fflush(stdout);
-                destroyArray(argArray);
-                return 0;
-            }
-            else if (strncmp(bufferIn, "off", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
-            {
-                struct termios raw;
-                tcgetattr(STDIN_FILENO, &raw);
-                raw.c_lflag &= ~(ECHO);
-                tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-            }
-            else if (strncmp(bufferIn, "on", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
-            {
-                struct termios raw;
-                tcgetattr(STDIN_FILENO, &raw);
-                raw.c_lflag |= ECHO;
-                tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
             }
             else
             {
-                int result = run_command(exe, argArray, environ);
-                if (result < 0)
-                {
-                    printf("Could not execute:%s\n", bufferIn);
-                    fflush(stdout);
-                }
+                printf("Command not found: %s\n", exe);
+                fflush(stdout);
             }
         }
+    
 
         destroyArray(argArray);
         
