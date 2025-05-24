@@ -847,7 +847,7 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
         FileSystemNode* tty_node = fs_get_node_absolute_or_relative(tty_path, process);
-        if (node && tty_node)
+        if (node)
         {
             File* f = fs_open(node, 0);
             if (f)
