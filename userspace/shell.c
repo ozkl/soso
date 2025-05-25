@@ -33,6 +33,16 @@ int history_count = 0;
 int history_position = 0;
 char current_line[1024]; // Store the current line before navigating history
 
+// Tab completion structures
+#define MAX_COMPLETIONS 100
+typedef struct {
+    char *matches[MAX_COMPLETIONS];
+    int count;
+} completion_t;
+
+// Function declarations
+void handle_tab_completion(char *buffer, int *len, int *cursor);
+
 // Add a command to history
 void add_to_history(const char *cmd) {
     if (cmd[0] == '\0') return; // Don't add empty commands
@@ -255,53 +265,8 @@ static void destroyArray(char** array)
     free(array);
 }
 
-static void handleKill(const char* bufferIn)
-{
-    int number1 = 0;
-    int number2 = 0;
-    int scanned = sscanf(bufferIn, "kill %d %d", &number1, &number2);
-
-    int pid = number1;
-    int signal = SIGTERM;
-
-    if (scanned == 1)
-    {
-        pid = number1;
-    }
-    else if (scanned == 2)
-    {
-        signal = number1;
-        pid = number2;
-    }
-    else
-    {
-        printf("usage: kill [signal] pid\n");
-        fflush(stdout);
-        return;
-    }
-    
-
-    printf("Signal %d to pid %d\n", signal, pid);
-    fflush(stdout);
-
-    if (kill(pid, signal) < 0)
-    {
-        printf("kill(%d, %d) failed!\n", pid, signal);
-    }
-    else
-    {
-        printf("kill(%d, %d) success!\n", pid, signal);
-    }
-
-    fflush(stdout);
-}
-
 int run_command_unix(const char* path, char **argv, char **env)
 {
-    // Save the current terminal attributes before forking
-    struct termios saved_termios;
-    tcgetattr(STDIN_FILENO, &saved_termios);
-
     // Set up signal handling
     sigset_t mask_all, prev_mask;
     sigfillset(&mask_all);
@@ -314,7 +279,8 @@ int run_command_unix(const char* path, char **argv, char **env)
         return -1;
     }
 
-    if (pid == 0) {
+    if (pid == 0)
+    {
         // Child process
         // Set the flag to indicate we're in a child process
         is_child_process = 1;
@@ -338,7 +304,9 @@ int run_command_unix(const char* path, char **argv, char **env)
         printf("Could not execute:%s\n", path);
         fflush(stdout);
         exit(1);
-    } else {
+    }
+    else
+    {
         // Parent process
         
         // Set child in its own process group
@@ -356,12 +324,10 @@ int run_command_unix(const char* path, char **argv, char **env)
 
         // Reclaim terminal control
         tcsetpgrp(STDIN_FILENO, getpgrp());
-        
-        // Restore shell's terminal settings
-        tcsetattr(STDIN_FILENO, TCSADRAIN, &saved_termios);
 
         // Check if child was stopped
-        if (WIFSTOPPED(status)) {
+        if (WIFSTOPPED(status))
+        {
             printf("[%d]+ Stopped                 %s\n", pid, path);
             return 0;
         }
@@ -373,13 +339,6 @@ int run_command_unix(const char* path, char **argv, char **env)
 #ifdef SOSO_H
 int run_command_soso(const char* command, char **argv, char **env)
 {
-    // Save the current terminal attributes before forking
-    struct termios saved_termios;
-    tcgetattr(STDIN_FILENO, &saved_termios);
-
-    // Reset terminal to canonical mode for child
-    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
-
     const char* tty = NULL;
     if (g_background)
     {
@@ -404,9 +363,6 @@ int run_command_soso(const char* command, char **argv, char **env)
         //printf("Exited pid:%d\n", result);
         fflush(stdout);
     }
-
-    // Restore shell's terminal settings
-    tcsetattr(STDIN_FILENO, TCSADRAIN, &saved_termios);
 
     return executed_pid;
 }
@@ -580,6 +536,9 @@ void read_line(char *buffer) {
         } else if (c == 5) {  // Ctrl-E (end of line)
             cursor = len;
             refresh_line(buffer, len, cursor);
+        } else if (c == 9) {  // Tab - completion
+            handle_tab_completion(buffer, &len, &cursor);
+            refresh_line(buffer, len, cursor);
         } else if (c >= 32 && c < 127) {  // Printable ASCII
             if (len < MAX_LINE - 1) {
                 memmove(&buffer[cursor + 1], &buffer[cursor], len - cursor);
@@ -648,10 +607,494 @@ const char* find_command_path(const char* command)
     return NULL; // Command not found
 }
 
+void handle_ls(char** args)
+{
+    char* path = NULL;
+    if (getArrayItemCount(args) > 1)
+    {
+        path = args[1];
+    }
+
+    if (path)
+    {
+        listDirectory2(path);
+    }
+    else
+    {
+        char cwd[256];
+        memset(cwd, 0, sizeof(cwd));
+        getcwd(cwd, sizeof(cwd));
+        listDirectory2(cwd);
+    }
+}
+
+void handle_pwd(char** args)
+{
+    char cwd[256];
+    memset(cwd, 0, sizeof(cwd));
+    getcwd(cwd, sizeof(cwd));
+    printf("%s\n", cwd);
+    fflush(stdout);
+}
+
+void handle_cd(char** args)
+{
+    char* path = NULL;
+    if (getArrayItemCount(args) > 1)
+    {
+        path = args[1];
+    }
+
+    if (NULL == path)
+    {
+        path = getenv("HOME");
+    }
+
+    if (NULL != path)
+    {
+        if (chdir(path) < 0)
+        {
+            printf("Directory unavailable:%s\n", path);
+            fflush(stdout);
+        }
+    }
+}
+
+void handle_kill(char** args)
+{
+    int pid = -1;
+    int signal = SIGTERM;
+
+    if (getArrayItemCount(args) > 1)
+    {
+        pid = strtol(args[1], NULL, 10);
+    }
+
+    if (getArrayItemCount(args) > 2)
+    {
+        signal = strtol(args[1], NULL, 10);
+        pid = strtol(args[2], NULL, 10);
+    }
+    
+    if (pid < 0)
+    {
+        printf("usage: kill [signal] pid\n");
+        fflush(stdout);
+        return;
+    }
+    
+    printf("Signal %d to pid %d\n", signal, pid);
+    fflush(stdout);
+
+    if (kill(pid, signal) < 0)
+    {
+        printf("kill(%d, %d) failed!\n", pid, signal);
+    }
+    else
+    {
+        printf("kill(%d, %d) success!\n", pid, signal);
+    }
+
+    fflush(stdout);
+}
+
+void handle_which(char** args)
+{
+    char* cmd = NULL;
+    if (getArrayItemCount(args) > 1)
+    {
+        cmd = args[1];
+
+        const char* full_path = find_command_path(cmd);
+        if (full_path != NULL)
+        {
+            printf("%s\n", full_path);
+        }
+    }
+}
+
+void handle_exit(char** args)
+{
+    exit(0);
+}
+
+void handle_env(char** args)
+{
+    printEnvironment();
+    fflush(stdout);
+}
+
+void handle_putenv(char** args)
+{
+    char* assignment = NULL;
+    if (getArrayItemCount(args) > 1)
+    {
+        assignment = args[1];
+
+        putenv(assignment);
+    }
+}
+
+void handle_file(char** args)
+{
+    char* path = NULL;
+    if (getArrayItemCount(args) > 1)
+    {
+        path = args[1];
+
+        struct stat s;
+        if (stat(path, &s) == 0)
+        {
+            printf("Exists: %s (%d)\n", path, s.st_mode);
+        }
+        else
+        {
+            printf("Not Exists: %s\n", path);
+        }
+    }
+}
+
+typedef struct
+{
+    const char * command;
+    void (*Function)(char** args);
+} BuiltinCommand;
+
+BuiltinCommand g_builtin_commands[] =
+{
+    {"ls", handle_ls},
+    {"pwd", handle_pwd},
+    {"cd", handle_cd},
+    {"kill", handle_kill},
+    {"which", handle_which},
+    {"exit", handle_exit},
+    {"env", handle_env},
+    {"putenv", handle_putenv},
+    {"file", handle_file}
+};
+
+BuiltinCommand * get_command_handler(const char * command)
+{
+    size_t command_len = strlen(command);
+
+    size_t num_commands = sizeof(g_builtin_commands) / sizeof(BuiltinCommand);
+    for (size_t i = 0; i < num_commands; ++i)
+    {
+        BuiltinCommand * c = &g_builtin_commands[i];
+
+        if (strncmp(c->command, command, command_len) == 0 && (c->command[command_len] == '\0'))
+        {
+            return c;
+        }
+    }
+
+    return NULL;
+}
+
+// Tab completion functions
+void free_completion(completion_t *comp) {
+    for (int i = 0; i < comp->count; i++) {
+        free(comp->matches[i]);
+    }
+    comp->count = 0;
+}
+
+// Find common prefix of all matches
+int find_common_prefix(completion_t *comp, char *prefix, int max_len) {
+    if (comp->count == 0) return 0;
+    if (comp->count == 1) {
+        strncpy(prefix, comp->matches[0], max_len - 1);
+        prefix[max_len - 1] = '\0';
+        return strlen(prefix);
+    }
+    
+    int common_len = 0;
+    int min_len = strlen(comp->matches[0]);
+    
+    // Find minimum length
+    for (int i = 1; i < comp->count; i++) {
+        int len = strlen(comp->matches[i]);
+        if (len < min_len) min_len = len;
+    }
+    
+    // Find common prefix
+    for (int pos = 0; pos < min_len && pos < max_len - 1; pos++) {
+        char c = comp->matches[0][pos];
+        int all_match = 1;
+        
+        for (int i = 1; i < comp->count; i++) {
+            if (comp->matches[i][pos] != c) {
+                all_match = 0;
+                break;
+            }
+        }
+        
+        if (all_match) {
+            prefix[pos] = c;
+            common_len++;
+        } else {
+            break;
+        }
+    }
+    
+    prefix[common_len] = '\0';
+    return common_len;
+}
+
+// Complete builtin commands
+void complete_builtin_commands(const char *prefix, completion_t *comp) {
+    int prefix_len = strlen(prefix);
+    size_t num_commands = sizeof(g_builtin_commands) / sizeof(BuiltinCommand);
+    
+    for (size_t i = 0; i < num_commands && comp->count < MAX_COMPLETIONS; i++) {
+        if (strncmp(g_builtin_commands[i].command, prefix, prefix_len) == 0) {
+            comp->matches[comp->count] = strdup(g_builtin_commands[i].command);
+            comp->count++;
+        }
+    }
+}
+
+// Complete files in a directory
+void complete_files_in_dir(const char *dir_path, const char *prefix, completion_t *comp) {
+    DIR *d = opendir(dir_path);
+    if (!d) return;
+    
+    int prefix_len = strlen(prefix);
+    struct dirent *entry;
+    
+    while ((entry = readdir(d)) != NULL && comp->count < MAX_COMPLETIONS) {
+        // Skip . and .. unless explicitly typed
+        if (entry->d_name[0] == '.' && prefix_len == 0) continue;
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            if (prefix_len == 0 || (prefix[0] != '.' || 
+                (prefix_len == 1 && strcmp(entry->d_name, ".") != 0) ||
+                (prefix_len == 2 && strcmp(entry->d_name, "..") != 0))) {
+                continue;
+            }
+        }
+        
+        if (strncmp(entry->d_name, prefix, prefix_len) == 0) {
+            comp->matches[comp->count] = strdup(entry->d_name);
+            comp->count++;
+        }
+    }
+    
+    closedir(d);
+}
+
+// Complete commands in PATH
+void complete_path_commands(const char *prefix, completion_t *comp) {
+    char *path_env = getenv("PATH");
+    if (!path_env) return;
+    
+    static char path_copy[PATH_MAX];
+    strncpy(path_copy, path_env, PATH_MAX - 1);
+    path_copy[PATH_MAX - 1] = '\0';
+    
+    char *path_token = strtok(path_copy, ":");
+    
+    while (path_token != NULL && comp->count < MAX_COMPLETIONS) {
+        complete_files_in_dir(path_token, prefix, comp);
+        path_token = strtok(NULL, ":");
+    }
+}
+
+// Main tab completion function
+void handle_tab_completion(char *buffer, int *len, int *cursor) {
+    completion_t comp = {0};
+    
+    // Find the word we're completing
+    int word_start = *cursor;
+    int word_end = *cursor;
+    
+    // Find start of current word
+    while (word_start > 0 && buffer[word_start - 1] != ' ') {
+        word_start--;
+    }
+    
+    // Find end of current word
+    while (word_end < *len && buffer[word_end] != ' ') {
+        word_end++;
+    }
+    
+    // Extract the word to complete
+    char word[256] = {0};
+    int word_len = word_end - word_start;
+    if (word_len > 0 && word_len < sizeof(word)) {
+        strncpy(word, buffer + word_start, word_len);
+        word[word_len] = '\0';
+    }
+    
+    // Determine if we're completing the first word (command) or subsequent words (files)
+    int is_first_word = 1;
+    for (int i = 0; i < word_start; i++) {
+        if (buffer[i] != ' ') {
+            is_first_word = 0;
+            break;
+        }
+    }
+    
+    // Variables for path handling
+    char *slash_pos = NULL;
+    char dir_path[256] = {0};
+    char filename_prefix[256] = {0};
+    int is_path_completion = 0;
+    
+    if (is_first_word) {
+        // Complete commands (builtins + PATH)
+        complete_builtin_commands(word, &comp);
+        complete_path_commands(word, &comp);
+    } else {
+        // Complete files
+        slash_pos = strrchr(word, '/');
+        if (slash_pos) {
+            // Word contains a path
+            is_path_completion = 1;
+            int dir_len = slash_pos - word;
+            
+            if (dir_len == 0) {
+                strcpy(dir_path, "/");
+            } else {
+                strncpy(dir_path, word, dir_len);
+                dir_path[dir_len] = '\0';
+            }
+            
+            strcpy(filename_prefix, slash_pos + 1);
+            complete_files_in_dir(dir_path, filename_prefix, &comp);
+        } else {
+            // Complete files in current directory
+            complete_files_in_dir(".", word, &comp);
+        }
+    }
+    
+    if (comp.count == 0) {
+        // No matches
+        free_completion(&comp);
+        return;
+    } else if (comp.count == 1) {
+        // Single match - complete it
+        char *match = comp.matches[0];
+        int match_len = strlen(match);
+        
+        if (is_path_completion) {
+            // Replace just the filename part
+            int dir_len = strlen(dir_path);
+            if (strcmp(dir_path, "/") != 0) dir_len++; // Add 1 for the slash, except for root
+            else dir_len = 1; // Root directory case
+            
+            int filename_start_pos = word_start + dir_len;
+            int current_filename_len = strlen(filename_prefix);
+            int add_len = match_len - current_filename_len;
+            
+            if (add_len > 0 && *len + add_len < MAX_LINE - 1) {
+                // Make room for the completion
+                memmove(buffer + word_end + add_len, buffer + word_end, *len - word_end);
+                
+                // Insert the completion
+                memcpy(buffer + filename_start_pos + current_filename_len, 
+                       match + current_filename_len, add_len);
+                
+                *len += add_len;
+                *cursor = filename_start_pos + match_len;
+            }
+        } else {
+            // Regular completion (command or simple filename)
+            int add_len = match_len - word_len;
+            
+            if (add_len > 0 && *len + add_len < MAX_LINE - 1) {
+                // Make room for the completion
+                memmove(buffer + word_end + add_len, buffer + word_end, *len - word_end);
+                
+                // Insert the completion
+                memcpy(buffer + word_start + word_len, match + word_len, add_len);
+                
+                *len += add_len;
+                *cursor = word_start + match_len;
+                
+                // Add a space after command completion if it's the first word
+                if (is_first_word && *len < MAX_LINE - 1) {
+                    memmove(buffer + *cursor + 1, buffer + *cursor, *len - *cursor);
+                    buffer[*cursor] = ' ';
+                    (*len)++;
+                    (*cursor)++;
+                }
+            }
+        }
+    } else {
+        // Multiple matches - find common prefix and show options
+        char common[256];
+        int common_len = find_common_prefix(&comp, common, sizeof(common));
+        
+        if (is_path_completion) {
+            // Handle path completion for common prefix
+            int dir_len = strlen(dir_path);
+            if (strcmp(dir_path, "/") != 0) dir_len++; // Add 1 for the slash, except for root
+            else dir_len = 1; // Root directory case
+            
+            int filename_start_pos = word_start + dir_len;
+            int current_filename_len = strlen(filename_prefix);
+            
+            if (common_len > current_filename_len) {
+                int add_len = common_len - current_filename_len;
+                
+                if (*len + add_len < MAX_LINE - 1) {
+                    // Make room for the completion
+                    memmove(buffer + word_end + add_len, buffer + word_end, *len - word_end);
+                    
+                    // Insert the common prefix
+                    memcpy(buffer + filename_start_pos + current_filename_len, 
+                           common + current_filename_len, add_len);
+                    
+                    *len += add_len;
+                    *cursor = filename_start_pos + common_len;
+                }
+            }
+        } else {
+            // Regular completion
+            if (common_len > word_len) {
+                int add_len = common_len - word_len;
+                
+                if (*len + add_len < MAX_LINE - 1) {
+                    // Make room for the completion
+                    memmove(buffer + word_end + add_len, buffer + word_end, *len - word_end);
+                    
+                    // Insert the common prefix
+                    memcpy(buffer + word_start + word_len, common + word_len, add_len);
+                    
+                    *len += add_len;
+                    *cursor = word_start + common_len;
+                }
+            }
+        }
+        
+        // Show all possibilities
+        // Temporarily disable raw mode for proper output formatting
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+        
+        write(STDOUT_FILENO, "\n", 1);
+        for (int i = 0; i < comp.count; i++) {
+            write(STDOUT_FILENO, comp.matches[i], strlen(comp.matches[i]));
+            if ((i + 1) % 4 == 0 || i == comp.count - 1) {
+                write(STDOUT_FILENO, "\n", 1);
+            } else {
+                write(STDOUT_FILENO, "\t", 1);
+            }
+        }
+        
+        // Re-enable raw mode
+        enableRawMode();
+    }
+    
+    free_completion(&comp);
+}
+
 int main(int argc, char **argv)
 {
     char bufferIn[MAX_LINE];
     char cwd[128];
+
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    atexit(disableRawMode);
 
     int shellPid = getpid();
 
@@ -681,39 +1124,38 @@ int main(int argc, char **argv)
     // Make sure the shell is in the foreground process group
     tcsetpgrp(STDIN_FILENO, shellPid);
 
-    tcgetattr(STDIN_FILENO, &orig_termios);
-    atexit(disableRawMode);
-
     enableRawMode();
 
     while (1)
     {
         // Initialize cwd before each command
-        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        if (getcwd(cwd, sizeof(cwd)) == NULL)
+        {
             strcpy(cwd, "unknown");
         }
 
         read_line(bufferIn);
         
-        // Temporarily disable raw mode while executing commands
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
-
         // Null-terminate the input
         int len = strlen(bufferIn);
         
         // Check for background operation
         g_background = 0;
-        if (len > 1 && bufferIn[len-1] == '&') {
+        if (len > 1 && bufferIn[len-1] == '&')
+        {
             g_background = 1;
             bufferIn[len-1] = '\0';
             len--;
         }
 
         // Skip empty commands
-        if (len == 0) {
-            enableRawMode();
+        if (len == 0)
+        {
             continue;
         }
+
+        // Temporarily disable raw mode while executing commands
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
         
         // Add command to history
         add_to_history(bufferIn);
@@ -730,102 +1172,11 @@ int main(int argc, char **argv)
         printf("\r");
         fflush(stdout);
 
-        if (strncmp(bufferIn, "ls", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
-        {
-            char* path = bufferIn + 3;
+        BuiltinCommand * command_handler = get_command_handler(exe);
 
-            if (strlen(path) == 0)
-            {
-                listDirectory2(cwd);
-            }
-            else
-            {
-                listDirectory2(path);
-            }
-        }
-        else if (strncmp(bufferIn, "cd", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
+        if (NULL != command_handler)
         {
-            const char* path = bufferIn + 3;
-
-            if (chdir(path) < 0)
-            {
-                printf("Directory unavailable:%s\n", path);
-                fflush(stdout);
-            }
-        }
-        else if (strncmp(bufferIn, "kill", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-        {
-            handleKill(bufferIn);
-        }
-        else if (strncmp(bufferIn, "file", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-        {
-            const char* path = bufferIn + 5;
-            struct stat s;
-            if (stat(path, &s) == 0)
-            {
-                printf("Exists: %s (%d)\n", path, s.st_mode);
-            }
-            else
-            {
-                printf("Not Exists: %s\n", path);
-            }
-        }
-        else if (strncmp(bufferIn, "fork", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-        {
-            int number = fork();
-
-            if (number == 0)
-            {
-                // We're in the child process
-                is_child_process = 1;
-                printf("fork I am zero and getpid:%d\n", getpid());
-                fflush(stdout);
-            }
-            else
-            {
-                printf("fork I am %d and getpid:%d\n", number, getpid());
-                fflush(stdout);
-            }
-        }
-        else if (strncmp(bufferIn, "env", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
-        {
-            printEnvironment();
-            fflush(stdout);
-        }
-        else if (strncmp(bufferIn, "putenv", 6) == 0 && (bufferIn[6] == '\0' || bufferIn[6] == ' '))
-        {
-            char* e = bufferIn + 7;
-            putenv(e);
-        }
-        else if (strncmp(bufferIn, "exit", 4) == 0 && (bufferIn[4] == '\0' || bufferIn[4] == ' '))
-        {
-            printf("Exiting\n");
-            fflush(stdout);
-            destroyArray(argArray);
-            return 0;
-        }
-        else if (strncmp(bufferIn, "which", 5) == 0 && (bufferIn[5] == '\0' || bufferIn[5] == ' '))
-        {
-            char* cmd = bufferIn + 6;
-            const char* full_path = find_command_path(cmd);
-            if (full_path != NULL)
-            {
-                printf("%s\n", full_path);
-            }
-        }
-        else if (strncmp(bufferIn, "off", 3) == 0 && (bufferIn[3] == '\0' || bufferIn[3] == ' '))
-        {
-            struct termios raw;
-            tcgetattr(STDIN_FILENO, &raw);
-            raw.c_lflag &= ~(ECHO);
-            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-        }
-        else if (strncmp(bufferIn, "on", 2) == 0 && (bufferIn[2] == '\0' || bufferIn[2] == ' '))
-        {
-            struct termios raw;
-            tcgetattr(STDIN_FILENO, &raw);
-            raw.c_lflag |= ECHO;
-            tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+            command_handler->Function(argArray);
         }
         else
         {
@@ -833,7 +1184,6 @@ int main(int argc, char **argv)
             const char* full_path = find_command_path(exe);
             if (full_path != NULL)
             {
-                //printf("Found comand: %s\n", full_path);
                 int result = run_command(full_path, argArray, environ);
                 if (result < 0)
                 {
@@ -848,7 +1198,6 @@ int main(int argc, char **argv)
             }
         }
     
-
         destroyArray(argArray);
         
         // Re-enable raw mode for next command
