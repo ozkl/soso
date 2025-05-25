@@ -29,6 +29,8 @@
 #include "alloc.h"
 #include "ozterm.h"
 
+#define TAB_WIDTH 8
+
 // C('A') == Control-A
 #define C(x) (x - '@')
 
@@ -299,6 +301,16 @@ void ozterm_put_character_and_cursor(Ozterm* terminal, uint8_t c)
             ozterm_move_cursor_diff(terminal, 0, -1);
         }
     }
+    else if (c == '\t')
+    {
+        int16_t col = terminal->screen_active->cursor_column;
+        int16_t spaces = TAB_WIDTH - (col % TAB_WIDTH);
+
+        for (int16_t i = 0; i < spaces; ++i)
+        {
+            ozterm_put_character_and_cursor(terminal, ' ');
+        }
+    }
     else if (isgraph(c) || isspace(c))
     {
        // Auto-wrap logic
@@ -357,7 +369,7 @@ void ozterm_put_character(Ozterm* terminal, uint8_t c)
             } 
             else
             {
-                if ((c >= 0x20 && c <= 0x7E) || c == '\n' || c == '\r' || c == '\b')
+                if ((c >= 0x20 && c <= 0x7E) || c == '\n' || c == '\r' || c == '\b' || c == '\t')
                 {  
                     ozterm_put_character_and_cursor(terminal, c);
                 }
