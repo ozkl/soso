@@ -62,6 +62,23 @@ struct k_sigaction {
 
 struct shmid_ds;
 
+
+struct linux_dirent {
+    uint32_t  d_ino;    /* inode number */
+    uint32_t  d_off;    /* offset to next record */
+    uint16_t  d_reclen; /* length of this record */
+    uint8_t   d_type;   /* file type */
+    uint8_t   d_name[]; /* filename (null-terminated) */
+};
+
+struct linux_dirent64 {
+    uint64_t  d_ino;    /* 64-bit inode number */
+    uint64_t  d_off;    /* Not an offset; see getdents() */
+    uint16_t  d_reclen; /* Size of this dirent */
+    uint8_t   d_type;   /* File type */
+    uint8_t   d_name[]; /* Filename (null-terminated) */
+};
+
 /**************
  * All of syscall entered with interrupts disabled!
  * A syscall can enable interrupts if it is needed.
@@ -95,7 +112,8 @@ int syscall_mount(const char *source, const char *target, const char *fs_type, u
 int syscall_unmount(const char *target);
 int syscall_mkdir(const char *path, uint32_t mode);
 int syscall_rmdir(const char *path);
-int syscall_getdents(int fd, char *buf, int nbytes);
+int syscall_getdents(int fd, void * dirp, uint32_t count);
+int syscall_getdents64(int fd, struct linux_dirent64 * dirp, uint32_t count);
 int syscall_getcwd(char *buf, size_t size);
 int syscall_chdir(const char *path);
 int syscall_manage_pipe(const char *pipe_name, int operation, int data);
@@ -158,7 +176,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_unmount] = syscall_unmount;
     g_syscall_table[SYS_mkdir] = syscall_mkdir;
     g_syscall_table[SYS_rmdir] = syscall_rmdir;
-    g_syscall_table[SYS_getdents] = syscall_getdents;
+    g_syscall_table[SYS_getdents64] = syscall_getdents64;
     g_syscall_table[SYS_getcwd] = syscall_getcwd;
     g_syscall_table[SYS_chdir] = syscall_chdir;
     g_syscall_table[SYS_manage_pipe] = syscall_manage_pipe;
@@ -236,8 +254,13 @@ static void handle_syscall(Registers* regs)
     
     if (regs->eax >= SYSCALL_COUNT)
     {
-        printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
-        log_printf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        //printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
+        log_printf("Unknown SYSCALL:%d (pid:%d) - %d, %d, %d, %d, %d\n", regs->eax, process->pid,
+            thread->last_syscall.arguments[0],
+            thread->last_syscall.arguments[1],
+            thread->last_syscall.arguments[2],
+            thread->last_syscall.arguments[3],
+            thread->last_syscall.arguments[4]);
 
         thread->last_syscall.state = SYSCALL_ERROR;
 
@@ -1198,9 +1221,50 @@ int syscall_rmdir(const char *path)
     return -1;//on error
 }
 
-int syscall_getdents(int fd, char *buf, int nbytes)
+// Convert FileType to Linux d_type values
+static uint8_t filetype_to_dtype(FileType file_type)
 {
-    if (!check_user_access(buf))
+    // Linux dirent type constants
+    #define DT_UNKNOWN 0
+    #define DT_FIFO 1
+    #define DT_CHR 2
+    #define DT_DIR 4
+    #define DT_BLK 6
+    #define DT_REG 8
+    #define DT_LNK 10
+    #define DT_SOCK 12
+    
+    if (file_type & FT_FILE)
+            return DT_REG;
+
+    if (file_type & FT_CHARACTER_DEVICE)
+            return DT_CHR;
+
+    if (file_type & FT_BLOCK_DEVICE)
+            return DT_BLK;
+
+    if (file_type & FT_PIPE)
+            return DT_FIFO;
+
+    if (file_type & FT_SYMBOLIC_LINK)
+            return DT_LNK;
+
+    if (file_type & FT_SOCKET)
+            return DT_SOCK;
+
+    if (file_type & FT_DIRECTORY)
+            return DT_DIR;
+
+    if (file_type & FT_MOUNT_POINT)
+        return DT_DIR;
+
+            return DT_UNKNOWN;
+    }
+
+//not used and not registered
+int syscall_getdents(int fd, void * dirp, uint32_t count)
+{
+    if (!check_user_access(dirp))
     {
         return -EFAULT;
     }
@@ -1214,24 +1278,139 @@ int syscall_getdents(int fd, char *buf, int nbytes)
 
             if (file)
             {
-                //Screen_PrintF("syscall_getdents(%d): %s\n", process->pid, buf);
-
-                int byte_counter = 0;
-
-                int index = 0;
+                int bytes_written = 0;
+                char* buffer_ptr = (char*)dirp;
+                int index = file->offset; // Start from current file offset
+                
                 FileSystemDirent* dirent = fs_readdir(file->node, index);
 
-                while (NULL != dirent && (byte_counter + sizeof(FileSystemDirent) <= nbytes))
+                // If no entries found from the current offset, return 0 (end of directory)
+                if (NULL == dirent)
                 {
-                    memcpy((uint8_t*)buf + byte_counter, (uint8_t*)dirent, sizeof(FileSystemDirent));
+                    return 0;
+                }
 
-                    byte_counter += sizeof(FileSystemDirent);
-
-                    index += 1;
+                while (NULL != dirent)
+                {
+                    // Calculate the size needed for this entry
+                    int name_len = strlen(dirent->name);
+                    int reclen = sizeof(struct linux_dirent) + name_len + 1; // +1 for null terminator
+                    
+                    // Align to 4-byte boundary (for 32-bit systems)
+                    reclen = (reclen + 3) & ~3;
+                    
+                    // Check if we have enough space in the buffer
+                    if (bytes_written + reclen > count)
+                    {
+                        break; // Not enough space for this entry
+                    }
+                    
+                    // Cast current position to linux_dirent
+                    struct linux_dirent * d = (struct linux_dirent *)(buffer_ptr + bytes_written);
+                    
+                    // Fill the structure
+                    d->d_ino = dirent->inode;
+                    d->d_off = index + 1; // Next entry index
+                    d->d_reclen = reclen;
+                    d->d_type = filetype_to_dtype(dirent->file_type);
+                    
+                    // Copy the name
+                    strcpy((char*)d->d_name, dirent->name);
+                    
+                    bytes_written += reclen;
+                    index++;
+                    
                     dirent = fs_readdir(file->node, index);
                 }
 
-                return byte_counter;
+                // Update file offset to the next entry to read
+                file->offset = index;
+
+                return bytes_written;
+            }
+            else
+            {
+                return -EBADF;
+            }
+        }
+        else
+        {
+            return -EBADF;
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;//on error
+}
+
+int syscall_getdents64(int fd, struct linux_dirent64 * dirp, uint32_t count)
+{
+    if (!check_user_access(dirp))
+    {
+        return -EFAULT;
+    }
+
+    Process* process = thread_get_current()->owner;
+    if (process)
+    {
+        if (fd < SOSO_MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                int bytes_written = 0;
+                char* buffer_ptr = (char*)dirp;
+                int index = file->offset; // Start from current file offset
+                
+                FileSystemDirent* dirent = fs_readdir(file->node, index);
+
+                // If no entries found from the current offset, return 0 (end of directory)
+                if (NULL == dirent)
+                {
+                    return 0;
+                }
+
+                while (NULL != dirent)
+                {
+                    // Calculate the size needed for this entry
+                    int name_len = strlen(dirent->name);
+                    int reclen = sizeof(struct linux_dirent64) + name_len + 1; // +1 for null terminator
+                    
+                    // Align to 8-byte boundary (common practice for dirent structures)
+                    reclen = (reclen + 7) & ~7;
+                    
+                    // Check if we have enough space in the buffer
+                    if (bytes_written + reclen > count)
+                    {
+                        break; // Not enough space for this entry
+                    }
+                    
+                    // Cast current position to linux_dirent64
+                    struct linux_dirent64 * d = (struct linux_dirent64 *)(buffer_ptr + bytes_written);
+                    
+                    // Fill the structure
+                    d->d_ino = dirent->inode;
+                    d->d_off = index + 1; // Next entry index
+                    d->d_reclen = reclen;
+                    d->d_type = filetype_to_dtype(dirent->file_type);
+                    
+                    // Copy the name
+                    strcpy((char*)d->d_name, dirent->name);
+                    
+                    bytes_written += reclen;
+                    index++;
+                    
+                    dirent = fs_readdir(file->node, index);
+                }
+
+                // Update file offset to the next entry to read
+                file->offset = index;
+
+                return bytes_written;
             }
             else
             {

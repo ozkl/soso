@@ -25,7 +25,7 @@ enum
     SYS_unmount,
     SYS_mkdir,
     SYS_rmdir,
-    SYS_getdents,
+    SYS_getdents64,
     SYS_getcwd,
     SYS_chdir,
     SYS_manage_pipe,

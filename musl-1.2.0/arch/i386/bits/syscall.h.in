@@ -139,7 +139,7 @@
 #define __NR_setfsuid		1138
 #define __NR_setfsgid		1139
 #define __NR__llseek		43 //1140
-#define __NR_getdents		20 //41
+#define __NR_getdents		1141
 #define __NR__newselect		44 //1142
 #define __NR_flock		1143
 #define __NR_msync		1144
@@ -218,7 +218,7 @@
 #define __NR_pivot_root		1217
 #define __NR_mincore		1218
 #define __NR_madvise		1219
-#define __NR_getdents64		1220
+#define __NR_getdents64		20 //1220
 #define __NR_fcntl64		1221
 /* 223 is unused */
 #define __NR_gettid		1224
