@@ -149,10 +149,42 @@ static void listDirectory2(const char* path)
     DIR *d;
     struct dirent *dir;
     d = opendir(path);
-    if (d) {
+    if (d)
+    {
+        char buffer[256];
         // Print files one per line
-        while ((dir = readdir(d)) != NULL) {
-            printf("%s\n", dir->d_name);
+        while ((dir = readdir(d)) != NULL)
+        {
+            memset(buffer, 0, sizeof(buffer));
+            snprintf(buffer, sizeof(buffer), "%s/%s", path, dir->d_name);
+            struct stat st;
+            memset(&st, 0, sizeof(st));
+
+            const char * entry_type = " ";
+            uint32_t size = 0;
+
+            if (stat(buffer, &st) == 0)
+            {
+                size = (uint32_t)st.st_size;
+
+                if (S_ISDIR(st.st_mode))
+                    entry_type = "d";
+                else if (S_ISREG(st.st_mode))
+                    entry_type = "-";
+                else if (S_ISCHR(st.st_mode))
+                    entry_type = "c";
+                else if (S_ISBLK(st.st_mode))
+                    entry_type = "b";
+                else if (S_ISFIFO(st.st_mode))
+                    entry_type = "p";
+                else if (S_ISLNK(st.st_mode))
+                    entry_type = "l";
+                else
+                    entry_type = "?";
+            }
+
+            printf("%s %d\t\t%s\n", entry_type, size, dir->d_name);
+
             // Force output to display immediately
             fflush(stdout);
         }
