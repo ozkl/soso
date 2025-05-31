@@ -15,7 +15,7 @@ static uint32_t g_kernel_heap_used = 0;
 
 void initialize_kernel_heap()
 {
-    g_kernel_heap = (char *) KERN_HEAP_BEGIN;
+    g_kernel_heap = (char *)g_kern_heap_begin;
 
     ksbrk_page(1);
 }
@@ -69,7 +69,7 @@ void *kmalloc(uint32_t size)
         realsize = KMALLOC_MINSIZE;
     }
 
-    chunk = (struct MallocHeader *) KERN_HEAP_BEGIN;
+    chunk = (struct MallocHeader *)g_kern_heap_begin;
     while (chunk->used || chunk->size < realsize)
     {
         if (chunk->size == 0)

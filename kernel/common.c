@@ -228,6 +228,30 @@ int strlen(const char *src)
     return i;
 }
 
+char * strstr(const char * haystack, const char * needle)
+{
+    if (!*needle)
+        return (char *)haystack;
+
+    for (; *haystack; ++haystack)
+    {
+        const char *h = haystack;
+        const char *n = needle;
+
+        while (*h && *n && *h == *n)
+        {
+            ++h;
+            ++n;
+        }
+
+        if (!*n)
+            return (char *)haystack;
+    }
+
+    return 0;
+}
+
+
 char* strchr(const char* str, int ch)
 {
     while (*str)

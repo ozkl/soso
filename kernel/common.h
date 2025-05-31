@@ -33,9 +33,9 @@ extern uint32_t g_pd_area_end;
 extern uint32_t g_modules_end;
 
 
-#define GFX_MEMORY              0x04000000 //64 mb //TODO: move elsewhere
+extern uint32_t g_gfx_memory;
+extern uint32_t g_kern_heap_begin;
 
-#define KERN_HEAP_BEGIN 		0x08000000 //128 mb
 #define KERN_HEAP_END    		0x40000000 // 1 gb
 
 #define	PAGING_FLAG 		0x80000000	// CR0 - bit 31
@@ -94,6 +94,7 @@ char *strncpy(char *dest, const char *src, uint32_t num);
 char* strncpy_null(char *dest, const char *src, uint32_t num);
 char* strcat(char *dest, const char *src);
 int strlen(const char *src);
+char * strstr(const char * haystack, const char * needle);
 char* strchr(const char* str, int ch);
 int str_first_index_of(const char *src, char c);
 int snprintf(char* buffer, uint32_t buffer_size, const char *format, ...);

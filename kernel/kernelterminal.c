@@ -2,6 +2,7 @@
 #include "keymap.h"
 #include "fs.h"
 #include "console.h"
+#include "process.h"
 #include "kernelterminal_fb.h"
 #include "kernelterminal_vga.h"
 #include "kernelterminal.h"
@@ -37,7 +38,7 @@ Terminal* terminal_create(BOOL graphic_mode)
     terminal->term->move_cursor_function = move_cursor_callback;
     terminal->term->write_to_master_function = write_to_master_callback;
 
-    terminal->opened_master = fs_open_for_process(NULL, tty->master_node, 0);
+    terminal->opened_master = fs_open_for_process(thread_get_first(), tty->master_node, 0);
     terminal->disabled = FALSE;
     tty->private_data = terminal;
 

@@ -38,6 +38,9 @@ uint32_t g_pd_area_begin = (uint32_t)&_pd_area_begin;
 uint32_t g_pd_area_end = (uint32_t)&_pd_area_end;
 uint32_t g_modules_end = (uint32_t)&_kernel_reserved_end;
 
+uint32_t g_gfx_memory = 0;
+uint32_t g_kern_heap_begin = 0;
+
 static void* locate_initrd(struct Multiboot *mbi, uint32_t* size)
 {
     if (mbi->mods_count > 0)
@@ -122,6 +125,14 @@ int kmain(struct Multiboot *mboot_ptr)
         g_modules_end = (uint32_t)initrd_end_location;
     }
 
+    //zero to end of the modules are identity mapped as 4M pages.
+    //We can use earliest possible for gfx and kernel heap after the last 4M page.
+    g_gfx_memory = PAGESIZE_4M * (PAGE_INDEX_4M(g_modules_end) + 1);
+    
+    //these are mapped as 4K pages. the reason using 4M macros here is just to calculate easly.
+    //so kernel heap virtual address starts after 8MB from gfx,
+    g_kern_heap_begin = PAGESIZE_4M * (PAGE_INDEX_4M(g_gfx_memory) + 2);
+
     uint32_t memory_kb = mboot_ptr->mem_upper;
     vmm_initialize(memory_kb);
 
@@ -135,6 +146,8 @@ int kmain(struct Multiboot *mboot_ptr)
         gfx_initialize((uint32_t*)(uint32_t)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
     }
 
+    tasking_initialize();
+    
     console_initialize(graphics_mode);
 
     print_ascii_art();
@@ -144,14 +157,12 @@ int kmain(struct Multiboot *mboot_ptr)
     printkf("Kernel resides in %x - [code] - %x - [reserved] - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address, g_physical_kernel_reserved_end_address);
     printkf("Page Directories: %x - %x\n", g_pd_area_begin, g_pd_area_end);
     printkf("Modules End: %x (Index 4M:%d)\n", g_modules_end, PAGE_INDEX_4M(g_modules_end));
-    printkf("Kernel Heap: %x - %x\n", KERN_HEAP_BEGIN, KERN_HEAP_END);
-    printkf("Video: %dx%dx%d - %x\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, (uint32_t)mboot_ptr->framebuffer_addr);
+    printkf("Kernel Heap: %x - %x\n", g_kern_heap_begin, KERN_HEAP_END);
+    printkf("Video: %dx%dx%d - %x mapped to %x\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, g_gfx_memory, (uint32_t)mboot_ptr->framebuffer_addr);
 
     systemfs_initialize();
     pipe_initialize();
     sharedmemory_initialize();
-
-    tasking_initialize();
 
     syscalls_initialize();
 
@@ -167,8 +178,14 @@ int kmain(struct Multiboot *mboot_ptr)
 
     serial_initialize();
 
-    //log_initialize("/dev/com1");
-    log_initialize("/dev/ptty9");
+    if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
+    {
+        log_initialize("/dev/com1");
+    }
+    else
+    {
+        log_initialize("/dev/ptty9");
+    }
 
     log_printf("Kernel built on %s %s\n", __DATE__, __TIME__);
 
