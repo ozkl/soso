@@ -103,19 +103,13 @@ void console_set_active_terminal(Terminal* terminal)
 
     gfx_fill(0xFFFFFFFF);
 
-    if (g_active_terminal->term->refresh_function)
-    {
-        g_active_terminal->term->refresh_function(g_active_terminal->term);
-    }
+    Ozterm* term = g_active_terminal->term;
+    int16_t row = ozterm_get_cursor_row(term);
+    int16_t column = ozterm_get_cursor_column(term);
 
-    if (g_active_terminal->term->move_cursor_function)
-    {
-        g_active_terminal->term->move_cursor_function(g_active_terminal,
-            g_active_terminal->term->screen_active->cursor_row,
-            g_active_terminal->term->screen_active->cursor_column,
-            g_active_terminal->term->screen_active->cursor_row,
-            g_active_terminal->term->screen_active->cursor_column);
-    }
+    ozterm_trigger_refresh_callback(term);
+
+    ozterm_trigger_move_cursor_callback(term, row, column, row, column);
 }
 
 Terminal* console_get_terminal_by_master(FileSystemNode* master_node)

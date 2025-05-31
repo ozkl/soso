@@ -32,11 +32,6 @@ void vgaterminal_set_cursor_visible(BOOL visible)
     outb(0x3D5, cursor);
 }
 
-void vgaterminal_refresh(uint8_t* source_buffer)
-{
-    memcpy(g_video_start, source_buffer, SCREEN_ROW_COUNT * SCREEN_COLUMN_COUNT * 2);
-}
-
 void vgaterminal_set_character(uint16_t row, uint16_t column, uint8_t character)
 {
     uint8_t * video = g_video_start + (row * SCREEN_COLUMN_COUNT + column) * 2;

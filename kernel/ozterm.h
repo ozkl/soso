@@ -32,45 +32,18 @@
 
 typedef struct Ozterm Ozterm;
 
-typedef void (*OztermRefresh)(Ozterm* terminal);
-typedef void (*OztermSetCharacter)(Ozterm* terminal, int16_t row, int16_t column, uint8_t character);
-typedef void (*OztermMoveCursor)(Ozterm* terminal, int16_t old_row, int16_t old_column, int16_t row, int16_t column);
-typedef void (*OztermWriteToMaster)(Ozterm* terminal, const uint8_t* data, int32_t size);
-
-//Do not change/add to this
-//It is also compatible to VGA text mode (must be 16 bits)
 typedef struct OztermCell
 {
     uint8_t character;
-    uint8_t color;
+    uint8_t fg_color;
+    uint8_t bg_color;
 } OztermCell;
 
-typedef struct OztermScreen
-{
-    OztermCell * buffer;
-    int16_t cursor_row;
-    int16_t cursor_column;
-} OztermScreen;
+typedef void (*OztermRefresh)(Ozterm* terminal);
+typedef void (*OztermSetCharacter)(Ozterm* terminal, int16_t row, int16_t column, OztermCell* cell);
+typedef void (*OztermMoveCursor)(Ozterm* terminal, int16_t old_row, int16_t old_column, int16_t row, int16_t column);
+typedef void (*OztermWriteToMaster)(Ozterm* terminal, const uint8_t* data, int32_t size);
 
-typedef struct Ozterm
-{
-    OztermScreen* screen_main;
-    OztermScreen* screen_alternative;
-    OztermScreen* screen_active;
-    uint8_t alternative_active;
-    int16_t saved_cursor_row;
-    int16_t saved_cursor_column;
-    int16_t row_count;
-    int16_t column_count;
-    int16_t scroll_top;
-    int16_t scroll_bottom;
-    uint8_t color;
-    void* custom_data;
-    OztermRefresh refresh_function;
-    OztermSetCharacter set_character_function;
-    OztermMoveCursor move_cursor_function;
-    OztermWriteToMaster write_to_master_function;
-} Ozterm;
 
 typedef enum OztermKeyModifier
 {
@@ -115,11 +88,31 @@ typedef enum OztermKeyModifier
 Ozterm* ozterm_create(uint16_t row_count, uint16_t column_count);
 void ozterm_destroy(Ozterm* terminal);
 void ozterm_put_text(Ozterm* terminal, const uint8_t* text, int32_t size);
+void ozterm_set_write_to_master_callback(Ozterm* terminal, OztermWriteToMaster function);
+void ozterm_set_render_callbacks(Ozterm* terminal, OztermRefresh refresh_func, OztermSetCharacter character_func, OztermMoveCursor cursor_func);
+void ozterm_set_custom_data(Ozterm* terminal, void* custom_data);
+void* ozterm_get_custom_data(Ozterm* terminal);
+int16_t ozterm_get_row_count(Ozterm* terminal);
+int16_t ozterm_get_column_count(Ozterm* terminal);
+int16_t ozterm_get_cursor_row(Ozterm* terminal);
+int16_t ozterm_get_cursor_column(Ozterm* terminal);
+OztermCell* ozterm_get_row_data(Ozterm* terminal, int16_t row);
+void ozterm_set_default_color(Ozterm* terminal, uint8_t fg, uint8_t bg);
+void ozterm_get_default_color(Ozterm* terminal, uint8_t* fg, uint8_t* bg);
+
+//this is scroll back mechanism, not related to the scrolling inside page or region
+//scroll_offset is based from last line
+void ozterm_scroll(Ozterm* terminal, int16_t scroll_offset);
+int16_t ozterm_get_scroll(Ozterm* terminal);
+int16_t ozterm_get_scroll_count(Ozterm* terminal);
 
 //this will cause a OztermWriteToMaster
 void ozterm_send_key(Ozterm* terminal, OztermKeyModifier modifier, uint8_t character);
 
 //give the data from master to the terminal
 void ozterm_have_read_from_master(Ozterm* terminal, const uint8_t* data, int32_t size);
+
+void ozterm_trigger_refresh_callback(Ozterm* terminal);
+void ozterm_trigger_move_cursor_callback(Ozterm* terminal, int16_t old_row, int16_t old_column, int16_t row, int16_t column);
 
 #endif // OZTERM_H
