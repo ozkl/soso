@@ -99,6 +99,7 @@ int16_t ozterm_get_cursor_column(Ozterm* terminal);
 OztermCell* ozterm_get_row_data(Ozterm* terminal, int16_t row);
 void ozterm_set_default_color(Ozterm* terminal, uint8_t fg, uint8_t bg);
 void ozterm_get_default_color(Ozterm* terminal, uint8_t* fg, uint8_t* bg);
+void ozterm_clear_full(Ozterm* terminal);
 
 //this is scroll back mechanism, not related to the scrolling inside page or region
 //scroll_offset is based from last line

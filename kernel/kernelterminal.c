@@ -64,7 +64,8 @@ Terminal* terminal_create(BOOL graphic_mode)
     ozterm_set_render_callbacks(terminal->term, refresh_callback, set_character_callback, move_cursor_callback);
     ozterm_set_write_to_master_callback(terminal->term, write_to_master_callback);
 
-    ozterm_set_default_color(terminal->term, 0, 7);
+    ozterm_set_default_color(terminal->term, 0, 15);
+    ozterm_clear_full(terminal->term);
 
     terminal->opened_master = fs_open_for_process(thread_get_first(), tty->master_node, 0);
     terminal->disabled = FALSE;

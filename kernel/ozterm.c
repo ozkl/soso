@@ -88,6 +88,8 @@ static void ozterm_scroll_up_region(Ozterm* terminal, int lines);
 static void ozterm_scroll_down_region(Ozterm* terminal, int lines);
 static void ozterm_insert_lines(Ozterm* terminal, int from_row, int count);
 static void ozterm_delete_lines(Ozterm* terminal, int from_row, int count);
+static void ozterm_switch_to_alt_screen(Ozterm* terminal);
+static void ozterm_restore_main_screen(Ozterm* terminal);
 
 static void * malloc_impl(size_t size)
 {
@@ -252,12 +254,24 @@ void ozterm_set_default_color(Ozterm* terminal, uint8_t fg, uint8_t bg)
 {
     terminal->fg_color_default = fg;
     terminal->bg_color_default = bg;
+
+    ozterm_reset_attributes_screen(terminal, terminal->screen_main);
+    ozterm_reset_attributes_screen(terminal, terminal->screen_alternative);
 }
 
 void ozterm_get_default_color(Ozterm* terminal, uint8_t* fg, uint8_t* bg)
 {
     *fg = terminal->fg_color_default;
     *bg = terminal->bg_color_default;
+}
+
+void ozterm_clear_full(Ozterm* terminal)
+{
+    ozterm_clear(terminal);
+
+    ozterm_switch_to_alt_screen(terminal);
+
+    ozterm_restore_main_screen(terminal);
 }
 
 static void ozterm_reset_attributes(Ozterm* terminal)
@@ -309,7 +323,7 @@ static void write_to_master(Ozterm* terminal, const char* data, int32_t size)
     }
 }
 
-void ozterm_switch_to_alt_screen(Ozterm* terminal)
+static void ozterm_switch_to_alt_screen(Ozterm* terminal)
 {
     terminal->alternative_active = 1;
     terminal->screen_active = terminal->screen_alternative;
@@ -324,7 +338,7 @@ void ozterm_switch_to_alt_screen(Ozterm* terminal)
     }
 }
 
-void ozterm_restore_main_screen(Ozterm* terminal)
+static void ozterm_restore_main_screen(Ozterm* terminal)
 {
     terminal->alternative_active = 0;
     terminal->screen_active = terminal->screen_main;
