@@ -108,8 +108,6 @@ void console_set_active_terminal(Terminal* terminal)
     int16_t column = ozterm_get_cursor_column(term);
 
     ozterm_trigger_refresh_callback(term);
-
-    ozterm_trigger_move_cursor_callback(term, row, column, row, column);
 }
 
 Terminal* console_get_terminal_by_master(FileSystemNode* master_node)

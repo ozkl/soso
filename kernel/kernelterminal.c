@@ -64,6 +64,8 @@ Terminal* terminal_create(BOOL graphic_mode)
     ozterm_set_render_callbacks(terminal->term, refresh_callback, set_character_callback, move_cursor_callback);
     ozterm_set_write_to_master_callback(terminal->term, write_to_master_callback);
 
+    ozterm_set_default_color(terminal->term, 0, 7);
+
     terminal->opened_master = fs_open_for_process(thread_get_first(), tty->master_node, 0);
     terminal->disabled = FALSE;
     tty->private_data = terminal;
@@ -100,7 +102,16 @@ void terminal_send_key(Terminal* terminal, uint8_t modifier, uint8_t character)
         return;
     }
 
-    ozterm_send_key(terminal->term, modifier, character);
+    if ((modifier & KM_LeftShift) == KM_LeftShift && (character == KEY_PAGEUP || character == KEY_PAGEDOWN))
+    {
+        int16_t offset = character == KEY_PAGEUP ? 1 : -1;
+
+        ozterm_scroll(terminal->term, ozterm_get_scroll(terminal->term) + offset);
+    }
+    else
+    {
+        ozterm_send_key(terminal->term, modifier, character);
+    }
 }
 
 static void master_read_ready(TtyDev* tty, uint32_t size)
@@ -153,6 +164,14 @@ static void refresh_callback(Ozterm* term)
                     vgaterminal_set_character(row, column, cell->character);
             }
         }
+
+        int16_t scroll = ozterm_get_scroll(term);
+        if (scroll == 0)
+        {
+            int16_t cursor_row = ozterm_get_cursor_row(term);
+            int16_t cursor_column = ozterm_get_cursor_column(term);
+            move_cursor_callback(term, cursor_row, cursor_column, cursor_row, cursor_column);
+        }
     }
 }
 
@@ -183,6 +202,12 @@ static void set_character_callback(Ozterm* term, int16_t row, int16_t column, Oz
         else
         {
             vgaterminal_set_character(row, column, cell->character);
+        }
+
+        int16_t scroll = ozterm_get_scroll(term);
+        if (scroll != 0)
+        {
+            ozterm_scroll(term, 0);
         }
     }
 }
@@ -245,5 +270,5 @@ static void write_to_master_callback(Ozterm* term, const uint8_t* data, int32_t 
 {
     Terminal* terminal = (Terminal*)ozterm_get_custom_data(term);
 
-    fs_write(terminal->opened_master, size, data);
+    fs_write(terminal->opened_master, size, (uint8_t*)data);
 }
