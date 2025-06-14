@@ -248,6 +248,7 @@ typedef struct {
 
 BOOL elf_is_valid(const char *elfData);
 uint32_t elf_load(const char *elfData);
+uint32_t elf_get_begin_in_memory(const char *elf_data);
 uint32_t elf_get_end_in_memory(const char *elfData);
 
 #endif // ELF_H

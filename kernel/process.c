@@ -336,13 +336,63 @@ Process* process_create_from_function(const char* name, Function0 func, char *co
     return process_create_ex(name, generate_process_id(), generate_thread_id(), func, NULL, argv, envp, parent, tty);
 }
 
+static void allocate_stack(Process* process)
+{
+    const uint32_t stack_page_count = 250; //1MB stack
+    char* v_address_stack_page = (char *) (USER_STACK - PAGESIZE_4K * stack_page_count);
+    uint32_t stack_frames[stack_page_count];
+    for (uint32_t i = 0; i < stack_page_count; ++i)
+    {
+        stack_frames[i] = vmm_acquire_page_frame_4k();
+    }
+    void* stack_v_mem = vmm_map_memory(process, (uint32_t)v_address_stack_page, stack_frames, stack_page_count, TRUE);
+    if (NULL == stack_v_mem)
+    {
+        for (uint32_t i = 0; i < stack_page_count; ++i)
+        {
+            vmm_release_page_frame_4k(stack_frames[i]);
+        }
+    }
+}
+
+static void allocate_args_env_aux(Process* process, uint8_t* elf_data, char *const argv[], char *const envp[])
+{
+    const uint32_t page_count = 1;
+    char* v_address_args_env_aux = (char *) (USER_STACK);
+    uint32_t p_address_args_env_aux[page_count];
+    for (uint32_t i = 0; i < page_count; ++i)
+    {
+        p_address_args_env_aux[i] = vmm_acquire_page_frame_4k();
+    }
+    void* mapped = vmm_map_memory(process, (uint32_t)v_address_args_env_aux, p_address_args_env_aux, page_count, TRUE);
+    if (NULL == mapped)
+    {
+        for (uint32_t i = 0; i < page_count; ++i)
+        {
+            vmm_release_page_frame_4k(p_address_args_env_aux[i]);
+        }
+    }
+    else
+    {
+        copy_argv_env_to_process(USER_STACK, elf_data, argv, envp);
+    }
+}
+
 Process* process_create_ex(const char* name, uint32_t process_id, uint32_t thread_id, Function0 func, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
+    uint32_t image_data_begin_in_memory = elf_get_begin_in_memory((char*)elf_data);
     uint32_t image_data_end_in_memory = elf_get_end_in_memory((char*)elf_data);
+    uint32_t image_size_in_memory = image_data_end_in_memory - image_data_begin_in_memory;
+
+    if (image_data_begin_in_memory >= image_data_end_in_memory)
+    {
+        printkf("Could not start the process %s. Image's memory location is wrong! %x-%x\n", name, image_data_begin_in_memory, image_data_end_in_memory);
+        return NULL;
+    }
 
     if (image_data_end_in_memory <= USER_OFFSET)
     {
-        printkf("Could not start the process. Image's memory location is wrong! %s\n", name);
+        printkf("Could not start the process %s. Image's memory location is wrong! %x-%x\n", name, image_data_begin_in_memory, image_data_end_in_memory);
         return NULL;
     }
 
@@ -425,41 +475,16 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     vmm_initialize_process_pages(process);
 
-    uint32_t size_in_memory = image_data_end_in_memory - USER_OFFSET;
+    
 
-    //printkf("image size_in_memory:%d\n", size_in_memory);
+    //printkf("image size_in_memory:%d\n", image_size_in_memory);
+    uint32_t brkUpTo = image_data_end_in_memory - USER_OFFSET;
 
-    initialize_program_break(process, size_in_memory);
+    initialize_program_break(process, brkUpTo);
 
+    allocate_stack(process);
 
-    const uint32_t stack_page_count = 250; //1MB stack
-    char* v_address_stack_page = (char *) (USER_STACK - PAGESIZE_4K * stack_page_count);
-    uint32_t stack_frames[stack_page_count];
-    for (uint32_t i = 0; i < stack_page_count; ++i)
-    {
-        stack_frames[i] = vmm_acquire_page_frame_4k();
-    }
-    void* stack_v_mem = vmm_map_memory(process, (uint32_t)v_address_stack_page, stack_frames, stack_page_count, TRUE);
-    if (NULL == stack_v_mem)
-    {
-        for (uint32_t i = 0; i < stack_page_count; ++i)
-        {
-            vmm_release_page_frame_4k(stack_frames[i]);
-        }
-    }
-
-    uint32_t p_address_args_env_aux[1];
-    p_address_args_env_aux[0] = vmm_acquire_page_frame_4k();
-    char* v_address_args_env_aux = (char *) (USER_STACK);
-    void* mapped = vmm_map_memory(process, (uint32_t)v_address_args_env_aux, p_address_args_env_aux, 1, TRUE);
-    if (NULL == mapped)
-    {
-        vmm_release_page_frame_4k(p_address_args_env_aux[0]);
-    }
-    else
-    {
-        copy_argv_env_to_process(USER_STACK, elf_data, new_argv, new_envp);
-    }
+    allocate_args_env_aux(process, elf_data, new_argv, new_envp);
 
     destroy_string_array(new_argv);
     destroy_string_array(new_envp);

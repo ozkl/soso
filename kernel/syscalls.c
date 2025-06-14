@@ -124,6 +124,7 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
 int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
 void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
+void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_unlink(const char *name);
@@ -187,6 +188,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_manage_message] = syscall_manage_message;
     g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
     g_syscall_table[SYS_mmap] = syscall_mmap;
+    g_syscall_table[SYS_mmap2] = syscall_mmap2;
     g_syscall_table[SYS_munmap] = syscall_munmap;
     g_syscall_table[SYS_shm_open] = syscall_shm_open;
     g_syscall_table[SYS_unlink] = syscall_unlink;
@@ -251,8 +253,14 @@ static void handle_syscall(Registers* regs)
     thread->last_syscall.arguments[4] = regs->edi;
     thread->last_syscall.state = SYSCALL_NOTSTARTED;
     thread->last_syscall.return_value = 0;
+
+    void *location = NULL;
+    if (regs->eax < SYSCALL_COUNT)
+    {
+        location = g_syscall_table[regs->eax];
+    }
     
-    if (regs->eax >= SYSCALL_COUNT)
+    if (regs->eax >= SYSCALL_COUNT || NULL == location)
     {
         //printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
         log_printf("Unknown SYSCALL:%d (pid:%d) - %d, %d, %d, %d, %d\n", regs->eax, process->pid,
@@ -261,19 +269,6 @@ static void handle_syscall(Registers* regs)
             thread->last_syscall.arguments[2],
             thread->last_syscall.arguments[3],
             thread->last_syscall.arguments[4]);
-
-        thread->last_syscall.state = SYSCALL_ERROR;
-
-        regs->eax = -1;
-        return;
-    }
-
-    void *location = g_syscall_table[regs->eax];
-
-    if (NULL == location)
-    {
-        printkf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
-        log_printf("Unused SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
 
         thread->last_syscall.state = SYSCALL_ERROR;
 
@@ -1689,6 +1684,12 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
     }
 
     return (void*)-1;
+}
+
+void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset)
+{
+    //TODO: mmap2
+    return syscall_mmap(addr, length, prot, flags, fd, offset);
 }
 
 //WARNING: if length is smaller than previous mmap, what will do to those remaining pages?

@@ -76,6 +76,40 @@ uint32_t elf_load(const char *elf_data)
     return hdr->e_entry;
 }
 
+uint32_t elf_get_begin_in_memory(const char *elf_data)
+{
+    uint32_t v_begin;
+    Elf32_Ehdr *hdr;
+    Elf32_Phdr *p_entry;
+
+    hdr = (Elf32_Ehdr *) elf_data;
+    p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
+
+    if (elf_is_valid(elf_data) == FALSE)
+    {
+        return 0;
+    }
+
+    uint32_t result = 0xFFFFFFFF;
+
+    for (int pe = 0; pe < hdr->e_phnum; pe++, p_entry++)
+    {
+        //Read each entry
+
+        if (p_entry->p_type == PT_LOAD)
+        {
+            v_begin = p_entry->p_vaddr;
+
+            if (v_begin < result)
+            {
+                result = v_begin;
+            }
+        }
+    }
+
+    return result;
+}
+
 uint32_t elf_get_end_in_memory(const char *elf_data)
 {
     uint32_t v_end;
