@@ -18,25 +18,14 @@
 #define BITMAP_UNSET(bitmap, index)	bitmap[((uint32_t)index)/8] &= ~(1 << (((uint32_t) index)%8))
 #define BITMAP_CHECK(bitmap, index)	(bitmap[((uint32_t) index)/8] & (1 << (((uint32_t) index)%8)))
 
-#define	KERN_PAGE_DIRECTORY			0x00001000
+#define KERNEL_VIRTUAL_BASE         0xC0000000
 
 
-//Kernel code is first in the physical memory.
-//4M (4K*1024) is reserved in linker script for our 4K page directories. (_pd_area_begin - _pd_area_end)
-//After that GRUB modules are loaded.
-//From zero to end of modules are identity mapped.
 
-extern uint32_t _pd_area_begin;
-extern uint32_t _pd_area_end;
-extern uint32_t g_pd_area_begin;
-extern uint32_t g_pd_area_end;
-extern uint32_t g_modules_end;
+extern uint32_t g_modules_end_physical;
 
 
-extern uint32_t g_gfx_memory;
 extern uint32_t g_kern_heap_begin;
-
-#define KERN_HEAP_END    		0x40000000 // 1 gb
 
 #define	PAGING_FLAG 		0x80000000	// CR0 - bit 31
 #define PSE_FLAG			0x00000010	// CR4 - bit 4 //For 4M page support.
@@ -53,8 +42,6 @@ extern uint32_t g_kern_heap_begin;
 #define PAGE_INDEX_4K(addr)		((addr) >> 12)
 #define PAGE_INDEX_4M(addr)		((addr) >> 22)
 
-#define KERNELMEMORY_PAGE_COUNT 256 //First 1GB kernel-space (first 256 entries in the page directory)
-
 #define	KERN_STACK_SIZE		PAGESIZE_4K
 
 //KERN_HEAP_END ends and this one starts
@@ -62,8 +49,11 @@ extern uint32_t g_kern_heap_begin;
 #define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
 #define	MEMORY_END              0xFFC00000 //After this address is not usable. Because Page Tables sit there!
 
+#define GFX_MEMORY              0xFF400000
 
-#define	USER_STACK 			0xF0000000
+#define KERN_HEAP_END    		GFX_MEMORY
+
+#define	USER_STACK 			0xA0000000
 
 void outb(uint16_t port, uint8_t value);
 void outw(uint16_t port, uint16_t value);

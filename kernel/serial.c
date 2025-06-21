@@ -34,10 +34,15 @@ void serial_initialize()
     outb(PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
     outb(PORT + 1, 0x01);    // Enable interrupts
 
+    
+}
+
+void serial_initialize_file_device()
+{
     interrupt_register(IRQ4, handle_serial_interrupt);
 
     g_buffer_com1 = fifobuffer_create(4096);
-    g_accessing_threads = list_create();
+    g_accessing_threads = list_create(); 
 
     Device device;
     memset((uint8_t*)&device, 0, sizeof(Device));

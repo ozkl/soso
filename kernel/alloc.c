@@ -26,7 +26,7 @@ void *ksbrk_page(int n)
     uint32_t p_addr;
     int i;
 
-    if ((g_kernel_heap + (n * PAGESIZE_4K)) > (char *) KERN_HEAP_END) {
+    if ((g_kernel_heap + (n * PAGESIZE_4K)) >= (char *) KERN_HEAP_END) {
         //Screen_PrintF("ERROR: ksbrk(): no virtual memory left for kernel heap !\n");
         return (char *) -1;
     }
@@ -85,7 +85,7 @@ void *kmalloc(uint32_t size)
 
         if (chunk == (struct MallocHeader *) g_kernel_heap)
         {
-            if ((int)(ksbrk_page((realsize / PAGESIZE_4K) + 1)) < 0)
+            if ((int)(ksbrk_page((realsize / PAGESIZE_4K) + 1)) == -1)
             {
                 PANIC("kmalloc(): no memory left for kernel !\nSystem halted\n");
 
@@ -151,7 +151,7 @@ static void sbrk_page(Process* process, int page_count)
     {
         for (int i = 0; i < page_count; ++i)
         {
-            if ((process->brk_next_unallocated_page_begin + PAGESIZE_4K) > (char*)(MEMORY_END - PAGESIZE_4K))
+            if ((process->brk_next_unallocated_page_begin + PAGESIZE_4K) > (char*)(KERNEL_VIRTUAL_BASE - PAGESIZE_4K))
             {
                 return;
             }

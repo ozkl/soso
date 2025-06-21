@@ -57,7 +57,7 @@ struct Process
     uint32_t pid;
 
 
-    uint32_t *pd;
+    uint32_t pd;
 
     uint32_t b_exec;
     uint32_t e_exec;

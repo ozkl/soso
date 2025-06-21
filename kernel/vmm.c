@@ -7,18 +7,46 @@
 #include "log.h"
 #include "serial.h"
 
-uint32_t *g_kernel_page_directory = (uint32_t *)KERN_PAGE_DIRECTORY;
+extern uint32_t* kernel_page_directory;
+uint32_t *g_kernel_page_directory = (uint32_t *)&kernel_page_directory;
+uint32_t g_kernel_page_directory_physical = 0;
 uint8_t g_physical_page_frame_bitmap[RAM_AS_4K_PAGES / 8];
 
 static int g_total_page_count = 0;
 
 static void handle_page_fault(Registers *regs);
-static void vmm_sync_all_from_kernel();
+
+static void *get_physical_address(void * v_address)
+{
+    uint32_t pd_index = (uint32_t)v_address >> 22;
+    uint32_t pt_index = (uint32_t)v_address >> 12 & 0x03FF;
+
+    uint32_t *pd = (uint32_t*)0xFFFFF000;
+    if ((pd[pd_index] & PG_PRESENT) == PG_PRESENT)
+    {
+        uint32_t *pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+        if ((pt[pt_index] & PG_PRESENT) == PG_PRESENT)
+        {
+            return (void *)((pt[pt_index] & ~0xFFF) + ((uint32_t)v_address & 0xFFF));
+        }
+    }
+
+    return NULL;
+}
+
+static uint32_t get_physical_address_of_page_directory()
+{
+    uint32_t* pd = (uint32_t*)0xFFFFF000;  // Recursive mapping: VA of the page directory
+    const uint32_t mask = 0xFFFFF000;
+    return pd[1023] & mask;           // Mask out flags, keep only the physical address
+}
 
 void vmm_initialize(uint32_t high_mem)
 {
     uint32_t pg = 0;
     uint32_t i = 0;
+
+    g_kernel_page_directory_physical = ((uint32_t)g_kernel_page_directory - KERNEL_VIRTUAL_BASE);
 
     interrupt_register(14, handle_page_fault);
 
@@ -36,32 +64,38 @@ void vmm_initialize(uint32_t high_mem)
         g_physical_page_frame_bitmap[pg] = 0xFF;
     }
 
-    //Mark pages reserved for the kernel as used
-    for (pg = PAGE_INDEX_4K(0x0); pg < (int)(PAGE_INDEX_4K(g_modules_end)); ++pg)
+    uint32_t end_index_4m = PAGE_INDEX_4M(g_modules_end_physical);
+    
+    //Map first n pages to KERNEL_VIRTUAL_BASE for accessing data that GRUB loaded
+    uint32_t index_kernel_base = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+    for (i = 0; i <= end_index_4m; ++i)
+    {
+        g_kernel_page_directory[i + index_kernel_base] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB));//add PG_USER for accesing kernel code in user mode
+        uint32_t v_address = (i + index_kernel_base) * PAGESIZE_4M;
+    }
+
+    //Mark those pages reserved
+    for (pg = PAGE_INDEX_4K(0x0); pg < (int)(PAGE_INDEX_4K(g_modules_end_physical)); ++pg)
     {
         SET_PAGEFRAME_USED(g_physical_page_frame_bitmap, pg);
     }
 
-    uint32_t end_index_4m = PAGE_INDEX_4M(g_modules_end);
-    
-    //Identity map the memory from beginning to the end of modules
-    //First identity pages are 4MB sized for ease
-    for (i = 0; i <= end_index_4m; ++i)
-    {
-        g_kernel_page_directory[i] = (i * PAGESIZE_4M | (PG_PRESENT | PG_WRITE | PG_4MB));//add PG_USER for accesing kernel code in user mode
-    }
 
-    for (i = end_index_4m + 1; i < 1024; ++i)
-    {
-        g_kernel_page_directory[i] = 0;
-    }
+    g_kern_heap_begin = (index_kernel_base + end_index_4m + 1) * PAGESIZE_4M;
+
+
+    serial_printf("g_kernel_page_directory=%x\n", g_kernel_page_directory);
+    serial_printf("g_kernel_page_directory_physical=%x\n", g_kernel_page_directory_physical);
+
+    serial_printf("g_kern_heap_begin=%x\n", g_kern_heap_begin);
+    
 
     //Recursive page directory strategy
-    g_kernel_page_directory[1023] = (uint32_t)g_kernel_page_directory | PG_PRESENT | PG_WRITE;
+    g_kernel_page_directory[1023] = g_kernel_page_directory_physical | PG_PRESENT | PG_WRITE;
+    CHANGE_PD(g_kernel_page_directory_physical);
+    serial_printf("calc_physical=%x\n", get_physical_address_of_page_directory());
 
-    //zero out PD area
-    memset((uint8_t*)g_pd_area_begin, 0, g_pd_area_end - g_pd_area_begin);
-
+    /*
     //Enable paging
     asm("	mov %0, %%eax \n \
         mov %%eax, %%cr3 \n \
@@ -72,7 +106,17 @@ void vmm_initialize(uint32_t high_mem)
         or %1, %%eax \n \
         mov %%eax, %%cr0"::"m"(g_kernel_page_directory), "i"(PAGING_FLAG), "i"(PSE_FLAG));
 
+    */
+
     initialize_kernel_heap();
+}
+
+void unmap_first_4m()
+{
+    //unmap first 4M page previously mapped from boot.asm
+    g_kernel_page_directory[0] = 0;
+    
+    CHANGE_PD(g_kernel_page_directory_physical);
 }
 
 uint32_t vmm_acquire_page_frame_4k()
@@ -123,36 +167,47 @@ void vmm_release_page_frame_4k(uint32_t p_addr)
     SET_PAGEFRAME_UNUSED(g_physical_page_frame_bitmap, p_addr);
 }
 
-uint32_t* vmm_acquire_page_directory()
+//when this called, 0x0 address must have been unmapped already (unmap_first_4m())
+uint32_t vmm_acquire_page_directory()
 {
-    uint32_t address = g_pd_area_begin;
-    for (; address < g_pd_area_end; address += PAGESIZE_4K)
+    uint32_t p_address = vmm_acquire_page_frame_4k();
+    if (p_address == (int32_t)-1)
     {
-        uint32_t* pd = (uint32_t*)address;
-
-        if (*pd == NULL)
-        {
-            //Found an unused page directory
-
-            //Let's initialize it. First we should sync with first 1GB part with kernel page directory to achive the same view.
-
-            for (int i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
-            {
-                pd[i] = g_kernel_page_directory[i]& ~PG_OWNED;
-            }
-
-            for (int i = KERNELMEMORY_PAGE_COUNT; i < 1024; ++i)
-            {
-                pd[i] = 0;
-            }
-
-            pd[1023] = address | PG_PRESENT | PG_WRITE;
-
-            return pd;
-        }
+        return NULL;
     }
 
-    return NULL;
+    uint32_t* v_address = (uint32_t*)0x0;
+
+    //map 0x00000000 to access temporarly
+    BOOL mapped_success = vmm_add_page_to_pd((char*)v_address, p_address, 0);
+    if (!mapped_success)
+    {
+        vmm_release_page_frame_4k(p_address);
+        return NULL;
+    }
+
+    
+    uint32_t* pd = v_address;
+
+
+    //Let's initialize it. First we should sync with shared part of the kernel page directory to achive the same view.
+
+    uint32_t index = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+    for (uint32_t i = 0; i < index; ++i)
+    {
+        pd[i] = 0;
+    }
+
+    for (uint32_t i = index; i < 1023; ++i)
+    {
+        pd[i] = g_kernel_page_directory[i]& ~PG_OWNED;
+    }
+
+    pd[1023] = p_address | PG_PRESENT | PG_WRITE;
+
+    vmm_remove_page_from_pd((char*)v_address);
+
+    return p_address;
 }
 
 void vmm_destroy_page_directory_with_memory(uint32_t physical_pd)
@@ -165,9 +220,8 @@ void vmm_destroy_page_directory_with_memory(uint32_t physical_pd)
 
     CHANGE_PD(physical_pd);
 
-    //this 1023 is very important
-    //we must not touch pd[1023] since PD is mapped to itself. Otherwise we corrupt the whole system's memory.
-    for (int pd_index = KERNELMEMORY_PAGE_COUNT; pd_index < 1023; ++pd_index)
+    uint32_t index = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+    for (int pd_index = 0; pd_index < index; ++pd_index)
     {
         if ((pd[pd_index] & PG_PRESENT) == PG_PRESENT)
         {
@@ -203,8 +257,8 @@ void vmm_destroy_page_directory_with_memory(uint32_t physical_pd)
 }
 
 //When calling this function:
-//If it is intended to alloc kernel memory, v_addr must be < KERN_HEAP_END.
-//If it is intended to alloc user memory, v_addr must be > KERN_HEAP_END.
+//If it is intended to alloc kernel memory, v_addr must be > KERNEL_VIRTUAL_BASE.
+//If it is intended to alloc user memory, v_addr must be < KERNEL_VIRTUAL_BASE.
 //Works for active Page Directory!
 BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 {
@@ -221,11 +275,11 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 
     uint32_t cr3 = 0;
 
-    if (v_addr < (char*)(KERN_HEAP_END))
+    if (v_addr >= (char*)(KERNEL_VIRTUAL_BASE))
     {
         cr3 = read_cr3();
 
-        CHANGE_PD(g_kernel_page_directory);
+        CHANGE_PD(g_kernel_page_directory_physical);
     }
 
     //serial_printf("vmm_add_page_to_pd 1");
@@ -277,13 +331,6 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
         CHANGE_PD(cr3);
     }
 
-    if (v_addr < (char*)(KERN_HEAP_END))
-    {
-        //If this is the kernel page directory, sync others for first 1GB
-
-        vmm_sync_all_from_kernel();
-    }
-
     return TRUE;
 }
 
@@ -297,11 +344,11 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
 
     uint32_t cr3 = 0;
 
-    if (v_addr < (char*)(KERN_HEAP_END))
+    if (v_addr >= (char*)(KERNEL_VIRTUAL_BASE))
     {
         cr3 = read_cr3();
 
-        CHANGE_PD(g_kernel_page_directory);
+        CHANGE_PD(g_kernel_page_directory_physical);
     }
 
 
@@ -343,21 +390,12 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
             }
         }
 
-
-
         INVALIDATE(v_addr);
 
         if (0 != cr3)
         {
             //restore
             CHANGE_PD(cr3);
-        }
-
-        if (v_addr < (char*)(KERN_HEAP_END))
-        {
-            //If this is the kernel page directory, sync others for first 1GB
-            
-            vmm_sync_all_from_kernel();
         }
 
         return TRUE;
@@ -370,25 +408,6 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
     }
 
     return FALSE;
-}
-
-static void vmm_sync_all_from_kernel()
-{
-    uint32_t address = g_pd_area_begin;
-    for (; address < g_pd_area_end; address += PAGESIZE_4K)
-    {
-        uint32_t* pd = (uint32_t*)address;
-
-        if (*pd != NULL)
-        {
-            //Found an in-use page directory
-
-            for (int i = 0; i < KERNELMEMORY_PAGE_COUNT; ++i)
-            {
-                pd[i] = g_kernel_page_directory[i] & ~PG_OWNED;
-            }
-        }
-    }
 }
 
 uint32_t vmm_get_total_page_count()
@@ -530,7 +549,7 @@ void vmm_initialize_process_pages(Process* process)
         process->mmapped_virtual_memory[page] = 0xFF;
     }
 
-    for (page = PAGE_INDEX_4K(USER_OFFSET); page < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page)
+    for (page = PAGE_INDEX_4K(USER_OFFSET); page < (int)(PAGE_INDEX_4K(KERNEL_VIRTUAL_BASE)); ++page)
     {
         SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, page * PAGESIZE_4K);
     }
@@ -552,7 +571,7 @@ void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t
 
     uint32_t v_mem = 0;
 
-    for (page_index = PAGE_INDEX_4K(v_address_search_start); page_index < (int)(PAGE_INDEX_4K(MEMORY_END)); ++page_index)
+    for (page_index = PAGE_INDEX_4K(v_address_search_start); page_index < (int)(PAGE_INDEX_4K(KERNEL_VIRTUAL_BASE)); ++page_index)
     {
         if (IS_PAGEFRAME_USED(process->mmapped_virtual_memory, page_index))
         {

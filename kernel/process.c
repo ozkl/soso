@@ -57,7 +57,7 @@ void tasking_initialize()
     memset((uint8_t*)process, 0, sizeof(Process));
     strcpy(process->name, "[idle]");
     process->pid = generate_process_id();
-    process->pd = (uint32_t*) KERN_PAGE_DIRECTORY;
+    process->pd = g_kernel_page_directory_physical;
     process->working_directory = fs_get_root_node();
 
     g_kernel_process = process;
@@ -79,7 +79,7 @@ void tasking_initialize()
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32_t) process->pd;
+    thread->regs.cr3 = process->pd;
 
     uint32_t selector = 0x10;
 
@@ -122,7 +122,7 @@ void thread_create_kthread(Function0 func)
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32_t) thread->owner->pd;
+    thread->regs.cr3 = thread->owner->pd;
 
 
     uint32_t selector = 0x10;
@@ -432,7 +432,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = (uint32_t) process->pd;
+    thread->regs.cr3 = process->pd;
 
     if (parent)
     {
@@ -642,7 +642,7 @@ void process_destroy(Process* process)
 
     log_printf("destroying process %d\n", process->pid);
 
-    uint32_t physical_pd = (uint32_t)process->pd;
+    uint32_t physical_pd = process->pd;
 
     kfree(process);
 
@@ -1209,6 +1209,18 @@ static void thread_switch_to(Thread* thread, int mode)
     {
         kss = thread->regs.ss;
         kesp = thread->regs.esp;
+    }
+
+    //sync from kernel page directory
+    if (thread->owner->pd != g_kernel_page_directory_physical)
+    {
+        CHANGE_PD(thread->owner->pd);
+        uint32_t* pd = (uint32_t*)0xFFFFF000;
+        uint32_t start_index = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+        for (uint32_t i = start_index; i < 1023; ++i)
+        {
+            pd[i] = g_kernel_page_directory[i] & ~PG_OWNED;
+        }
     }
 
     //switch_task is in task.asm

@@ -1,17 +1,21 @@
 #include "log.h"
 #include "common.h"
 #include "fs.h"
+#include "serial.h"
 
 static File* g_file = NULL;
 
 void log_initialize(const char* file_name)
 {
+  if (file_name)
+  {
     FileSystemNode* node = fs_get_node(file_name);
 
     if (node)
     {
       g_file = fs_open(node, 0);
     }
+  }
 }
 
 void log_printf(const char *format, ...)
@@ -83,6 +87,10 @@ void log_printf(const char *format, ...)
     if (g_file)
     {
         fs_write(g_file, strlen(buffer), (uint8_t*)buffer);
+    }
+    else
+    {
+      serial_printf(buffer);
     }
 
     __builtin_va_end(vl);

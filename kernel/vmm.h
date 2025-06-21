@@ -7,6 +7,7 @@ typedef struct Process Process;
 typedef struct List List;
 
 extern uint32_t *g_kernel_page_directory;
+extern uint32_t g_kernel_page_directory_physical;
 
 
 #define SET_PAGEFRAME_USED(bitmap, page_index)	bitmap[((uint32_t) page_index)/8] |= (1 << (((uint32_t) page_index)%8))
@@ -20,8 +21,9 @@ uint32_t vmm_acquire_page_frame_4k();
 void vmm_release_page_frame_4k(uint32_t p_addr);
 
 void vmm_initialize(uint32_t high_mem);
+void unmap_first_4m();
 
-uint32_t *vmm_acquire_page_directory();
+uint32_t vmm_acquire_page_directory();
 void vmm_destroy_page_directory_with_memory(uint32_t physical_pd);
 
 BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags);

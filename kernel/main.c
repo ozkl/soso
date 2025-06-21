@@ -30,15 +30,10 @@
 
 extern uint32_t _start;
 extern uint32_t _kernel_end;
-extern uint32_t _kernel_reserved_end;
 uint32_t g_physical_kernel_start_address = (uint32_t)&_start;
 uint32_t g_physical_kernel_end_address = (uint32_t)&_kernel_end;
-uint32_t g_physical_kernel_reserved_end_address = (uint32_t)&_kernel_reserved_end;
-uint32_t g_pd_area_begin = (uint32_t)&_pd_area_begin;
-uint32_t g_pd_area_end = (uint32_t)&_pd_area_end;
-uint32_t g_modules_end = (uint32_t)&_kernel_reserved_end;
+uint32_t g_modules_end_physical = 0;
 
-uint32_t g_gfx_memory = 0;
 uint32_t g_kern_heap_begin = 0;
 
 static void* locate_initrd(struct Multiboot *mbi, uint32_t* size)
@@ -117,24 +112,28 @@ int kmain(struct Multiboot *mboot_ptr)
 
     descriptor_tables_initialize();
 
+    serial_initialize();
+
+    serial_printf("kernel_page_directory:%x\n", g_kernel_page_directory);
+
     uint32_t initrd_size = 0;
     uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
     uint8_t* initrd_end_location = initrd_location + initrd_size;
     if (initrd_location)
     {
-        g_modules_end = (uint32_t)initrd_end_location;
+        g_modules_end_physical = (uint32_t)initrd_end_location;
     }
-
-    //zero to end of the modules are identity mapped as 4M pages.
-    //We can use earliest possible for gfx and kernel heap after the last 4M page.
-    g_gfx_memory = PAGESIZE_4M * (PAGE_INDEX_4M(g_modules_end) + 1);
-    
-    //these are mapped as 4K pages. the reason using 4M macros here is just to calculate easly.
-    //so kernel heap virtual address starts after 8MB from gfx,
-    g_kern_heap_begin = PAGESIZE_4M * (PAGE_INDEX_4M(g_gfx_memory) + 2);
 
     uint32_t memory_kb = mboot_ptr->mem_upper;
     vmm_initialize(memory_kb);
+
+    struct Multiboot* mboot_clone = kmalloc(sizeof(struct Multiboot));
+    memcpy((uint8_t*)mboot_clone, (uint8_t*)mboot_ptr, sizeof(struct Multiboot));
+    mboot_clone->cmdline = (uint32_t)kmalloc(strlen((char*)mboot_ptr->cmdline) + 1);
+    strcpy((char*)mboot_clone->cmdline, (char*)mboot_ptr->cmdline);
+    mboot_ptr = mboot_clone;
+    unmap_first_4m();
+    
 
     fs_initialize();
     devfs_initialize();
@@ -154,11 +153,10 @@ int kmain(struct Multiboot *mboot_ptr)
 
     printkf("Kernel built on %s %s\n", __DATE__, __TIME__);
     printkf("Memory initialized for %d MB\n", memory_kb / 1024);
-    printkf("Kernel resides in %x - [code] - %x - [reserved] - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address, g_physical_kernel_reserved_end_address);
-    printkf("Page Directories: %x - %x\n", g_pd_area_begin, g_pd_area_end);
-    printkf("Modules End: %x (Index 4M:%d)\n", g_modules_end, PAGE_INDEX_4M(g_modules_end));
+    printkf("Kernel resides in %x - [code] - %x\n", g_physical_kernel_start_address, g_physical_kernel_end_address);
+    printkf("Modules End(Physical): %x (Index 4M:%d)\n", g_modules_end_physical, PAGE_INDEX_4M(g_modules_end_physical));
     printkf("Kernel Heap: %x - %x\n", g_kern_heap_begin, KERN_HEAP_END);
-    printkf("Video: %dx%dx%d - %x mapped to %x\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, g_gfx_memory, (uint32_t)mboot_ptr->framebuffer_addr);
+    printkf("Video: %dx%dx%d - %x mapped to %x\n", mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp, GFX_MEMORY, (uint32_t)mboot_ptr->framebuffer_addr);
 
     systemfs_initialize();
     pipe_initialize();
@@ -176,11 +174,11 @@ int kmain(struct Multiboot *mboot_ptr)
         printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
     }
 
-    serial_initialize();
+    serial_initialize_file_device();
 
     if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
     {
-        log_initialize("/dev/com1");
+        log_initialize(NULL);
     }
     else
     {
@@ -208,7 +206,8 @@ int kmain(struct Multiboot *mboot_ptr)
     else
     {
         printkf("Initrd found at %x - %x (%d bytes)\n", initrd_location, initrd_end_location, initrd_size);
-        ramdisk_create("ramdisk1", initrd_size, initrd_location);
+        //now initrd_location is accesible as initrd_location + KERNEL_VIRTUAL_BASE
+        ramdisk_create("ramdisk1", initrd_size, initrd_location + KERNEL_VIRTUAL_BASE);
         //memcpy((uint8_t*)*(uint32_t*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
         BOOL mountSuccess = fs_mount("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 

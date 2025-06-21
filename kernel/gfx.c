@@ -20,7 +20,7 @@ static uint16_t *g_unicode = NULL;
 void gfx_initialize(uint32_t* pixels, uint32_t width, uint32_t height, uint32_t bytes_per_pixel, uint32_t pitch)
 {
     uint32_t p_address = (uint32_t)pixels;
-    char* v_address = (char*)g_gfx_memory;
+    char* v_address = (char*)GFX_MEMORY;
 
     //Usually physical and virtual are the same here but of course they don't have to
 

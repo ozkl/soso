@@ -1,51 +1,33 @@
+OUTPUT_FORMAT(elf32-i386)
 ENTRY(_start)
+
+phys = 0x100000;
+offset = 0xC0000000;
+virt = offset + phys;
 
 SECTIONS
 {
-        . = 1M;
+    . = virt;
 
-        /* Code. */
-        .text BLOCK(4K) : ALIGN(4K)
-        {
-                *(.multiboot)
-                *(.text)
-        }
+    .text : AT(ADDR(.text) - offset) {
+        g_code = .;
+        *(.text)
+        *(.rodata)
+        . = ALIGN(0x1000);
+    }
 
-        /* Read-only data. */
-        .rodata BLOCK(4K) : ALIGN(4K)
-        {
-                *(.rodata)
-        }
+    .data : AT(ADDR(.data) - offset) {
+        g_data = .;
+        *(.data)
+        . = ALIGN(0x1000);
+    }
 
-        /* Read-write data (initialized) */
-        .data BLOCK(4K) : ALIGN(4K)
-        {
-                *(.data)
-        }
+    .bss : AT(ADDR(.bss) - offset) {
+        g_bss = .;
+        *(COMMON)
+        *(.bss)
+        . = ALIGN(0x1000);
+    }
 
-        /* Read-write data (uninitialized) and stack */
-        .bss BLOCK(4K) : ALIGN(4K)
-        {
-                *(COMMON)
-                *(.bss)
-        }
-
-        _kernel_end = .;
-
- 
-
-        . = ALIGN(4K);
-
-        _pd_area_begin = .;
-
-        /* reserve 4MB */
-        .pg_tables_reserve (NOLOAD) : ALIGN(4K)
-        {
-                . = 0x0400000;
-        }
-        
-        _pd_area_end = .;
-
-        _kernel_reserved_end = .;
-
+   _kernel_end = .;
 }
