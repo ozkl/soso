@@ -4,7 +4,8 @@
 #include "common.h"
 
 void descriptor_tables_initialize();
-
+void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
+void gdt_flush_gdt();
 
 struct GdtEntry
 {

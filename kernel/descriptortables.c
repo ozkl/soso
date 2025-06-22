@@ -11,7 +11,7 @@ extern void flush_tss();
 
 static void gdt_initialize();
 static void idt_initialize();
-static void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
+void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
 static void set_idt_entry(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);
 
 GdtEntry g_gdt_entries[7];
@@ -65,8 +65,14 @@ static void gdt_initialize()
     flush_tss();
 }
 
+void gdt_flush_gdt()
+{
+    flush_gdt((uint32_t)&g_gdt_pointer);
+    flush_tss();
+}
+
 // Set the value of one GDT entry.
-static void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
+void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
 {
     g_gdt_entries[num].base_low    = (base & 0xFFFF);
     g_gdt_entries[num].base_middle = (base >> 16) & 0xFF;

@@ -251,5 +251,6 @@ BOOL elf_is_valid(const char *elfData);
 uint32_t elf_map_load(Process * process, const char *elf_data);
 uint32_t elf_get_begin_in_memory(const char *elf_data);
 uint32_t elf_get_end_in_memory(const char *elfData);
+uint32_t elf_compute_phdr_runtime(const char *elf_data);
 
 #endif // ELF_H

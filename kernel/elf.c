@@ -122,6 +122,35 @@ uint32_t elf_map_load(Process * process, const char *elf_data)
     return hdr->e_entry;
 }
 
+uint32_t elf_compute_phdr_runtime(const char *elf_data)
+{
+    uint32_t at_phdr = 0;
+
+    Elf32_Ehdr * hdr = (Elf32_Ehdr *) elf_data;
+    Elf32_Phdr * p_entry = (Elf32_Phdr *) (elf_data + hdr->e_phoff);
+
+
+    if (elf_is_valid(elf_data)==FALSE)
+    {
+        return 0;
+    }
+
+    //printkf("Elf Load - Entry: %x\n", hdr->e_entry);
+
+    for (int pe = 0; pe < hdr->e_phnum; pe++, p_entry++)
+    {
+        if (p_entry->p_type == PT_LOAD &&
+                hdr->e_phoff >= p_entry->p_offset &&
+                hdr->e_phoff < p_entry->p_offset + p_entry->p_filesz) {
+
+                at_phdr = p_entry->p_vaddr + (hdr->e_phoff - p_entry->p_offset);
+                break;
+            }
+    }
+
+    return at_phdr;
+}
+
 uint32_t elf_get_begin_in_memory(const char *elf_data)
 {
     uint32_t v_begin;

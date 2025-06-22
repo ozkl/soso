@@ -21,6 +21,7 @@
 #include "errno.h"
 #include "ipc.h"
 #include "socket.h"
+#include "descriptortables.h"
 #include "syscall_getthreads.h"
 
 struct iovec {
@@ -79,6 +80,19 @@ struct linux_dirent64 {
     uint8_t   d_name[]; /* Filename (null-terminated) */
 };
 
+struct user_desc {
+    uint32_t entry_number;
+    uint32_t base_addr;
+    uint32_t limit;
+    uint32_t seg_32bit:1;
+    uint32_t contents:2;
+    uint32_t read_exec_only:1;
+    uint32_t limit_in_pages:1;
+    uint32_t seg_not_present:1;
+    uint32_t useable:1;
+    uint32_t lm:1; // unused
+};
+
 /**************
  * All of syscall entered with interrupts disabled!
  * A syscall can enable interrupts if it is needed.
@@ -134,7 +148,7 @@ int syscall_ptsname_r(int fd, char *buf, int buflen);
 int syscall_printk(const char *str, int num);
 int syscall_readv(int fd, const struct iovec *iovs, int iovcnt);
 int syscall_writev(int fd, const struct iovec *iovs, int iovcnt);
-int syscall_set_thread_area(void *p);
+int syscall_set_thread_area(struct user_desc *desc);
 int syscall_set_tid_address(void* p);
 int syscall_exit_group(int status);
 int syscall_llseek(unsigned int fd, unsigned int offset_high,
@@ -524,12 +538,40 @@ int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
     return result;
 }
 
-int syscall_set_thread_area(void *p)
+#define TLS_SELECTOR   0x30  // GDT index 6, RPL 0
+#define TLS_ENTRY_IDX  6
+
+int syscall_set_thread_area(struct user_desc *desc)
 {
-    if (!check_user_access(p))
+    if (!check_user_access(desc))
     {
         return -EFAULT;
     }
+
+
+    //Validate and force entry index if user said -1
+    if (desc->entry_number == (uint32_t)-1)
+        desc->entry_number = TLS_ENTRY_IDX;
+    else if (desc->entry_number != TLS_ENTRY_IDX)
+        return -EINVAL;
+
+    //Build GDT entry
+    uint32_t base = desc->base_addr;
+    uint32_t limit = desc->limit;
+
+    uint8_t access = 0x92; // present, ring 3, data, writable
+    if (desc->read_exec_only == 0) access |= 0x2;
+    if (desc->contents == 2) access |= 0x10; // TLS
+    if (desc->seg_not_present) access &= ~0x80;
+
+    uint8_t flags = 0x40; // 32-bit
+    if (desc->limit_in_pages) flags |= 0x80;
+
+    set_gdt_entry(TLS_ENTRY_IDX, base, limit, access, flags);
+
+    gdt_flush_gdt();
+    asm volatile("movw %0, %%gs" :: "r"((uint16_t)(TLS_SELECTOR | 0x3)));
+
 
     return 0;
 }

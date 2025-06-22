@@ -280,7 +280,7 @@ static void fill_auxilary_vector(uint32_t location, void* elf_data)
     auxv[2].a_un.a_val = 0;
 
     auxv[3].a_type = AT_PHDR;
-    auxv[3].a_un.a_val = (uint32_t)p_entry;
+    auxv[3].a_un.a_val = elf_compute_phdr_runtime(elf_data);
 
     auxv[4].a_type = AT_PHENT;
     auxv[4].a_un.a_val = sizeof(Elf32_Phdr);//(uint32_t)p_entry->p_memsz;
