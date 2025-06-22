@@ -1604,7 +1604,7 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
 
     uint32_t v_address_hint = (uint32_t)addr;
 
-    if (v_address_hint < USER_OFFSET)
+    if (v_address_hint >= KERNEL_VIRTUAL_BASE)
     {
         v_address_hint = USER_MMAP_START;
     }
@@ -1704,7 +1704,7 @@ int syscall_munmap(void *addr, int length)
 
     if (process)
     {
-        if ((uint32_t)addr < USER_OFFSET)
+        if ((uint32_t)addr >= KERNEL_VIRTUAL_BASE)
         {
             return -1;
         }

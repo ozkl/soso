@@ -2,6 +2,7 @@
 #define ELF_H
 
 #include "common.h"
+#include "process.h"
 
 /*
  * ELF HEADER
@@ -247,7 +248,7 @@ typedef struct {
 #define AUX_CNT 38
 
 BOOL elf_is_valid(const char *elfData);
-uint32_t elf_load(const char *elfData);
+uint32_t elf_map_load(Process * process, const char *elf_data);
 uint32_t elf_get_begin_in_memory(const char *elf_data);
 uint32_t elf_get_end_in_memory(const char *elfData);
 

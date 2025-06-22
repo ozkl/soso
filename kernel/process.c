@@ -212,21 +212,23 @@ static void destroy_string_array(char** array)
 //This function must be called within the correct page directory for target process
 static void copy_argv_env_to_process(uint32_t location, void* elfData, char *const argv[], char *const envp[])
 {
-    char** destination = (char**)location;
+    char** start_location = (char**)location;
+    char** destination = start_location;
     int destination_index = 0;
 
-    //printkf("ARGVENV: destination:%x\n", destination);
 
     int argv_count = get_string_array_item_count(argv);
     int envp_count = get_string_array_item_count(envp);
 
-    //printkf("ARGVENV: argv_count:%d envp_count:%d\n", argv_count, envp_count);
 
-    char* string_table = (char*)location + sizeof(char*) * (argv_count + envp_count + 3) + AUX_VECTOR_SIZE_BYTES;
+    uint32_t* dest = (uint32_t*)destination;
+    *dest = (uint32_t)argv_count; //writing argc at stack pointer
+    dest = dest + 1;
 
-    uint32_t aux_vector_location = location + sizeof(char*) * (argv_count + envp_count + 2);
+    //TODO: make 800 better
+    char* string_table = (char*)(location + 800);
 
-    //printkf("ARGVENV: string_table:%x\n", string_table);
+    destination = (char**)(dest);
 
     for (int i = 0; i < argv_count; ++i)
     {
@@ -254,7 +256,7 @@ static void copy_argv_env_to_process(uint32_t location, void* elfData, char *con
 
     destination[destination_index++] = NULL;
 
-    fill_auxilary_vector(aux_vector_location, elfData);
+    fill_auxilary_vector((uint32_t)&destination[destination_index], elfData);
 }
 
 static void fill_auxilary_vector(uint32_t location, void* elf_data)
@@ -278,13 +280,13 @@ static void fill_auxilary_vector(uint32_t location, void* elf_data)
     auxv[2].a_un.a_val = 0;
 
     auxv[3].a_type = AT_PHDR;
-    auxv[3].a_un.a_val = 0;//(uint32_t)p_entry;
+    auxv[3].a_un.a_val = (uint32_t)p_entry;
 
     auxv[4].a_type = AT_PHENT;
-    auxv[4].a_un.a_val = 0;//(uint32_t)p_entry->p_memsz;
+    auxv[4].a_un.a_val = sizeof(Elf32_Phdr);//(uint32_t)p_entry->p_memsz;
 
     auxv[5].a_type = AT_PHNUM;
-    auxv[5].a_un.a_val = 0;//hdr->e_phnum;
+    auxv[5].a_un.a_val = hdr->e_phnum;
 
     auxv[6].a_type = AT_PAGESZ;
     auxv[6].a_un.a_val = PAGESIZE_4K;
@@ -319,11 +321,11 @@ static void fill_auxilary_vector(uint32_t location, void* elf_data)
     auxv[16].a_type = AT_PLATFORM;
     auxv[16].a_un.a_val = 0;
 
-    auxv[16].a_type = AT_SECURE;
-    auxv[16].a_un.a_val = 0;
-
-    auxv[17].a_type = AT_NULL;
+    auxv[17].a_type = AT_SECURE;
     auxv[17].a_un.a_val = 0;
+
+    auxv[18].a_type = AT_NULL;
+    auxv[18].a_un.a_val = 0;
 }
 
 Process* process_create_from_elf_data(const char* name, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
@@ -390,7 +392,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
         return NULL;
     }
 
-    if (image_data_end_in_memory <= USER_OFFSET)
+    if (image_data_end_in_memory > KERNEL_VIRTUAL_BASE)
     {
         printkf("Could not start the process %s. Image's memory location is wrong! %x-%x\n", name, image_data_begin_in_memory, image_data_end_in_memory);
         return NULL;
@@ -478,9 +480,8 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     
 
     //printkf("image size_in_memory:%d\n", image_size_in_memory);
-    uint32_t brkUpTo = image_data_end_in_memory - USER_OFFSET;
 
-    initialize_program_break(process, brkUpTo);
+    initialize_program_break(process, image_data_begin_in_memory, 0);
 
     allocate_stack(process);
 
@@ -500,7 +501,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     thread->regs.fs = selector;
     thread->regs.gs = selector; //48 | 3;
 
-    uint32_t stack_pointer = USER_STACK - 4;
+    uint32_t stack_pointer = USER_STACK;// - 4;
 
     thread->regs.esp = stack_pointer;
 
@@ -522,7 +523,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     if (elf_data)
     {
-        uint32_t start_location = elf_load((char*)elf_data);
+        uint32_t start_location = elf_map_load(process, (char*)elf_data);
 
         //printkf("process start location:%x\n", start_location);
 

@@ -1,6 +1,7 @@
 #include "elf.h"
 #include "common.h"
-#include "process.h"
+#include "alloc.h"
+#include "vmm.h"
 
 BOOL elf_is_valid(const char *elf_data)
 {
@@ -15,7 +16,44 @@ BOOL elf_is_valid(const char *elf_data)
     return FALSE;
 }
 
-uint32_t elf_load(const char *elf_data)
+static BOOL map_memory(Process * process, uint32_t v_address, uint32_t size)
+{
+    BOOL result = FALSE;
+
+    uint32_t v_page_base = v_address & ~(PAGESIZE_4K - 1);
+    uint32_t page_offset = v_address - v_page_base;
+    uint32_t total_size = page_offset + size;
+    uint32_t page_count = (total_size + PAGESIZE_4K - 1) / PAGESIZE_4K;
+    
+    uint32_t* p_address_array = kmalloc(sizeof(uint32_t) * page_count);
+    for (uint32_t i = 0; i < page_count; ++i)
+    {
+        p_address_array[i] = vmm_acquire_page_frame_4k();
+    }
+    void* mapped = vmm_map_memory(process, (uint32_t)v_page_base, p_address_array, page_count, TRUE);
+    if (NULL == mapped)
+    {
+        for (uint32_t i = 0; i < page_count; ++i)
+        {
+            vmm_release_page_frame_4k(p_address_array[i]);
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < page_count; ++i)
+        {
+            uint32_t v_page_address = v_page_base + i * PAGESIZE_4K;
+            INVALIDATE(v_page_address);
+        }
+        result = TRUE;
+    }
+
+    kfree(p_address_array);
+
+    return result;
+}
+
+uint32_t elf_map_load(Process * process, const char *elf_data)
 {
     uint32_t v_begin, v_end;
     Elf32_Ehdr *hdr;
@@ -32,6 +70,8 @@ uint32_t elf_load(const char *elf_data)
         return 0;
     }
 
+    //printkf("Elf Load - Entry: %x\n", hdr->e_entry);
+
     for (int pe = 0; pe < hdr->e_phnum; pe++, p_entry++)
     {
         //Read each entry
@@ -40,13 +80,7 @@ uint32_t elf_load(const char *elf_data)
         {
             v_begin = p_entry->p_vaddr;
             v_end = p_entry->p_vaddr + p_entry->p_memsz;
-            if (v_begin < USER_OFFSET)
-            {
-                //printkf("INFO: elf_load(): can't load executable below %x. Yours: %x\n", USER_OFFSET, v_begin);
-                //return 0;
-                printkf("Warning: skipped to load %d(%x) bytes to %x\n", p_entry->p_filesz, p_entry->p_filesz, v_begin);
-                continue;
-            }
+            
 
             if (v_end > USER_STACK)
             {
@@ -59,16 +93,28 @@ uint32_t elf_load(const char *elf_data)
 
             //printkf("ELF: entry flags: %x (%d)\n", p_entry->p_flags, p_entry->p_flags);
 
-
-            memcpy((uint8_t *) v_begin, (uint8_t *) (elf_data + p_entry->p_offset), p_entry->p_filesz);
-            if (p_entry->p_memsz > p_entry->p_filesz)
+            const char * entry_data = elf_data + p_entry->p_offset;
+            uint32_t size = p_entry->p_filesz;
+            if (p_entry->p_memsz > size)
             {
-                char* p = (char *) p_entry->p_vaddr;
-                for (int i = p_entry->p_filesz; i < (int)(p_entry->p_memsz); i++)
+                //map for bigger size if mem bigger than file
+                size = p_entry->p_memsz;
+            }
+            BOOL success = map_memory(process, v_begin, size);
+            if (success)
+            {
+                memcpy((uint8_t*)v_begin, (uint8_t*)entry_data, p_entry->p_filesz);
+                if (p_entry->p_memsz > p_entry->p_filesz)
                 {
-                    p[i] = 0;
+                    char* p = (char *)v_begin;
+                    for (uint32_t i = p_entry->p_filesz; i < p_entry->p_memsz; i++)
+                    {
+                        p[i] = 0;
+                    }
                 }
             }
+
+            //TODO: if not success
         }
     }
 

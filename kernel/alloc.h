@@ -9,7 +9,7 @@ void *ksbrk_page(int n);
 void *kmalloc(uint32_t size);
 void kfree(void *v_addr);
 
-void initialize_program_break(Process* process, uint32_t size);
+void initialize_program_break(Process* process, uint32_t begin, uint32_t size);
 void *sbrk(Process* process, int n_bytes);
 
 uint32_t get_kernel_heap_used();

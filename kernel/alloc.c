@@ -190,13 +190,13 @@ static void sbrk_page(Process* process, int page_count)
     }
 }
 
-void initialize_program_break(Process* process, uint32_t size)
+void initialize_program_break(Process* process, uint32_t begin, uint32_t size)
 {
-    process->brk_begin = (char*) USER_OFFSET;
+    process->brk_begin = (char*)begin;
     process->brk_end = process->brk_begin;
     process->brk_next_unallocated_page_begin = process->brk_begin;
 
-    //Userland programs (their code, data,..) start from USER_OFFSET
+    //Userland programs (their code, data,..) must not exceed KERNEL_VIRTUAL_BASE
     //Lets allocate some space for them by moving program break.
 
     sbrk(process, size);

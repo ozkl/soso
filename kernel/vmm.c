@@ -549,7 +549,7 @@ void vmm_initialize_process_pages(Process* process)
         process->mmapped_virtual_memory[page] = 0xFF;
     }
 
-    for (page = PAGE_INDEX_4K(USER_OFFSET); page < (int)(PAGE_INDEX_4K(KERNEL_VIRTUAL_BASE)); ++page)
+    for (page = PAGE_INDEX_4K(0); page < (int)(PAGE_INDEX_4K(KERNEL_VIRTUAL_BASE)); ++page)
     {
         SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, page * PAGESIZE_4K);
     }
