@@ -115,7 +115,7 @@ int syscall_stat(const char *path, struct stat *buf);
 int syscall_fstat(int fd, struct stat *buf);
 int syscall_ioctl(int fd, int32_t request, void *arg);
 int syscall_exit();
-void* syscall_sbrk(uint32_t increment);
+void *syscall_brk(void *addr);
 int syscall_fork();
 int syscall_getpid();
 int syscall_execute(const char *path, char *const argv[], char *const envp[]);
@@ -179,7 +179,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_fstat] = syscall_fstat;
     g_syscall_table[SYS_ioctl] = syscall_ioctl;
     g_syscall_table[SYS_exit] = syscall_exit;
-    g_syscall_table[SYS_sbrk] = syscall_sbrk;
+    g_syscall_table[SYS_brk] = syscall_brk;
     g_syscall_table[SYS_fork] = syscall_fork;
     g_syscall_table[SYS_getpid] = syscall_getpid;
 
@@ -538,9 +538,6 @@ int syscall_writev(int fd, const struct iovec *iovs, int iovcnt)
     return result;
 }
 
-#define TLS_SELECTOR   0x30  // GDT index 6, RPL 0
-#define TLS_ENTRY_IDX  6
-
 int syscall_set_thread_area(struct user_desc *desc)
 {
     if (!check_user_access(desc))
@@ -559,7 +556,7 @@ int syscall_set_thread_area(struct user_desc *desc)
     uint32_t base = desc->base_addr;
     uint32_t limit = desc->limit;
 
-    uint8_t access = 0x92; // present, ring 3, data, writable
+    uint8_t access = 0xF2; // present, ring 3, data, writable, DPL=3 (both ring0 and ring3 settable)
     if (desc->read_exec_only == 0) access |= 0x2;
     if (desc->contents == 2) access |= 0x10; // TLS
     if (desc->seg_not_present) access &= ~0x80;
@@ -567,10 +564,17 @@ int syscall_set_thread_area(struct user_desc *desc)
     uint8_t flags = 0x40; // 32-bit
     if (desc->limit_in_pages) flags |= 0x80;
 
+    Thread* thread = thread_get_current();
+    thread->tls_base = base;
+    thread->tls_limit = limit;
+    thread->tls_access = access;
+    thread->tls_flags = flags;
+
+    vmm_map_memory_simple(thread->owner, base, limit);
+
     set_gdt_entry(TLS_ENTRY_IDX, base, limit, access, flags);
 
-    gdt_flush_gdt();
-    asm volatile("movw %0, %%gs" :: "r"((uint16_t)(TLS_SELECTOR | 0x3)));
+    asm volatile("movw %0, %%gs" :: "r"((uint16_t)(TLS_SELECTOR | 3)));
 
 
     return 0;
@@ -773,21 +777,28 @@ int syscall_exit()
     return -1;
 }
 
-void* syscall_sbrk(uint32_t increment)
+void *syscall_brk(void *addr)
 {
-    //Screen_PrintF("syscall_sbrk() !!! inc:%d\n", increment);
-
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        return sbrk(process, increment);
+        if (0 == addr)
+        {
+            
+        }
+        else
+        {
+            sbrk(process, addr - (void*)process->brk_end);
+        }
     }
     else
     {
         PANIC("Process is NULL!\n");
     }
 
-    return (void*)-1;
+    void *result = process->brk_end;
+
+    return result;
 }
 
 int syscall_fork()

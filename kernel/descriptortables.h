@@ -3,9 +3,11 @@
 
 #include "common.h"
 
+#define TLS_SELECTOR   0x30  // GDT index 6, RPL 0
+#define TLS_ENTRY_IDX  6
+
 void descriptor_tables_initialize();
 void set_gdt_entry(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
-void gdt_flush_gdt();
 
 struct GdtEntry
 {

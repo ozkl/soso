@@ -94,6 +94,11 @@ void tasking_initialize()
 
     thread->regs.esp = 0; //no need because this is already main kernel thread. ESP will written to this in first schedule.
 
+    thread->tls_base = 0;
+    thread->tls_limit = 0xFFFFFFFF;
+    thread->tls_access = 0xF2;
+    thread->tls_flags = 0xC;
+
     thread->kstack.ss0 = 0x10;
     thread->kstack.esp0 = 0;//For kernel threads, this is not required
 
@@ -135,6 +140,11 @@ void thread_create_kthread(Function0 func)
     thread->regs.es = selector;
     thread->regs.fs = selector;
     thread->regs.gs = selector;
+
+    thread->tls_base = 0;
+    thread->tls_limit = 0xFFFFFFFF;
+    thread->tls_access = 0xF2;
+    thread->tls_flags = 0xC;
 
     uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
 
@@ -481,7 +491,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     //printkf("image size_in_memory:%d\n", image_size_in_memory);
 
-    initialize_program_break(process, image_data_begin_in_memory, 0);
+    initialize_program_break(process, USER_BRK_START, 0);
 
     allocate_stack(process);
 
@@ -499,7 +509,12 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     thread->regs.ds = selector;
     thread->regs.es = selector;
     thread->regs.fs = selector;
-    thread->regs.gs = selector; //48 | 3;
+    thread->regs.gs = selector;
+
+    thread->tls_base = 0;
+    thread->tls_limit = 0xFFFFFFFF;
+    thread->tls_access = 0xF2;
+    thread->tls_flags = 0xC;
 
     uint32_t stack_pointer = USER_STACK;// - 4;
 
@@ -1223,6 +1238,9 @@ static void thread_switch_to(Thread* thread, int mode)
             pd[i] = g_kernel_page_directory[i] & ~PG_OWNED;
         }
     }
+
+    set_gdt_entry(TLS_ENTRY_IDX, thread->tls_base, thread->tls_limit, thread->tls_access, thread->tls_flags);
+    asm volatile("movw %0, %%gs" :: "r"((uint16_t)(TLS_SELECTOR | 3)));
 
     //switch_task is in task.asm
 

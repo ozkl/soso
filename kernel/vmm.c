@@ -624,6 +624,43 @@ void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t
     return NULL;
 }
 
+BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size)
+{
+    BOOL result = FALSE;
+
+    uint32_t v_page_base = v_address & ~(PAGESIZE_4K - 1);
+    uint32_t page_offset = v_address - v_page_base;
+    uint32_t total_size = page_offset + size;
+    uint32_t page_count = (total_size + PAGESIZE_4K - 1) / PAGESIZE_4K;
+    
+    uint32_t* p_address_array = kmalloc(sizeof(uint32_t) * page_count);
+    for (uint32_t i = 0; i < page_count; ++i)
+    {
+        p_address_array[i] = vmm_acquire_page_frame_4k();
+    }
+    void* mapped = vmm_map_memory(process, (uint32_t)v_page_base, p_address_array, page_count, TRUE);
+    if (NULL == mapped)
+    {
+        for (uint32_t i = 0; i < page_count; ++i)
+        {
+            vmm_release_page_frame_4k(p_address_array[i]);
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < page_count; ++i)
+        {
+            uint32_t v_page_address = v_page_base + i * PAGESIZE_4K;
+            INVALIDATE(v_page_address);
+        }
+        result = TRUE;
+    }
+
+    kfree(p_address_array);
+
+    return result;
+}
+
 BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
 {
     if (page_count == 0)
@@ -663,3 +700,4 @@ BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
 
     return result;
 }
+

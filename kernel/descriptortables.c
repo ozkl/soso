@@ -59,14 +59,8 @@ static void gdt_initialize()
     uint32_t tss_limit = sizeof(g_tss);
     set_gdt_entry(5, tss_base, tss_limit, 0xE9, 0x00);
 
-    set_gdt_entry(6, 0, 0xFFFFFFFF, 0x80, 0xCF); // Thread Local Storage pointer segment
+    set_gdt_entry(TLS_ENTRY_IDX, 0, 0xFFFFFFFF, 0xF2, 0xC); // Thread Local Storage pointer segment
 
-    flush_gdt((uint32_t)&g_gdt_pointer);
-    flush_tss();
-}
-
-void gdt_flush_gdt()
-{
     flush_gdt((uint32_t)&g_gdt_pointer);
     flush_tss();
 }

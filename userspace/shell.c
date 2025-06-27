@@ -17,8 +17,6 @@
 #define PATH_MAX 1024
 #endif
 
-#include <soso.h>
-
 
 int g_background = 0;
 struct termios orig_termios;

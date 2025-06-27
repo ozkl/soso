@@ -38,6 +38,7 @@ uint32_t vmm_get_free_page_count();
 
 void vmm_initialize_process_pages(Process* process);
 void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own);
+BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size);
 BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count);
 
 #endif // VMM_H

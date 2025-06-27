@@ -215,6 +215,8 @@ void *sbrk(Process* process, int n_bytes)
             int bytesNeededInNewPages = n_bytes - remainingInThePage;
             int neededNewPageCount = ((bytesNeededInNewPages-1) / PAGESIZE_4K) + 1;
 
+            //TODO: check with MMAP_START
+
             uint32_t freePages = vmm_get_free_page_count();
             if ((uint32_t)neededNewPageCount + 1 > freePages)
             {

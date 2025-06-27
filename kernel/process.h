@@ -126,6 +126,11 @@ struct Thread
 
     Process* owner;
 
+    uint32_t tls_base;
+    uint32_t tls_limit;
+    uint8_t tls_access;
+    uint8_t tls_flags;
+
     uint32_t birth_time;
     uint32_t context_switch_count;
     uint32_t context_start_time;

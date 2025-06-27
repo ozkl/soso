@@ -45,7 +45,8 @@ extern uint32_t g_kern_heap_begin;
 #define	KERN_STACK_SIZE		PAGESIZE_4K
 
 
-#define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with sbrk. It can start from USER_OFFSET if sbrk not used!
+#define	USER_MMAP_START     	0x80000000 //This is just for mapping starts searching vmem from here not to conflict with brk.
+#define	USER_BRK_START      	0x70000000
 #define	MEMORY_END              0xFFC00000 //After this address is not usable. Because Page Tables sit there!
 
 #define GFX_MEMORY              0xFF400000

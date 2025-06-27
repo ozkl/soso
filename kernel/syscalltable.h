@@ -20,6 +20,7 @@ enum
     SYS_kill = 37,
     SYS_mkdir = 39,
     SYS_rmdir = 40,
+    SYS_brk = 45,
     SYS_ioctl = 54,
     SYS_mmap = 90,
     SYS_munmap = 91,
@@ -72,8 +73,8 @@ enum
     //TODO: make them linux compatible and delete below
     //we can keep some of them like SYS_getprocs vs.
     //but openpt and ptsname really should be implemented by /dev/ptmx
-    SYS_sbrk = 3001,
-    SYS_posix_openpt,
+    
+    SYS_posix_openpt = 3001,
     SYS_ptsname_r,
     SYS_accept,
     SYS_getthreads,
