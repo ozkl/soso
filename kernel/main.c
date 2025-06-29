@@ -176,13 +176,13 @@ int kmain(struct Multiboot *mboot_ptr)
 
     serial_initialize_file_device();
 
-    if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
+    //if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
     {
         log_initialize(NULL);
     }
-    else
+    //else
     {
-        log_initialize("/dev/ptty9");
+        //log_initialize("/dev/ptty9");
     }
 
     log_printf("Kernel built on %s %s\n", __DATE__, __TIME__);
@@ -215,10 +215,11 @@ int kmain(struct Multiboot *mboot_ptr)
         {
             printkf("Starting shell on TTYs\n");
 
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
+            execute_file("/initrd/test_fork", argv, envp, fs_get_node("/dev/ptty1"));
+            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
+            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
+            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
+            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
 
             /*
             FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");

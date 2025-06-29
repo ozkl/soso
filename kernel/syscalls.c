@@ -803,7 +803,12 @@ void *syscall_brk(void *addr)
 
 int syscall_fork()
 {
-    //Not implemented
+    Process* process = process_fork(thread_get_current());
+
+    if (process)
+    {
+        return process->pid;
+    }
 
     return -1;
 }
@@ -1657,7 +1662,7 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
 
     uint32_t v_address_hint = (uint32_t)addr;
 
-    if (v_address_hint >= KERNEL_VIRTUAL_BASE)
+    if (v_address_hint >= KERNEL_VIRTUAL_BASE || NULL == addr)
     {
         v_address_hint = USER_MMAP_START;
     }

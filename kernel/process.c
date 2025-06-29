@@ -408,6 +408,14 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
         return NULL;
     }
 
+    uint32_t pd = vmm_acquire_page_directory();
+
+    if (0 == pd)
+    {
+        printkf("Failed to create page directory for new process!\n");
+        return NULL;
+    }
+
     if (0 == process_id)
     {
         process_id = generate_process_id();
@@ -423,7 +431,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     strncpy(process->name, name, SOSO_PROCESS_NAME_MAX);
     process->name[SOSO_PROCESS_NAME_MAX - 1] = 0;
     process->pid = process_id;
-    process->pd = vmm_acquire_page_directory();
+    process->pd = pd;
     process->working_directory = fs_get_root_node();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
@@ -460,24 +468,6 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
         process->tty = tty;
     }
 
-    if (process->tty)
-    {
-        //TODO: unlock below when the old TTY system removed
-        /*
-        TtyDev* ttyDev = (TtyDev*)process->tty->private_node_data;
-
-        if (ttyDev->controllingProcess == -1)
-        {
-            ttyDev->controllingProcess = process->pid;
-        }
-
-        if (ttyDev->foregroundProcess == -1)
-        {
-            ttyDev->foregroundProcess = process->pid;
-        }
-        */
-    }
-
     //clone to kernel space since we are changing page directory soon
     char** new_argv = clone_string_array(argv);
     char** new_envp = clone_string_array(envp);
@@ -488,7 +478,6 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     vmm_initialize_process_pages(process);
 
     
-
     //printkf("image size_in_memory:%d\n", image_size_in_memory);
 
     initialize_program_break(process, USER_BRK_START, 0);
@@ -554,6 +543,77 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     fs_open_for_process(thread, process->tty, 0);//0: standard input
     fs_open_for_process(thread, process->tty, 0);//1: standard output
     fs_open_for_process(thread, process->tty, 0);//2: standard error
+
+    return process;
+}
+
+Process * process_fork(Thread *th)
+{
+    Process* parent = th->owner;
+    
+    uint32_t pd = vmm_clone_page_directory_with_memory();
+
+    if (0 == pd)
+    {
+        return NULL;
+    }
+
+    uint32_t process_id = generate_process_id();
+    uint32_t thread_id = generate_thread_id();
+
+    Process* process = (Process*)kmalloc(sizeof(Process));
+    memset((uint8_t*)process, 0, sizeof(Process));
+    strcpy(process->name, parent->name);
+    process->pid = process_id;
+    process->pd = pd;
+
+    Thread* thread = (Thread*)kmalloc(sizeof(Thread));
+    memcpy((uint8_t*)thread, (uint8_t*)th, sizeof(Thread));
+    thread->next = NULL;
+    thread->owner = process;
+    thread->threadId = thread_id;
+    thread->user_mode = 1;
+    thread_resume(thread);
+    thread->birth_time = get_uptime_milliseconds();
+
+    thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    spinlock_init(&(thread->message_queue_lock));
+
+    thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
+
+    thread->regs.cr3 = process->pd;
+
+    process->parent = parent;
+    process->working_directory = parent->working_directory;
+    process->tty = parent->tty;
+
+    memcpy((uint8_t*)process->mmapped_virtual_memory, (uint8_t*)parent->mmapped_virtual_memory, sizeof(parent->mmapped_virtual_memory));
+
+    process->brk_begin = parent->brk_begin;
+    process->brk_end = parent->brk_end;
+    process->brk_next_unallocated_page_begin = parent->brk_next_unallocated_page_begin;
+
+
+    //thread->kstack.ss0 = 0x10;
+    //uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
+    //thread->kstack.esp0 = (uint32_t)(stack + KERN_STACK_SIZE - 4);
+    //thread->kstack.stack_start = (uint32_t)stack;
+
+    Thread* p = g_current_thread;
+
+    while (p->next != NULL)
+    {
+        p = p->next;
+    }
+
+    p->next = thread;
+
+    //TODO: duplicate file descriptors
+    fs_open_for_process(thread, process->tty, 0);//0: standard input
+    fs_open_for_process(thread, process->tty, 0);//1: standard output
+    fs_open_for_process(thread, process->tty, 0);//2: standard error
+
+    thread->regs.eax = 0; //return 0 to child from fork
 
     return process;
 }

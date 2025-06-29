@@ -56,13 +56,7 @@ struct Process
 
     uint32_t pid;
 
-
     uint32_t pd;
-
-    uint32_t b_exec;
-    uint32_t e_exec;
-    uint32_t b_bss;
-    uint32_t e_bss;
 
     char *brk_begin;
     char *brk_end;
@@ -174,6 +168,7 @@ void thread_create_kthread(Function0 func);
 Process* process_create_from_elf_data(const char* name, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* process_create_from_function(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* process_create_ex(const char* name, uint32_t process_id, uint32_t thread_id, Function0 func, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
+Process * process_fork(Thread *th);
 void thread_destroy(Thread* thread);
 void process_destroy(Process* process);
 void process_change_state(Process* process, ThreadState state);

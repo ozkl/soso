@@ -90,8 +90,9 @@ void log_printf(const char *format, ...)
     }
     else
     {
-      serial_printf(buffer);
+      //serial_printf(buffer);
     }
+    serial_printf(buffer);
 
     __builtin_va_end(vl);
 }

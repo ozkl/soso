@@ -210,6 +210,156 @@ uint32_t vmm_acquire_page_directory()
     return p_address;
 }
 
+//when this called, 0x0 address must have been unmapped already (unmap_first_4m())
+uint32_t vmm_clone_page_directory_with_memory()
+{
+    uint32_t p_address = vmm_acquire_page_frame_4k();
+    if ((int32_t)p_address == -1)
+    {
+        return NULL;
+    }
+
+    uint32_t *v_address = (uint32_t*)0x0;
+
+    //map 0x00000000 to access temporarly
+    BOOL mapped_success = vmm_add_page_to_pd((char*)v_address, p_address, 0);
+    if (!mapped_success)
+    {
+        vmm_release_page_frame_4k(p_address);
+        
+        return NULL;
+    }
+
+    uint32_t *pd_new = v_address;
+
+    uint32_t *pd = (uint32_t*)0xFFFFF000;
+
+    uint32_t index_kernel_base_starts = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+
+    for (uint32_t pd_index = 0; pd_index < index_kernel_base_starts; ++pd_index)
+    {
+        uint32_t pd_entry = pd[pd_index];
+        pd_new[pd_index] = pd_entry;
+
+        if ((pd_entry & PG_PRESENT) == PG_PRESENT)
+        {
+            // This page directory entry has a page table
+            uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+            
+            // Allocate a new page table for the new page directory
+            uint32_t new_pt_physical = vmm_acquire_page_frame_4k();
+            if ((int32_t)new_pt_physical == -1)
+            {
+                // Failed to allocate page table, clean up and return
+                vmm_remove_page_from_pd((char*)v_address);
+                vmm_release_page_frame_4k(p_address);
+
+                return NULL;
+            }
+            
+            // Map the new page table temporarily to access it
+            uint32_t* new_pt_virtual = (uint32_t*)0x1000; // Use a different virtual address
+            BOOL mapped_pt = vmm_add_page_to_pd((char*)new_pt_virtual, new_pt_physical, 0);
+            if (!mapped_pt)
+            {
+                vmm_release_page_frame_4k(new_pt_physical);
+                vmm_remove_page_from_pd((char*)v_address);
+                vmm_release_page_frame_4k(p_address);
+
+                return NULL;
+            }
+            
+            // Copy all page table entries
+            for (uint32_t pt_index = 0; pt_index < 1024; ++pt_index)
+            {
+                uint32_t pt_entry = pt[pt_index];
+                
+                if ((pt_entry & PG_PRESENT) == PG_PRESENT)
+                {
+                    // This page table entry has a page frame
+                    uint32_t page_frame = pt_entry & ~0xFFF;
+                    
+                    if ((pt_entry & PG_OWNED) == PG_OWNED)
+                    {
+                        // This is a user-owned page, we need to copy it
+                        uint32_t new_page_frame = vmm_acquire_page_frame_4k();
+                        if ((int32_t)new_page_frame == -1)
+                        {
+                            // Failed to allocate new page frame, clean up
+                            vmm_remove_page_from_pd((char*)new_pt_virtual);
+                            vmm_release_page_frame_4k(new_pt_physical);
+                            vmm_remove_page_from_pd((char*)v_address);
+                            vmm_release_page_frame_4k(p_address);
+
+                            return NULL;
+                        }
+                        
+                        // Map the new page frame temporarily to write to it
+                        uint32_t* new_page_virtual = (uint32_t*)0x3000;
+                        BOOL mapped_new = vmm_add_page_to_pd((char*)new_page_virtual, new_page_frame, 0);
+                        if (!mapped_new)
+                        {
+                            vmm_release_page_frame_4k(new_page_frame);
+                            vmm_remove_page_from_pd((char*)new_pt_virtual);
+                            vmm_release_page_frame_4k(new_pt_physical);
+                            vmm_remove_page_from_pd((char*)v_address);
+                            vmm_release_page_frame_4k(p_address);
+
+                            return NULL;
+                        }
+                        
+                        // Calculate the virtual address of the old page
+                        uint32_t old_page_virtual_addr = (pd_index * 1024 + pt_index) * PAGESIZE_4K;
+                        uint32_t* old_page_virtual = (uint32_t*)old_page_virtual_addr;
+                        
+                        // Copy the page contents
+                        memcpy((uint8_t*)new_page_virtual, (uint8_t*)old_page_virtual, PAGESIZE_4K);
+                        
+                        // Unmap temporary mapping
+                        vmm_remove_page_from_pd((char*)new_page_virtual);
+                        
+                        // Set the new page frame in the new page table
+                        new_pt_virtual[pt_index] = new_page_frame | (pt_entry & 0xFFF) | PG_OWNED;
+                    }
+                    else
+                    {
+                        // This is a shared page (like kernel pages), just copy the entry
+                        new_pt_virtual[pt_index] = pt_entry & ~PG_OWNED; // Remove ownership flag
+                    }
+                }
+                else
+                {
+                    // Empty page table entry
+                    new_pt_virtual[pt_index] = 0;
+                }
+            }
+            
+            // Unmap the temporary page table mapping
+            vmm_remove_page_from_pd((char*)new_pt_virtual);
+            
+            // Set the new page table in the new page directory
+            pd_new[pd_index] = new_pt_physical | (pd_entry & 0xFFF) | PG_OWNED;
+        }
+        else
+        {
+            // Empty page directory entry
+            pd_new[pd_index] = 0;
+        }
+    }
+
+    // Copy kernel space entries (shared between all processes)
+    for (uint32_t i = index_kernel_base_starts; i < 1023; ++i)
+    {
+        pd_new[i] = g_kernel_page_directory[i] & ~PG_OWNED;
+    }
+
+    pd_new[1023] = p_address | PG_PRESENT | PG_WRITE;
+
+    vmm_remove_page_from_pd((char*)v_address);
+
+    return p_address;
+}
+
 void vmm_destroy_page_directory_with_memory(uint32_t physical_pd)
 {
     begin_critical_section();
