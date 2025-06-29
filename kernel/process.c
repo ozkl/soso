@@ -392,6 +392,26 @@ static void allocate_args_env_aux(Process* process, uint8_t* elf_data, char *con
 
 Process* process_create_ex(const char* name, uint32_t process_id, uint32_t thread_id, Function0 func, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty)
 {
+    if (elf_data)
+    {
+        if (!elf_is_valid((const char*)elf_data))
+        {
+            log_printf("ELF file is not valid!\n");
+            return NULL;
+        }
+
+        if (!elf_is_static((const char*)elf_data))
+        {
+            log_printf("ELF file is not a static binary!\n");
+            return NULL;
+        }
+
+        if (!elf_is_elf32_x86((const char*)elf_data))
+        {
+            log_printf("ELF file is not 32bit x86 binary!\n");
+            return NULL;
+        }
+    }
     uint32_t image_data_begin_in_memory = elf_get_begin_in_memory((char*)elf_data);
     uint32_t image_data_end_in_memory = elf_get_end_in_memory((char*)elf_data);
     uint32_t image_size_in_memory = image_data_end_in_memory - image_data_begin_in_memory;
@@ -505,15 +525,12 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     thread->tls_access = 0xF2;
     thread->tls_flags = 0xC;
 
-    uint32_t stack_pointer = USER_STACK;// - 4;
-
+    uint32_t stack_pointer = USER_STACK;
     thread->regs.esp = stack_pointer;
-
-
 
     thread->kstack.ss0 = 0x10;
     uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
-    thread->kstack.esp0 = (uint32_t)(stack + KERN_STACK_SIZE - 4);
+    thread->kstack.esp0 = (uint32_t)(stack + KERN_STACK_SIZE);
     thread->kstack.stack_start = (uint32_t)stack;
 
     Thread* p = g_current_thread;
@@ -547,11 +564,11 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     return process;
 }
 
-Process * process_fork(Thread *th)
+Process * process_fork(Thread *parent_thread)
 {
-    Process* parent = th->owner;
+    Process* parent = parent_thread->owner;
     
-    uint32_t pd = vmm_clone_page_directory_with_memory();
+    uint32_t pd = parent->pd;//vmm_clone_page_directory_with_memory();
 
     if (0 == pd)
     {
@@ -567,21 +584,21 @@ Process * process_fork(Thread *th)
     process->pid = process_id;
     process->pd = pd;
 
-    Thread* thread = (Thread*)kmalloc(sizeof(Thread));
-    memcpy((uint8_t*)thread, (uint8_t*)th, sizeof(Thread));
-    thread->next = NULL;
-    thread->owner = process;
-    thread->threadId = thread_id;
-    thread->user_mode = 1;
-    thread_resume(thread);
-    thread->birth_time = get_uptime_milliseconds();
+    Thread* child_thread = (Thread*)kmalloc(sizeof(Thread));
+    memcpy((uint8_t*)child_thread, (uint8_t*)parent_thread, sizeof(Thread));
+    child_thread->next = NULL;
+    child_thread->owner = process;
+    child_thread->threadId = thread_id;
+    child_thread->user_mode = 1;
+    thread_resume(child_thread);
+    child_thread->birth_time = get_uptime_milliseconds();
 
-    thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
-    spinlock_init(&(thread->message_queue_lock));
+    child_thread->message_queue = fifobuffer_create(sizeof(SosoMessage) * MESSAGE_QUEUE_SIZE);
+    spinlock_init(&(child_thread->message_queue_lock));
 
-    thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
+    child_thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = process->pd;
+    child_thread->regs.cr3 = process->pd;
 
     process->parent = parent;
     process->working_directory = parent->working_directory;
@@ -593,11 +610,21 @@ Process * process_fork(Thread *th)
     process->brk_end = parent->brk_end;
     process->brk_next_unallocated_page_begin = parent->brk_next_unallocated_page_begin;
 
+    const uint32_t trap_frame_size = sizeof(Registers);
+    child_thread->kstack.ss0 = 0x10;
+    uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
+    child_thread->kstack.stack_start = (uint32_t)stack;
+    uint8_t* child_tf = (uint8_t*)(stack + KERN_STACK_SIZE - trap_frame_size);
+    uint8_t* parent_tf = (uint8_t*)(parent_thread->kstack.esp0 - trap_frame_size);
+    memcpy(child_tf, parent_tf, trap_frame_size);
+    child_thread->regs.eax = 0; //return 0 to child from fork
+    ((Registers*)child_tf)->eax = 0;  // child sees fork() return 0
+    child_thread->kstack.esp0 = (uint32_t)child_tf + trap_frame_size;
+    child_thread->kstack.ss0 = parent_thread->kstack.ss0;
+    child_thread->regs.esp = (uint32_t)child_tf;
 
-    //thread->kstack.ss0 = 0x10;
-    //uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
-    //thread->kstack.esp0 = (uint32_t)(stack + KERN_STACK_SIZE - 4);
-    //thread->kstack.stack_start = (uint32_t)stack;
+
+
 
     Thread* p = g_current_thread;
 
@@ -606,14 +633,14 @@ Process * process_fork(Thread *th)
         p = p->next;
     }
 
-    p->next = thread;
+    p->next = child_thread;
 
     //TODO: duplicate file descriptors
-    fs_open_for_process(thread, process->tty, 0);//0: standard input
-    fs_open_for_process(thread, process->tty, 0);//1: standard output
-    fs_open_for_process(thread, process->tty, 0);//2: standard error
+    fs_open_for_process(child_thread, process->tty, 0);//0: standard input
+    fs_open_for_process(child_thread, process->tty, 0);//1: standard output
+    fs_open_for_process(child_thread, process->tty, 0);//2: standard error
 
-    thread->regs.eax = 0; //return 0 to child from fork
+    
 
     return process;
 }

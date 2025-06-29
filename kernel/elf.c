@@ -16,6 +16,55 @@ BOOL elf_is_valid(const char *elf_data)
     return FALSE;
 }
 
+BOOL elf_is_static(const char *elf_data)
+{
+    const Elf32_Ehdr *ehdr = (const Elf32_Ehdr *) elf_data;
+    const Elf32_Phdr *phdr = (const Elf32_Phdr *)(elf_data + ehdr->e_phoff);
+
+    for (int i = 0; i < ehdr->e_phnum; i++)
+    {
+        if (phdr[i].p_type == PT_DYNAMIC)
+        {
+            return FALSE;  // Dynamic section present -> dynamically linked
+        }
+    }
+
+    return TRUE;  // No PT_DYNAMIC -> statically linked
+}
+
+BOOL elf_is_elf32_x86(const char *elf_data)
+{
+    const Elf32_Ehdr *ehdr = (const Elf32_Ehdr *) elf_data;
+
+    // Check ELF class is 32-bit
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS32)
+    {
+        return FALSE;
+    }
+
+    // Check data encoding (little endian for i386)
+    if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
+    {
+        return FALSE;
+    }
+
+    // Check machine type is x86
+    if (ehdr->e_machine != EM_386)
+    {
+        return FALSE;
+    }
+
+    // Check it's a known type (optional: EXEC, DYN, REL)
+    if (ehdr->e_type != ET_EXEC &&
+        ehdr->e_type != ET_DYN &&
+        ehdr->e_type != ET_REL)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 uint32_t elf_map_load(Process * process, const char *elf_data)
 {
     uint32_t v_begin, v_end;
@@ -28,7 +77,7 @@ uint32_t elf_map_load(Process * process, const char *elf_data)
 
     s_entry = (Elf32_Scdr*) (elf_data + hdr->e_shoff);
 
-    if (elf_is_valid(elf_data)==FALSE)
+    if (elf_is_valid(elf_data) == FALSE)
     {
         return 0;
     }

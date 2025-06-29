@@ -59,6 +59,24 @@ typedef struct {
 #define	EV_CURRENT	1
 #define	ELFVERSION	EV_CURRENT
 
+
+#define ET_NONE		0
+#define ET_REL		1
+#define ET_EXEC		2
+#define ET_DYN		3
+#define ET_CORE		4
+#define	ET_NUM		5
+#define ET_LOOS		0xfe00
+#define ET_HIOS		0xfeff
+#define ET_LOPROC	0xff00
+#define ET_HIPROC	0xffff
+
+#define EM_NONE		 0
+#define EM_M32		 1
+#define EM_SPARC	 2
+#define EM_386		 3
+#define EM_68K		 4
+
 /*
  * PROGRAM HEADER
  */
@@ -247,7 +265,9 @@ typedef struct {
 
 #define AUX_CNT 38
 
-BOOL elf_is_valid(const char *elfData);
+BOOL elf_is_valid(const char *elf_data);
+BOOL elf_is_static(const char *elf_data);
+BOOL elf_is_elf32_x86(const char *elf_data);
 uint32_t elf_map_load(Process * process, const char *elf_data);
 uint32_t elf_get_begin_in_memory(const char *elf_data);
 uint32_t elf_get_end_in_memory(const char *elfData);
