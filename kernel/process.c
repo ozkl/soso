@@ -567,8 +567,8 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 Process * process_fork(Thread *parent_thread)
 {
     Process* parent = parent_thread->owner;
-    
-    uint32_t pd = parent->pd;//vmm_clone_page_directory_with_memory();
+
+    uint32_t pd = vmm_clone_page_directory_with_memory2();
 
     if (0 == pd)
     {
@@ -611,19 +611,45 @@ Process * process_fork(Thread *parent_thread)
     process->brk_next_unallocated_page_begin = parent->brk_next_unallocated_page_begin;
 
     const uint32_t trap_frame_size = sizeof(Registers);
-    child_thread->kstack.ss0 = 0x10;
     uint8_t* stack = (uint8_t*)kmalloc(KERN_STACK_SIZE);
     child_thread->kstack.stack_start = (uint32_t)stack;
-    uint8_t* child_tf = (uint8_t*)(stack + KERN_STACK_SIZE - trap_frame_size);
-    uint8_t* parent_tf = (uint8_t*)(parent_thread->kstack.esp0 - trap_frame_size);
-    memcpy(child_tf, parent_tf, trap_frame_size);
-    child_thread->regs.eax = 0; //return 0 to child from fork
-    ((Registers*)child_tf)->eax = 0;  // child sees fork() return 0
+    Registers* child_tf = (Registers*)(stack + KERN_STACK_SIZE - trap_frame_size);
+    Registers* parent_tf = (Registers*)(parent_thread->kstack.esp0 - trap_frame_size);
+    log_printf("parent_tf->eip = %x\n", parent_tf->eip);
+    log_printf("parent_tf->userEsp = %x\n", parent_tf->userEsp);
+    log_printf("parent_tf->cs = %x\n", parent_tf->cs);
+    memcpy((uint8_t*)child_tf, (uint8_t*)parent_tf, trap_frame_size);
+    child_tf->eax = 0;  // child sees fork() return 0
     child_thread->kstack.esp0 = (uint32_t)child_tf + trap_frame_size;
     child_thread->kstack.ss0 = parent_thread->kstack.ss0;
-    child_thread->regs.esp = (uint32_t)child_tf;
+    
+    child_tf->esp = (uint32_t)child_tf;
+
+    child_tf->eip = parent_tf->eip;
+    child_tf->cs = parent_tf->cs;
+    child_tf->eflags = parent_tf->eflags;
+    child_tf->userEsp = parent_tf->userEsp;
+    child_tf->ss = parent_tf->ss;
 
 
+    // ALSO sync the Registers struct fields in Thread!
+    child_thread->regs.eax    = child_tf->eax;
+    child_thread->regs.ecx    = child_tf->ecx;
+    child_thread->regs.edx    = child_tf->edx;
+    child_thread->regs.ebx    = child_tf->ebx;
+    child_thread->regs.esp    = child_tf->userEsp;  // note: from usermode
+    child_thread->regs.ebp    = child_tf->ebp;
+    child_thread->regs.esi    = child_tf->esi;
+    child_thread->regs.edi    = child_tf->edi;
+    child_thread->regs.eip    = child_tf->eip;
+    child_thread->regs.eflags = child_tf->eflags;
+
+    child_thread->regs.cs = child_tf->cs;
+    child_thread->regs.ss = child_tf->ss;
+    child_thread->regs.ds = child_tf->ds;
+    child_thread->regs.es = child_tf->es;
+    child_thread->regs.fs = child_tf->fs;
+    child_thread->regs.gs = child_tf->gs;
 
 
     Thread* p = g_current_thread;
@@ -639,8 +665,6 @@ Process * process_fork(Thread *parent_thread)
     fs_open_for_process(child_thread, process->tty, 0);//0: standard input
     fs_open_for_process(child_thread, process->tty, 0);//1: standard output
     fs_open_for_process(child_thread, process->tty, 0);//2: standard error
-
-    
 
     return process;
 }

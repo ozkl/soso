@@ -215,8 +215,8 @@ int kmain(struct Multiboot *mboot_ptr)
         {
             printkf("Starting shell on TTYs\n");
 
-            execute_file("/initrd/test_fork", argv, envp, fs_get_node("/dev/ptty1"));
-            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
+            //execute_file("/initrd/test_fork", argv, envp, fs_get_node("/dev/ptty1"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
             //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
             //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
             //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));

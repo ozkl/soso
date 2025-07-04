@@ -24,7 +24,7 @@ void vmm_initialize(uint32_t high_mem);
 void unmap_first_4m();
 
 uint32_t vmm_acquire_page_directory();
-uint32_t vmm_clone_page_directory_with_memory();
+uint32_t vmm_clone_page_directory_with_memory2();
 void vmm_destroy_page_directory_with_memory(uint32_t physical_pd);
 
 BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags);

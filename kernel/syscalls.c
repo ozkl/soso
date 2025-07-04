@@ -803,7 +803,15 @@ void *syscall_brk(void *addr)
 
 int syscall_fork()
 {
-    Process* process = process_fork(thread_get_current());
+    Thread *thread = thread_get_current();
+
+    if ((thread->regs.cs & 3) != 3)
+    {
+        printkf("SYSCALL FROM KERNEL, CANNOT FORK\n");
+        return -1;
+    }
+
+    Process* process = process_fork(thread);
 
     if (process)
     {

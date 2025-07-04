@@ -8,6 +8,7 @@ int main(int argc, char** rgv)
     printf("I am parent:%d\n", pid);
 
     int child = fork();
+
     if (child == 0)
     {
         int child_pid = getpid();
@@ -25,11 +26,7 @@ int main(int argc, char** rgv)
             printf("%d:I am parent:%d and my child:%d\n", i, parent_pid, child);
             sleep(1);
         }
-
-        while (1)
-        {
-            sleep(1);
-        }
     }
+
     return 0;
 }
