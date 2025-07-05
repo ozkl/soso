@@ -615,9 +615,7 @@ Process * process_fork(Thread *parent_thread)
     child_thread->kstack.stack_start = (uint32_t)stack;
     Registers* child_tf = (Registers*)(stack + KERN_STACK_SIZE - trap_frame_size);
     Registers* parent_tf = (Registers*)(parent_thread->kstack.esp0 - trap_frame_size);
-    log_printf("parent_tf->eip = %x\n", parent_tf->eip);
-    log_printf("parent_tf->userEsp = %x\n", parent_tf->userEsp);
-    log_printf("parent_tf->cs = %x\n", parent_tf->cs);
+
     memcpy((uint8_t*)child_tf, (uint8_t*)parent_tf, trap_frame_size);
     child_tf->eax = 0;  // child sees fork() return 0
     child_thread->kstack.esp0 = (uint32_t)child_tf + trap_frame_size;
@@ -702,7 +700,7 @@ void thread_destroy(Thread* thread)
 }
 
 //This function should be called in interrupts disabled state
-void process_destroy(Process* process)
+void process_destroy(Process* process, BOOL wake_parent)
 {
     sharedmemory_unmap_for_process_all(process);
     
@@ -750,7 +748,7 @@ void process_destroy(Process* process)
         }
     }
 
-    if (process->parent)
+    if (wake_parent && process->parent)
     {
         thread = g_first_thread;
         while (thread)
@@ -1265,7 +1263,7 @@ void schedule(TimerInt_Registers* registers)
     {
         if (ready_thread->owner->exiting)
         {
-            process_destroy(ready_thread->owner);
+            process_destroy(ready_thread->owner, TRUE);
             ready_thread = look_threads(g_first_thread);
         }
         else if (fifobuffer_get_size(ready_thread->signals) > 0)
@@ -1287,7 +1285,7 @@ void schedule(TimerInt_Registers* registers)
             case SIGILL:
                 printkf("Killing pid:%d in scheduler!\n", ready_thread->owner->pid);
             
-                process_destroy(ready_thread->owner);
+                process_destroy(ready_thread->owner, TRUE);
 
                 ready_thread = look_threads(g_first_thread);
                 break;

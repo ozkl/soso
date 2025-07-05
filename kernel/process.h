@@ -170,7 +170,7 @@ Process* process_create_from_function(const char* name, Function0 func, char *co
 Process* process_create_ex(const char* name, uint32_t process_id, uint32_t thread_id, Function0 func, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process * process_fork(Thread *th);
 void thread_destroy(Thread* thread);
-void process_destroy(Process* process);
+void process_destroy(Process* process, BOOL wake_parent);
 void process_change_state(Process* process, ThreadState state);
 void thread_change_state(Thread* thread, ThreadState state, void* private_data);
 void thread_resume(Thread* thread);

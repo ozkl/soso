@@ -805,12 +805,6 @@ int syscall_fork()
 {
     Thread *thread = thread_get_current();
 
-    if ((thread->regs.cs & 3) != 3)
-    {
-        printkf("SYSCALL FROM KERNEL, CANNOT FORK\n");
-        return -1;
-    }
-
     Process* process = process_fork(thread);
 
     if (process)
@@ -1004,7 +998,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
             {
                 disable_interrupts(); //just in case if a file operation left interrupts enabled.
 
-                Process* new_process = process_create_ex("fromExecve", calling_process->pid, 0, NULL, image, argv, envp, NULL, calling_process->tty);
+                Process* new_process = process_create_ex("fromExecve", calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
 
                 fs_close(f);
 
@@ -1012,7 +1006,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
                 if (new_process)
                 {
-                    process_destroy(calling_process);
+                    process_destroy(calling_process, FALSE);
 
                     wait_for_schedule();
 
@@ -1038,7 +1032,7 @@ int syscall_wait(int *wstatus)
         return -EFAULT;
     }
 
-    //TODO: return pid of exited child. implement with sendsignal
+    int result = -1;
 
     Thread* current_thread = thread_get_current();
 
@@ -1052,6 +1046,7 @@ int syscall_wait(int *wstatus)
             {
                 //We have a child process
 
+                result = (int)thread->owner->pid;
                 thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                 enable_interrupts();
@@ -1071,7 +1066,7 @@ int syscall_wait(int *wstatus)
         PANIC("Process is NULL!\n");
     }
 
-    return -1;
+    return result;
 }
 
 int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
@@ -1086,6 +1081,8 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
         return -EFAULT;
     }
 
+    int result = -1;
+
     Thread* current_thread = thread_get_current();
 
     Process* process = current_thread->owner;
@@ -1098,6 +1095,8 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
             {
                 if (pid < 0 || pid == (int)thread->owner->pid)
                 {
+                    result = (int)thread->owner->pid;
+
                     thread_change_state(current_thread, TS_WAITCHILD, NULL);
 
                     enable_interrupts();
@@ -1118,7 +1117,7 @@ int syscall_wait4(int pid, int *wstatus, int options, struct rusage *rusage)
         PANIC("Process is NULL!\n");
     }
 
-    return -1;
+    return result;
 }
 
 int32_t syscall_clock_gettime64(int32_t clockid, struct timespec *tp)

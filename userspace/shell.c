@@ -101,7 +101,7 @@ void disableRawMode()
 {
   // Only print and restore terminal if we're in the shell process
   if (!is_child_process) {
-    printf("returning original termios\n");
+    //printf("returning original termios\n");
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
     
     // Free history
@@ -331,7 +331,7 @@ int run_command_unix(const char* path, char **argv, char **env)
         int result = execvpe(path, argv, env);
         
         // If execvp returns, it failed
-        printf("Could not execute:%s\n", path);
+        printf("Could not execvpe:%s\n", path);
         fflush(stdout);
         exit(1);
     }
@@ -349,8 +349,8 @@ int run_command_unix(const char* path, char **argv, char **env)
         sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
         // Wait for child
-        int status;
-        waitpid(pid, &status, WUNTRACED);
+        int status = 0;
+        int result = waitpid(pid, &status, WUNTRACED);
 
         // Reclaim terminal control
         tcsetpgrp(STDIN_FILENO, getpgrp());
@@ -362,49 +362,13 @@ int run_command_unix(const char* path, char **argv, char **env)
             return 0;
         }
 
-        return status;
+        return result;
     }
 }
-
-#ifdef SOSO_H
-int run_command_soso(const char* command, char **argv, char **env)
-{
-    const char* tty = NULL;
-    if (g_background)
-    {
-        tty = "/dev/null";
-    }
-
-    int executed_pid = execute_on_tty(command, argv, env, tty);
-
-    if (g_background)
-    {
-        printf("Running in background %s [%d]\n", command, executed_pid);
-    }
-
-    if (executed_pid >= 0 && g_background == 0)
-    {
-        tcsetpgrp(0, executed_pid);
-        int waitStatus = 0;
-        wait(&waitStatus);
-
-        tcsetpgrp(0, getpid());
-
-        //printf("Exited pid:%d\n", result);
-        fflush(stdout);
-    }
-
-    return executed_pid;
-}
-#endif
 
 int run_command(const char* path, char **argv, char **env)
 {
-#ifdef SOSO_H
-    return run_command_soso(path, argv, env);
-#else
     return run_command_unix(path, argv, env);
-#endif
 }
 
 // Clear line and print buffer

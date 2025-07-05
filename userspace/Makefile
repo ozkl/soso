@@ -1,10 +1,10 @@
 SOURCES_C=$(patsubst %.c,%.o,$(wildcard ./*.c))
 
 
-CC=soso-clang
-LD=soso-clang
+CC=musl-clang
+LD=musl-clang
 CFLAGS=-c -O3
-LDFLAGS=-lTinyGL
+LDFLAGS=-static 
 
 OBJ = $(SOURCES_C)
 
@@ -16,5 +16,5 @@ clean:
 
 %.o:%.c
 	mkdir -p bin
-	$(CC) $(CFLAGS) $< -o $@
-	$(LD) $@ $(LDFLAGS) -o bin/$*
+	-$(CC) $(CFLAGS) $< -o $@
+	-$(LD) $@ $(LDFLAGS) -o bin/$*

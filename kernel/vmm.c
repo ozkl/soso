@@ -268,7 +268,6 @@ uint32_t vmm_clone_page_directory_with_memory2()
             return 0;
         }
 
-
         // Iterate over PTEs in this page table
         for (uint32_t pt_index = 0; pt_index < 1024; ++pt_index)
         {
@@ -276,11 +275,11 @@ uint32_t vmm_clone_page_directory_with_memory2()
 
             if ((pt_entry & PG_PRESENT) && (pt_entry & PG_USER))
             {
-                
                 // ⭐️ Always allocate new frame for any user-present page
                 uint32_t new_page_frame = vmm_acquire_page_frame_4k();
                 if ((int32_t)new_page_frame == -1)
                 {
+                    //TODO: handle fails
                     vmm_remove_page_from_pd((char*)new_pt_virtual);
                     vmm_release_page_frame_4k(new_pt_physical);
                     vmm_remove_page_from_pd((char*)v_address);
@@ -318,8 +317,6 @@ uint32_t vmm_clone_page_directory_with_memory2()
                 uint32_t old_flags = (pt_entry & 0xFFF);
                 uint32_t new_flags = old_flags | PG_OWNED;
                 new_pt_virtual[pt_index] = new_page_frame | new_flags;
-
-                //log_printf("CHILD PT_ENTRY(%d:%d): VA %x -> new_frame %x FLAGS old:new %x:%x\n", pd_index, pt_index, old_page_vaddr, new_page_frame, old_flags, new_flags);
             }
             else
             {
@@ -337,7 +334,6 @@ uint32_t vmm_clone_page_directory_with_memory2()
         uint32_t old_pd_flags = (pd_entry & 0xFFF);
         uint32_t new_pd_flags = old_pd_flags | PG_OWNED;
         pd_new[pd_index] = new_pt_physical | new_pd_flags;
-        log_printf("CHILD PD_ENTRY(%d): VA %x -> new_frame %x FLAGS old:new %x:%x\n", pd_index, pd_index << 22, new_pt_physical, old_pd_flags, new_pd_flags);
     }
 
     // ⭐️ Copy entire kernel space region as-is
