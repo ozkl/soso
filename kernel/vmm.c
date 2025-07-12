@@ -84,16 +84,16 @@ void vmm_initialize(uint32_t high_mem)
     g_kern_heap_begin = (index_kernel_base + end_index_4m + 1) * PAGESIZE_4M;
 
 
-    serial_printf("g_kernel_page_directory=%x\n", g_kernel_page_directory);
-    serial_printf("g_kernel_page_directory_physical=%x\n", g_kernel_page_directory_physical);
+    //serial_printf("g_kernel_page_directory=%x\n", g_kernel_page_directory);
+    //serial_printf("g_kernel_page_directory_physical=%x\n", g_kernel_page_directory_physical);
 
-    serial_printf("g_kern_heap_begin=%x\n", g_kern_heap_begin);
+    //serial_printf("g_kern_heap_begin=%x\n", g_kern_heap_begin);
     
 
     //Recursive page directory strategy
     g_kernel_page_directory[1023] = g_kernel_page_directory_physical | PG_PRESENT | PG_WRITE;
     CHANGE_PD(g_kernel_page_directory_physical);
-    serial_printf("calc_physical=%x\n", get_physical_address_of_page_directory());
+    //serial_printf("calc_physical=%x\n", get_physical_address_of_page_directory());
 
     /*
     //Enable paging

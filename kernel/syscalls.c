@@ -132,8 +132,6 @@ int syscall_getcwd(char *buf, size_t size);
 int syscall_chdir(const char *path);
 int syscall_manage_pipe(const char *pipe_name, int operation, int data);
 int syscall_soso_read_dir(int fd, void *dirent, int index);
-uint32_t syscall_get_uptime_ms();
-int syscall_sleep_ms(int ms);
 int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
 int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
@@ -196,8 +194,6 @@ void syscalls_initialize()
     g_syscall_table[SYS_chdir] = syscall_chdir;
     g_syscall_table[SYS_manage_pipe] = syscall_manage_pipe;
     g_syscall_table[SYS_soso_read_dir] = syscall_soso_read_dir;
-    g_syscall_table[SYS_get_uptime_ms] = syscall_get_uptime_ms;
-    g_syscall_table[SYS_sleep_ms] = syscall_sleep_ms;
     g_syscall_table[SYS_execute_on_tty] = syscall_execute_on_tty;
     g_syscall_table[SYS_manage_message] = syscall_manage_message;
     g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
@@ -1620,20 +1616,6 @@ int syscall_manage_pipe(const char *pipe_name, int operation, int data)
     return result;
 }
 
-uint32_t syscall_get_uptime_ms()
-{
-    return get_uptime_milliseconds();
-}
-
-int syscall_sleep_ms(int ms)
-{
-    Thread* thread = thread_get_current();
-
-    sleep_ms(thread, (uint32_t)ms);
-
-    return 0;
-}
-
 int syscall_manage_message(int command, void* message)
 {
     if (!check_user_access(message))
@@ -2188,24 +2170,47 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
     return -1;//on error
 }
 
+#define NSEC_IN_SEC 1000000000
+#define MSEC_IN_SEC 1000
+#define NSEC_IN_MSEC 1000000
 int syscall_nanosleep(const struct timespec *req, struct timespec *rem)
 {
+    if (req == NULL)
+    {
+        return -EINVAL;
+    }
+
     if (!check_user_access((void*)req))
     {
         return -EFAULT;
     }
 
-    if (!check_user_access(rem))
+    if (rem != NULL && !check_user_access(rem))
     {
         return -EFAULT;
     }
 
-    if (req)
+    if (req->tv_nsec < 0 || req->tv_nsec >= NSEC_IN_SEC || req->tv_sec < 0)
     {
-        sleep_ms(g_current_thread, req->tv_sec * 1000);
-
-        return 0;
+        return -EINVAL;
     }
 
-    return -1;
+    if (req->tv_sec > 1000000)
+    {
+        return -EINVAL;
+    }
+
+    uint32_t ms = req->tv_sec * MSEC_IN_SEC;
+    ms += req->tv_nsec / NSEC_IN_MSEC;
+
+    sleep_ms(g_current_thread, ms);
+
+    if (rem)
+    {
+        // We don't support interruption yet, so remaining time is zero.
+        rem->tv_sec = 0;
+        rem->tv_nsec = 0;
+    }
+
+    return 0;
 }

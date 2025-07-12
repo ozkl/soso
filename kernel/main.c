@@ -114,8 +114,6 @@ int kmain(struct Multiboot *mboot_ptr)
 
     serial_initialize();
 
-    serial_printf("kernel_page_directory:%x\n", g_kernel_page_directory);
-
     uint32_t initrd_size = 0;
     uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
     uint8_t* initrd_end_location = initrd_location + initrd_size;
