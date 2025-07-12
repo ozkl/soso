@@ -697,8 +697,29 @@ void vmm_initialize_process_pages(Process* process)
     {
         SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, page * PAGESIZE_4K);
     }
+}
 
-    //Page Tables position marked as used. It is after MEMORY_END.
+BOOL vmm_is_address_mappable(Process* process, uint32_t address, uint32_t page_count)
+{
+    int page_index = 0;
+
+    if (address & 0xFFF)
+    {
+        return FALSE;
+    }
+
+    uint32_t start_index = PAGE_INDEX_4K(address);
+    uint32_t end_index = start_index + page_count;
+
+    for (page_index = start_index; page_index < end_index; ++page_index)
+    {
+        if (IS_PAGEFRAME_USED(process->mmapped_virtual_memory, page_index))
+        {
+            return FALSE;
+        }
+    }
+    
+    return TRUE;
 }
 
 //if this fails (return NULL), the caller should clean up physical page frames
@@ -737,8 +758,6 @@ void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t
         }
     }
 
-    //log_printf("vmm_map_memory: needed:%d foundAdjacent:%d v_mem:%x\n", neededPages, foundAdjacent, v_mem);
-
     if (found_adjacent == page_count)
     {
         int own_flag = 0;
@@ -758,9 +777,13 @@ void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t
             //log_printf("MMAPPED: %s(%d) virtual:%x -> physical:%x owned:%d\n", process->name, process->pid, v, p, own);
 
             SET_PAGEFRAME_USED(process->mmapped_virtual_memory, PAGE_INDEX_4K(v));
+            
+            INVALIDATE(v);
 
             v += PAGESIZE_4K;
         }
+
+        memset((uint8_t*)v_mem, 0, page_count * PAGESIZE_4K);
 
         return (void*)v_mem;
     }
@@ -792,11 +815,6 @@ BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size)
     }
     else
     {
-        for (uint32_t i = 0; i < page_count; ++i)
-        {
-            uint32_t v_page_address = v_page_base + i * PAGESIZE_4K;
-            INVALIDATE(v_page_address);
-        }
         result = TRUE;
     }
 
@@ -812,36 +830,32 @@ BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
         return FALSE;
     }
 
+    if (v_address & 0xFFF)
+    {
+        return FALSE;
+    }
+
     uint32_t page_index = 0;
 
-    uint32_t needed_pages = page_count;
-
-    uint32_t old = v_address;
-    v_address &= 0xFFFFF000;
-
-    //log_printf("pageFrame dealloc from munmap:%x aligned:%x\n", old, v_address);
-
     uint32_t start_index = PAGE_INDEX_4K(v_address);
-    uint32_t end_index = start_index + needed_pages;
+    uint32_t end_index = start_index + page_count;
 
-    BOOL result = FALSE;
 
     for (page_index = start_index; page_index < end_index; ++page_index)
     {
+        char* v_addr = (char*)(page_index * PAGESIZE_4K);
+
         if (IS_PAGEFRAME_USED(process->mmapped_virtual_memory, page_index))
         {
-            char* v_addr = (char*)(page_index * PAGESIZE_4K);
-
             vmm_remove_page_from_pd(v_addr);
-
-            //log_printf("UNMAPPED: %s(%d) virtual:%x\n", process->name, process->pid, v_addr);
-
-            SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, v_addr);
-
-            result = TRUE;
         }
+
+        SET_PAGEFRAME_UNUSED(process->mmapped_virtual_memory, v_addr);
     }
 
-    return result;
+    uint32_t cr3 = read_cr3();
+    CHANGE_PD(cr3);
+
+    return TRUE;
 }
 

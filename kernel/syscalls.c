@@ -780,6 +780,7 @@ int syscall_exit()
 void *syscall_brk(void *addr)
 {
     Process* process = thread_get_current()->owner;
+    
     if (process)
     {
         if (0 == addr)
@@ -797,6 +798,8 @@ void *syscall_brk(void *addr)
     }
 
     void *result = process->brk_end;
+
+    //log_printf("BRK:%x (pid:%d) -> %x\n", addr, process->pid, result);
 
     return result;
 }
@@ -924,7 +927,16 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
-        FileSystemNode* tty_node = fs_get_node_absolute_or_relative(tty_path, process);
+        FileSystemNode* tty_node = NULL;
+        if (tty_path)
+        {
+            tty_node = fs_get_node_absolute_or_relative(tty_path, process);
+        }
+        else
+        {
+            tty_node = process->tty;
+        }
+
         if (node)
         {
             File* f = fs_open(node, 0);
@@ -998,7 +1010,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
             {
                 disable_interrupts(); //just in case if a file operation left interrupts enabled.
 
-                Process* new_process = process_create_ex("fromExecve", calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
+                Process* new_process = process_create_ex(argv[0], calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
 
                 fs_close(f);
 
@@ -1660,81 +1672,83 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 }
 
 //we don't support mmap offset argument
-void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset)
+void* syscall_mmap_internal(void *addr, int length, int prot, int flags, int fd, int offset)
 {
     //TODO: syscall support for 6th argument
     offset = 0;
-
-    //log_printf("syscall_mmap addr:%x length:%d prot:%d flags:%d fd:%d offset:%d\n", addr, length, prot, flags, fd, offset);
-
-    uint32_t v_address_hint = (uint32_t)addr;
-
-    if (v_address_hint >= KERNEL_VIRTUAL_BASE || NULL == addr)
-    {
-        v_address_hint = USER_MMAP_START;
-    }
 
     if (length <= 0)
     {
         return (void*)-1;
     }
 
+    int needed_pages = PAGE_COUNT(length);
+
     Process* process = thread_get_current()->owner;
 
-    if (process)
+    uint32_t v_address_hint = (uint32_t)addr;
+
+    if (flags & MAP_FIXED)
     {
-        if (fd < 0)
+        if (v_address_hint >= KERNEL_VIRTUAL_BASE || NULL == addr)
         {
-            int needed_pages = PAGE_COUNT(length);
-            uint32_t free_pages = vmm_get_free_page_count();
-            //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
-            if ((uint32_t)needed_pages + 1 > free_pages)
-            {
-                return (void*)-1;
-            }
-            uint32_t* physical_array = (uint32_t*)kmalloc(needed_pages * sizeof(uint32_t));
+            return (void*)-1;
+        }
+
+        if (!vmm_is_address_mappable(process, v_address_hint, needed_pages))
+        {
+            return (void*)-1;
+        }
+    }
+    else if (v_address_hint >= KERNEL_VIRTUAL_BASE || NULL == addr)
+    {
+        v_address_hint = USER_MMAP_START;
+    }
+
+
+    if (fd < 0)
+    {
+        
+        uint32_t free_pages = vmm_get_free_page_count();
+        //printkf("alloc from mmap length:%x neededPages:%d freePages:%d\n", length, neededPages, freePages);
+        if ((uint32_t)needed_pages + 1 > free_pages)
+        {
+            return (void*)-1;
+        }
+        uint32_t* physical_array = (uint32_t*)kmalloc(needed_pages * sizeof(uint32_t));
+        for (int i = 0; i < needed_pages; ++i)
+        {
+            uint32_t page_frame = vmm_acquire_page_frame_4k();
+            physical_array[i] = page_frame;
+        }
+
+        void* mem = vmm_map_memory(process, v_address_hint, physical_array, needed_pages, TRUE);
+        if (mem == NULL)
+        {
             for (int i = 0; i < needed_pages; ++i)
             {
-                uint32_t page_frame = vmm_acquire_page_frame_4k();
-                physical_array[i] = page_frame;
+                vmm_release_page_frame_4k(physical_array[i]);
             }
 
-            void* mem = vmm_map_memory(process, v_address_hint, physical_array, needed_pages, TRUE);
-            if (mem != NULL)
-            {
-                memset((uint8_t*)mem, 0, length);
-            }
-            else
-            {
-                for (int i = 0; i < needed_pages; ++i)
-                {
-                    vmm_release_page_frame_4k(physical_array[i]);
-                }
-
-                mem = (void*)-1;
-            }
-            kfree(physical_array);
-
-            return mem;
+            mem = (void*)-1;
         }
-        else
+        kfree(physical_array);
+
+        return mem;
+    }
+    else
+    {
+        if (fd < SOSO_MAX_OPENED_FILES)
         {
-            if (fd < SOSO_MAX_OPENED_FILES)
+            File* file = process->fd[fd];
+
+            if (file)
             {
-                File* file = process->fd[fd];
+                void* ret = fs_mmap(file, length, offset, flags);
 
-                if (file)
+                if (ret)
                 {
-                    void* ret = fs_mmap(file, length, offset, flags);
-
-                    if (ret)
-                    {
-                        return ret;
-                    }
-                }
-                else
-                {
-                    return (void*)-EBADF;
+                    return ret;
                 }
             }
             else
@@ -1742,13 +1756,24 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
                 return (void*)-EBADF;
             }
         }
-    }
-    else
-    {
-        PANIC("Process is NULL!\n");
+        else
+        {
+            return (void*)-EBADF;
+        }
     }
 
     return (void*)-1;
+}
+
+void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset)
+{
+    int pid = thread_get_current()->owner->pid;
+
+    void* result = syscall_mmap_internal(addr, length, prot, flags, fd, offset);
+
+    //log_printf("MMAP addr:%x len:%d prot:%d flags:%d fd:%d -> %x (pid:%d)\n", addr, length, prot, flags, fd, result, pid);
+
+    return result;
 }
 
 void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset)
@@ -1757,8 +1782,7 @@ void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int off
     return syscall_mmap(addr, length, prot, flags, fd, offset);
 }
 
-//WARNING: if length is smaller than previous mmap, what will do to those remaining pages?
-int syscall_munmap(void *addr, int length)
+int syscall_munmap_internal(void *addr, int length)
 {
     if (!check_user_access(addr))
     {
@@ -1789,6 +1813,17 @@ int syscall_munmap(void *addr, int length)
     }
 
     return -1;
+}
+
+int syscall_munmap(void *addr, int length)
+{
+    int pid = thread_get_current()->owner->pid;
+
+    int result = syscall_munmap_internal(addr, length);
+
+    //log_printf("MUNMAP:addr:%x len:%d -> %d (pid:%d)\n", addr, length, result, pid);
+
+    return result;
 }
 
 #define AT_FDCWD (-100)

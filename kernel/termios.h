@@ -195,4 +195,6 @@ struct termios
 #define TIOCGPGRP	0x540F
 #define TIOCSPGRP	0x5410
 
+#define TIOCGPTN 0x5603
+
 #endif // TERMIOS_H

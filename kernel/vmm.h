@@ -3,6 +3,8 @@
 
 #include "common.h"
 
+#define MAP_FIXED      0x10
+
 typedef struct Process Process;
 typedef struct List List;
 
@@ -38,6 +40,7 @@ uint32_t vmm_get_used_page_count();
 uint32_t vmm_get_free_page_count();
 
 void vmm_initialize_process_pages(Process* process);
+BOOL vmm_is_address_mappable(Process* process, uint32_t address, uint32_t page_count);
 void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own);
 BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size);
 BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count);

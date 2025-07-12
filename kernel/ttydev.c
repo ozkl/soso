@@ -40,6 +40,7 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
     TtyDev* tty_dev = kmalloc(sizeof(TtyDev));
     memset((uint8_t*)tty_dev, 0, sizeof(TtyDev));
 
+    tty_dev->pty_number = 0;
     tty_dev->controlling_process = -1;
     tty_dev->foreground_process = -1;
 
@@ -73,11 +74,11 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
     spinlock_init(&tty_dev->buffer_master_read_lock);
     spinlock_init(&tty_dev->slave_readers_lock);
 
-    ++g_name_generator;
+    tty_dev->pty_number = (int32_t)++g_name_generator;
 
     Device master;
     memset((uint8_t*)&master, 0, sizeof(Device));
-    snprintf(master.name, 16, "ptty%d-m", g_name_generator);
+    snprintf(master.name, 16, "ptty%d-m", tty_dev->pty_number);
     master.device_type = FT_CHARACTER_DEVICE;
     master.open = master_open;
     master.close = master_close;
@@ -89,7 +90,7 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
 
     Device slave;
     memset((uint8_t*)&slave, 0, sizeof(Device));
-    snprintf(slave.name, 16, "ptty%d", g_name_generator);
+    snprintf(slave.name, 16, "ptty%d", tty_dev->pty_number);
     slave.device_type = FT_CHARACTER_DEVICE;
     slave.open = slave_open;
     slave.close = slave_close;
@@ -519,6 +520,14 @@ static int32_t slave_ioctl(File *file, int32_t request, void * argp)
         struct termios* term = (struct termios*)argp;
 
         tty->term = *term;
+
+        return 0;//success
+    }
+        break;
+    case TIOCGPTN:
+    {
+        uint32_t * pty_number = (uint32_t*)argp;
+        *pty_number = tty->pty_number;
 
         return 0;//success
     }

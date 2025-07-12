@@ -29,6 +29,7 @@ typedef struct TtyDev
     FileSystemNode* master_node;
     FileSystemNode* slave_node;
     void* private_data;
+    uint32_t pty_number;
     int32_t controlling_process;
     int32_t foreground_process;
     winsize_t winsize;

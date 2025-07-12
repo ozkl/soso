@@ -217,9 +217,9 @@ int kmain(struct Multiboot *mboot_ptr)
 
             //execute_file("/initrd/test_fork", argv, envp, fs_get_node("/dev/ptty1"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
-            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
-            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
-            //execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
 
             /*
             FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");
