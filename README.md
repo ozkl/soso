@@ -4,14 +4,14 @@ It can be built using Nasm and Clang.
 Tested build environments are Linux, FreeBSD.
 
 Soso is a 32-bit x86 operating system and its features are
+- Runs simple statically built Linux binaries
 - Multitasking with processes and threads
 - Paging
 - Kernelspace (runs in ring0) and userspace (runs in ring3) are separated
 - Virtual File System
 - FAT32 filesystem using FatFs
 - System calls
-- Libc (Musl is ported with basic calls like open, read,..)
-- Userspace programs as ELF files
+- Userspace programs as ELF files (32 bit static Linux ELF executables)
 - mmap support
 - Framebuffer graphics (userspace can access with mmap)
 - Shared memory
@@ -20,11 +20,6 @@ Soso is a 32-bit x86 operating system and its features are
 - Unix sockets
 - TTY driver
 
-Soso has Libc, so existing applications depending only on Libc can easly be ported to Soso.
-These applications run on Soso:
-- Nano-X (client/server)
-- Lua
-- Doom
 
 ![Soso](screenshots/soso-v0.3.png)
 
@@ -43,5 +38,6 @@ To build kernel just run:
 
 this will build only kernel (kernel.bin). 
 
-[Building userspace](https://github.com/ozkl/soso/tree/master/toolchain)
+## Building userspace
+You don't need a special compiler! Just build 32 bit static executables for Linux
 
