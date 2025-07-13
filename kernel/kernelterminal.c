@@ -64,7 +64,10 @@ Terminal* terminal_create(BOOL graphic_mode)
     ozterm_set_render_callbacks(terminal->term, refresh_callback, set_character_callback, move_cursor_callback);
     ozterm_set_write_to_master_callback(terminal->term, write_to_master_callback);
 
-    ozterm_set_default_color(terminal->term, 0, 15);
+    OztermColor default_fg = {.use_rgb = 0, .index = 0, .red = 0, .green = 0, .blue = 0};
+    OztermColor default_bg = {.use_rgb = 0, .index = 15, .red = 0, .green = 0, .blue = 0};
+    ozterm_set_default_color(terminal->term, default_fg, default_bg);
+    ozterm_reset_attributes(terminal->term);
     ozterm_clear_full(terminal->term);
 
     terminal->opened_master = fs_open_for_process(thread_get_first(), tty->master_node, 0);
@@ -132,14 +135,63 @@ static void master_read_ready(TtyDev* tty, uint32_t size)
     } while (bytes > 0);
 }
 
+static CellColor convert_color(OztermColor color, OztermColor * default_color)
+{
+    CellColor result;
+
+    if (color.use_rgb)
+    {
+        result.r = color.red;
+        result.g = color.green;
+        result.b = color.blue;
+        result.a = 255;
+    }
+    else
+    {
+        if (color.index >= 0 && color.index < sizeof(g_ansi_colors))
+        {
+            result = g_ansi_colors[color.index];
+        }
+        else
+        {
+            if (default_color)
+            {
+                result = convert_color(*default_color, NULL);
+            }
+        }
+    }
+
+    return result;
+}
+
+static BOOL is_color_same(OztermColor color1, OztermColor color2)
+{
+    if (color1.use_rgb && color2.use_rgb)
+    {
+        if (color1.red == color2.red && color1.green == color2.green && color1.blue == color2.blue)
+        {
+            return TRUE;
+        }
+    }
+    else if (color1.use_rgb == 0 && color2.use_rgb == 0)
+    {
+        if (color1.index == color2.index)
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 static void refresh_callback(Ozterm* term)
 {
     Terminal* terminal = (Terminal*)ozterm_get_custom_data(term);
 
     if (g_active_terminal == terminal)
     {
-        uint8_t default_fg = 0;
-        uint8_t default_bg = 0;
+        OztermColor default_fg;
+        OztermColor default_bg;
         ozterm_get_default_color(term, &default_fg, &default_bg);
         int16_t row_count = ozterm_get_row_count(term);
         int16_t column_count = ozterm_get_column_count(term);
@@ -149,15 +201,9 @@ static void refresh_callback(Ozterm* term)
             for (int16_t column = 0; column < column_count; ++column)
             {
                 OztermCell* cell = row_data + column;
-                uint8_t fg = default_fg;
-                uint8_t bg = default_bg;
-                if (cell->fg_color >= 0 && cell->fg_color < sizeof(g_ansi_colors))
-                    fg = cell->fg_color;
-                if (cell->bg_color >= 0 && cell->bg_color < sizeof(g_ansi_colors))
-                    bg = cell->bg_color;
 
-                CellColor color_fg = g_ansi_colors[fg];
-                CellColor color_bg = g_ansi_colors[bg];
+                CellColor color_fg = convert_color(cell->fg_color, &default_fg);
+                CellColor color_bg = convert_color(cell->bg_color, &default_bg);
                 
                 if (g_graphic_mode)
                     fbterminal_set_character(row, column, cell->character, *(uint32_t*)&color_fg, *(uint32_t*)&color_bg);
@@ -184,19 +230,12 @@ static void set_character_callback(Ozterm* term, int16_t row, int16_t column, Oz
     {
         if (g_graphic_mode)
         {
-            uint8_t default_fg = 0;
-            uint8_t default_bg = 0;
+            OztermColor default_fg;
+            OztermColor default_bg;
             ozterm_get_default_color(term, &default_fg, &default_bg);
 
-            uint8_t fg = default_fg;
-            uint8_t bg = default_bg;
-            if (cell->fg_color >= 0 && cell->fg_color < sizeof(g_ansi_colors))
-                fg = cell->fg_color;
-            if (cell->bg_color >= 0 && cell->bg_color < sizeof(g_ansi_colors))
-                bg = cell->bg_color;
-
-            CellColor color_fg = g_ansi_colors[fg];
-            CellColor color_bg = g_ansi_colors[bg];
+            CellColor color_fg = convert_color(cell->fg_color, &default_fg);
+            CellColor color_bg = convert_color(cell->bg_color, &default_bg);
                 
             fbterminal_set_character(row, column, cell->character, *(uint32_t*)&color_fg, *(uint32_t*)&color_bg);
         }
@@ -221,22 +260,15 @@ static void move_cursor_callback(Ozterm* term, int16_t old_row, int16_t old_colu
     {
         if (g_graphic_mode)
         {
-            uint8_t default_fg = 0;
-            uint8_t default_bg = 0;
+            OztermColor default_fg;
+            OztermColor default_bg;
             ozterm_get_default_color(term, &default_fg, &default_bg);
 
             OztermCell* old_row_data = ozterm_get_row_data(term, old_row);
             OztermCell* old_cell = old_row_data + old_column;
             
-            uint8_t fg = default_fg;
-            uint8_t bg = default_bg;
-            if (old_cell->fg_color >= 0 && old_cell->fg_color < sizeof(g_ansi_colors))
-                fg = old_cell->fg_color;
-            if (old_cell->bg_color >= 0 && old_cell->bg_color < sizeof(g_ansi_colors))
-                bg = old_cell->bg_color;
-
-            CellColor color_fg = g_ansi_colors[fg];
-            CellColor color_bg = g_ansi_colors[bg];
+            CellColor color_fg = convert_color(old_cell->fg_color, &default_fg);
+            CellColor color_bg = convert_color(old_cell->bg_color, &default_bg);
 
             fbterminal_set_character(old_row, old_column, old_cell->character, *(uint32_t*)&color_fg, *(uint32_t*)&color_bg);
 
@@ -246,18 +278,17 @@ static void move_cursor_callback(Ozterm* term, int16_t old_row, int16_t old_colu
             OztermCell* row_data = ozterm_get_row_data(term, row);
             OztermCell* cell = row_data + column;
 
-            if (cell->fg_color >= 0 && cell->fg_color < sizeof(g_ansi_colors))
-                fg = cell->bg_color;
-            if (cell->bg_color >= 0 && cell->bg_color < sizeof(g_ansi_colors))
-                bg = cell->fg_color;
-
-            if (bg == fg)
+            if (is_color_same(cell->fg_color, cell->bg_color))
             {
-                bg = default_fg;
-                fg = default_bg;
+                color_bg = convert_color(default_fg, NULL);
+                color_fg = convert_color(default_bg, NULL);
             }
-            color_fg = g_ansi_colors[fg];
-            color_bg = g_ansi_colors[bg];
+            else
+            {
+                color_fg = convert_color(cell->bg_color, NULL);
+                color_bg = convert_color(cell->fg_color, NULL);
+            }
+            
             fbterminal_set_character(row, column, cell->character, *(uint32_t*)&color_fg, *(uint32_t*)&color_bg);
         }
         else
