@@ -1,22 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <math.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <GL/gl.h>
 #include <zbuffer.h>
 
 #include <nano-X.h>
 
-#include <soso.h>
-
 #ifndef M_PI
 #  define M_PI 3.14159265
 #endif
 
 int __errno = 0;
+
+static uint32_t get_ticks_ms()
+{
+    struct timeval  tp;
+    struct timezone tzp;
+
+    gettimeofday(&tp, &tzp);
+
+    return (tp.tv_sec * 1000) + (tp.tv_usec / 1000); /* return milliseconds */
+}
 
 GR_WINDOW_ID  wid;
 GR_GC_ID      gc;
@@ -237,7 +248,7 @@ void frame()
 
     ++frameCounter;
 
-    unsigned int time = get_uptime_ms();
+    unsigned int time = get_ticks_ms();
     unsigned int diff = time - previousTime;
     if (diff >= 1000)
     {
@@ -281,7 +292,7 @@ int main(int argc, char** argv)
 
     GrCreateTimer(wid, 30);
 
-    previousTime = get_uptime_ms();
+    previousTime = get_ticks_ms();
 
 
     zBuffer = ZB_open( winSizeX, winSizeY, mode, 0, 0, 0, 0);

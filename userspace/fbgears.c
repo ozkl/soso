@@ -1,20 +1,31 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <math.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <GL/gl.h>
 #include <zbuffer.h>
-
-#include <soso.h>
 
 #ifndef M_PI
 #  define M_PI 3.14159265
 #endif
 
 int __errno = 0;
+
+static uint32_t get_ticks_ms()
+{
+    struct timeval  tp;
+    struct timezone tzp;
+
+    gettimeofday(&tp, &tzp);
+
+    return (tp.tv_sec * 1000) + (tp.tv_usec / 1000); /* return milliseconds */
+}
 
 /*
  * Draw a gear wheel.  You'll probably want to call this function when
@@ -239,7 +250,7 @@ int main(int argc, char** argv)
 
         if (buffer != (int*)-1)
         {
-            unsigned int previousTime = get_uptime_ms();
+            unsigned int previousTime = get_ticks_ms();
             unsigned int frameCounter = 0;
             while (1)
             {
@@ -252,7 +263,7 @@ int main(int argc, char** argv)
 
                 ++frameCounter;
 
-                unsigned int time = get_uptime_ms();
+                unsigned int time = get_ticks_ms();
                 unsigned int diff = time - previousTime;
                 if (diff >= 1000)
                 {

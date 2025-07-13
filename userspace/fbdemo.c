@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
-
-#include <soso.h>
 
 int main(int argc, char** argv)
 {
@@ -17,7 +16,7 @@ int main(int argc, char** argv)
         {
             printf("mapped to %p\n", buffer);
 
-            sleep_ms(2000);
+            sleep(2);
 
             while (1)
             {

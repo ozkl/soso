@@ -2,11 +2,9 @@
 # C compiler
 
 # linux
-CC=soso-clang
+CC=musl-clang
 CFLAGS=-Wall -O2
-LFLAGS=
-
-SOSO_SYSROOT=/opt/soso-toolchain/i386-soso/sys-root
+LFLAGS=-static
 
 # for BeOS PPC
 #CC= mwcc

@@ -8,8 +8,6 @@
 
 #include <nano-X.h>
 
-#include <soso.h>
-
 static int get_process_cpu_usage(uint32_t pid, ThreadInfo* threads, uint32_t count)
 {
     for (size_t i = 0; i < count; i++)

@@ -20,8 +20,7 @@ all: $(LIB)
 $(LIB): $(OBJS)
 	rm -f $(LIB)
 	ar --target=elf32-i386 rcs $(LIB) $(OBJS)
-	cp $(LIB) $(SOSO_SYSROOT)/lib/
-	cp -r ../include/* $(SOSO_SYSROOT)/include
+
 clean:
 	rm -f *~ *.o *.a
 

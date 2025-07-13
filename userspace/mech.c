@@ -55,9 +55,11 @@
 /* start various header files needed */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #define GLUT
 #define GLUT_KEY
@@ -67,6 +69,16 @@
 #include <zbuffer.h>
 
 /* end of header files */
+
+static uint32_t get_ticks_ms()
+{
+    struct timeval  tp;
+    struct timezone tzp;
+
+    gettimeofday(&tp, &tzp);
+
+    return (tp.tv_sec * 1000) + (tp.tv_usec / 1000); /* return milliseconds */
+}
 
 /* start of display list definitions */
 #define SOLID_MECH_TORSO       	1
@@ -1743,7 +1755,6 @@ extern int count_triangles;
 
 int __errno = 0;
 
-#include <soso.h>
 
 int
 main(int argc, char **argv)
@@ -1785,7 +1796,7 @@ main(int argc, char **argv)
       {
           Toggle();
 
-          unsigned int previousTime = get_uptime_ms();
+          unsigned int previousTime = get_ticks_ms();
           unsigned int frameCounter = 0;
           while (1)
           {
@@ -1797,7 +1808,7 @@ main(int argc, char **argv)
 
               ++frameCounter;
 
-              unsigned int time = get_uptime_ms();
+              unsigned int time = get_ticks_ms();
               unsigned int diff = time - previousTime;
               if (diff >= 1000)
               {

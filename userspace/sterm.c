@@ -5,8 +5,6 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
-#include <soso.h>
-
 #define BUFFER_SIZE 128
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
