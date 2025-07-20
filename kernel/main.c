@@ -206,31 +206,30 @@ int kmain(struct Multiboot *mboot_ptr)
         printkf("Initrd found at %x - %x (%d bytes)\n", initrd_location, initrd_end_location, initrd_size);
         //now initrd_location is accesible as initrd_location + KERNEL_VIRTUAL_BASE
         ramdisk_create("ramdisk1", initrd_size, initrd_location + KERNEL_VIRTUAL_BASE);
-        //memcpy((uint8_t*)*(uint32_t*)fs_get_node("/dev/ramdisk1")->private_node_data, initrd_location, initrd_size);
+
         BOOL mountSuccess = fs_mount("/dev/ramdisk1", "/initrd", "fat", 0, 0);
 
         if (mountSuccess)
         {
             printkf("Starting shell on TTYs\n");
 
-            //execute_file("/initrd/test_fork", argv, envp, fs_get_node("/dev/ptty1"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
             execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
 
-            /*
+            
             FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");
             Terminal* terminal_x = console_get_terminal_by_slave(tty_node_x);
             if (terminal_x)
             {
                 terminal_x->disabled = TRUE;
 
-                console_set_active_terminal(terminal_x);
+                //console_set_active_terminal(terminal_x);
             }
-            execute_file("/initrd/nano-X", argv, envp, tty_node_x);
-            execute_file("/initrd/tasks", argv, envp, fs_get_node("/dev/null"));
-            */
+            //execute_file("/initrd/nano-X", argv, envp, tty_node_x);
+            //execute_file("/initrd/tasks", argv, envp, fs_get_node("/dev/null"));
+            
         }
         else
         {

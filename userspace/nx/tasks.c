@@ -1,12 +1,55 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <math.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include <nano-X.h>
+
+#define SOSO_MAX_OPENED_FILES 20
+
+#define SOSO_PROCESS_NAME_MAX 32
+
+typedef struct ThreadInfo
+{
+    uint32_t thread_id;
+    uint32_t process_id;
+    uint32_t state;
+    uint32_t user_mode;
+
+    uint32_t birth_time;
+    uint32_t context_switch_count;
+    uint32_t context_start_time;
+    uint32_t context_end_time;
+    uint32_t consumed_cpu_time_ms;
+    uint32_t usage_cpu;
+    uint32_t called_syscall_count;
+} ThreadInfo;
+
+typedef struct ProcInfo
+{
+    uint32_t process_id;
+    int32_t parent_process_id;
+    uint32_t fd[SOSO_MAX_OPENED_FILES];
+
+    char name[SOSO_PROCESS_NAME_MAX];
+    char tty[128];
+    char working_directory[128];
+} ProcInfo;
+
+int32_t getthreads(ThreadInfo* threads, uint32_t max_count, uint32_t flags)
+{
+    return syscall(3004, threads, max_count, flags);
+}
+
+int32_t getprocs(ProcInfo* procs, uint32_t max_count, uint32_t flags)
+{
+    return syscall(3005, procs, max_count, flags);
+}
 
 static int get_process_cpu_usage(uint32_t pid, ThreadInfo* threads, uint32_t count)
 {
@@ -143,7 +186,7 @@ void frame(GR_EVENT* event)
             argv[0] = "/initrd/term";
             argv[1] = NULL;
 
-            execute_on_tty(argv[0], argv, environ, "/dev/null");
+            //execute_on_tty(argv[0], argv, environ, "/dev/null");
         }
 
         nk_layout_row_dynamic(ctx, 22, 1);

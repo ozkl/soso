@@ -18,7 +18,6 @@
 #define MWINCLUDECOLORS
 #include "nano-X.h"
 
-#include <soso.h>
 
 static char termtype_string[] = "TERM=ngterm";
 static char termcap_string[1024] =
@@ -39,6 +38,7 @@ k9=\\EX:s0=\\Ey:";
 #include <fcntl.h>
 #include <pwd.h>
 #include <signal.h>
+#include <unistd.h>
 //#include <utmp.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -1835,6 +1835,11 @@ void sigchild(int signo)
 {
 	GrClose();
 	exit(0);
+}
+
+int execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path)
+{
+	return syscall(3008, path, argv, envp, tty_path);
 }
 
 extern char **environ;

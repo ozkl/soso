@@ -229,7 +229,8 @@ int syscall_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 
 int syscall_accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
-    return -EPERM;
+    //return -EPERM;
+    return syscall_accept(sockfd, addr, addrlen);
 }
 
 
