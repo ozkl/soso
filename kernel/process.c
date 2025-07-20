@@ -1101,7 +1101,7 @@ static void thread_update_state(Thread* t)
         uint32_t uptime = get_uptime_milliseconds();
         uint32_t target = (uint32_t)t->state_privateData;
 
-        if (uptime >= target)
+        if (uptime >= target || fifobuffer_get_size(t->signals) > 0)
         {
             thread_resume(t);
         }
@@ -1308,7 +1308,19 @@ void schedule(TimerInt_Registers* registers)
     start_context(ready_thread);
 }
 
-
+void change_pd_and_sync(uint32_t page_directory)
+{
+    if (page_directory != g_kernel_page_directory_physical)
+    {
+        CHANGE_PD(page_directory);
+        uint32_t* pd = (uint32_t*)0xFFFFF000;
+        uint32_t start_index = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
+        for (uint32_t i = start_index; i < 1023; ++i)
+        {
+            pd[i] = g_kernel_page_directory[i] & ~PG_OWNED;
+        }
+    }
+}
 
 //The mode indicates whether this process was in user mode or kernel mode
 //When it was previously interrupted by the scheduler.
@@ -1337,16 +1349,7 @@ static void thread_switch_to(Thread* thread, int mode)
     }
 
     //sync from kernel page directory
-    if (thread->owner->pd != g_kernel_page_directory_physical)
-    {
-        CHANGE_PD(thread->owner->pd);
-        uint32_t* pd = (uint32_t*)0xFFFFF000;
-        uint32_t start_index = PAGE_INDEX_4M(KERNEL_VIRTUAL_BASE);
-        for (uint32_t i = start_index; i < 1023; ++i)
-        {
-            pd[i] = g_kernel_page_directory[i] & ~PG_OWNED;
-        }
-    }
+    change_pd_and_sync(thread->owner->pd);
 
     set_gdt_entry(TLS_ENTRY_IDX, thread->tls_base, thread->tls_limit, thread->tls_access, thread->tls_flags);
     asm volatile("movw %0, %%gs" :: "r"((uint16_t)(TLS_SELECTOR | 3)));

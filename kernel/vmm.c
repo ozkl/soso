@@ -455,7 +455,7 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
         if (0 != cr3)
         {
             //restore
-            CHANGE_PD(cr3);
+            change_pd_and_sync(cr3);
         }
 
         return FALSE;
@@ -472,7 +472,7 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
     if (0 != cr3)
     {
         //restore
-        CHANGE_PD(cr3);
+        change_pd_and_sync(cr3);
     }
 
     return TRUE;
@@ -539,7 +539,7 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
         if (0 != cr3)
         {
             //restore
-            CHANGE_PD(cr3);
+            change_pd_and_sync(cr3);
         }
 
         return TRUE;
@@ -548,7 +548,7 @@ BOOL vmm_remove_page_from_pd(char *v_addr)
     if (0 != cr3)
     {
         //restore
-        CHANGE_PD(cr3);
+        change_pd_and_sync(cr3);
     }
 
     return FALSE;

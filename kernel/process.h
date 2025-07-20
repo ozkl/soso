@@ -164,6 +164,7 @@ typedef struct TimerInt_Registers
 typedef void (*Function0)();
 
 void tasking_initialize();
+void change_pd_and_sync(uint32_t page_directory);
 void thread_create_kthread(Function0 func);
 Process* process_create_from_elf_data(const char* name, uint8_t* elf_data, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);
 Process* process_create_from_function(const char* name, Function0 func, char *const argv[], char *const envp[], Process* parent, FileSystemNode* tty);

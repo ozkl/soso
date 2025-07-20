@@ -272,13 +272,13 @@ static void handle_syscall(Registers* regs)
     
     if (regs->eax >= SYSCALL_COUNT || NULL == location)
     {
-        //printkf("Unknown SYSCALL:%d (pid:%d)\n", regs->eax, process->pid);
         log_printf("Unknown SYSCALL:%d (pid:%d) - %d, %d, %d, %d, %d\n", regs->eax, process->pid,
             thread->last_syscall.arguments[0],
             thread->last_syscall.arguments[1],
             thread->last_syscall.arguments[2],
             thread->last_syscall.arguments[3],
             thread->last_syscall.arguments[4]);
+            
 
         thread->last_syscall.state = SYSCALL_ERROR;
 
@@ -286,7 +286,6 @@ static void handle_syscall(Registers* regs)
         return;
     }
 
-    //Screen_PrintF("We are in syscall_handler\n");
     //Screen_PrintInterruptsEnabled();
 
     //I think it is better to enable interrupts in syscall implementations if it is needed.

@@ -26,8 +26,9 @@ void *ksbrk_page(int n)
     uint32_t p_addr;
     int i;
 
-    if ((g_kernel_heap + (n * PAGESIZE_4K)) >= (char *) KERN_HEAP_END) {
-        //Screen_PrintF("ERROR: ksbrk(): no virtual memory left for kernel heap !\n");
+    if ((g_kernel_heap + (n * PAGESIZE_4K)) >= (char *) KERN_HEAP_END)
+    {
+        PANIC("ksbrk(): no virtual memory left for kernel heap !\n");
         return (char *) -1;
     }
 
@@ -36,14 +37,19 @@ void *ksbrk_page(int n)
     for (i = 0; i < n; i++)
     {
         p_addr = vmm_acquire_page_frame_4k();
-
         if ((int)(p_addr) < 0)
         {
-            PANIC("PANIC: ksbrk_page(): no free page frame available !");
+            PANIC("ksbrk_page(): no free page frame available !");
             return (char *) -1;
         }
 
-        vmm_add_page_to_pd(g_kernel_heap, p_addr, 0); //add PG_USER to allow user programs to read kernel heap
+        BOOL mapped = vmm_add_page_to_pd(g_kernel_heap, p_addr, 0); //add PG_USER to allow user programs to read kernel heap
+        if (!mapped)
+        {
+            printkf("map failure: %x -> %x\n", g_kernel_heap, p_addr);
+            PANIC("ksbrk_page(): vmm_add_page_to_pd failed !");
+            return (char *) -1;
+        }
 
         g_kernel_heap += PAGESIZE_4K;
     }
@@ -61,10 +67,10 @@ void *kmalloc(uint32_t size)
         return 0;
     }
 
-    unsigned long realsize;
     struct MallocHeader *chunk, *other;
+    unsigned long realsize = sizeof(struct MallocHeader) + size;
 
-    if ((realsize = sizeof(struct MallocHeader) + size) < KMALLOC_MINSIZE)
+    if (realsize < KMALLOC_MINSIZE)
     {
         realsize = KMALLOC_MINSIZE;
     }
@@ -101,7 +107,6 @@ void *kmalloc(uint32_t size)
             return 0;
         }
     }
-
 
     if (chunk->size - realsize < KMALLOC_MINSIZE)
     {
