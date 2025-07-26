@@ -428,14 +428,6 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
         return NULL;
     }
 
-    uint32_t pd = vmm_acquire_page_directory();
-
-    if (0 == pd)
-    {
-        printkf("Failed to create page directory for new process!\n");
-        return NULL;
-    }
-
     if (0 == process_id)
     {
         process_id = generate_process_id();
@@ -451,7 +443,6 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     strncpy(process->name, name, SOSO_PROCESS_NAME_MAX);
     process->name[SOSO_PROCESS_NAME_MAX - 1] = 0;
     process->pid = process_id;
-    process->pd = pd;
     process->working_directory = fs_get_root_node();
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
@@ -472,8 +463,6 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     thread->signals = fifobuffer_create(SIGNAL_QUEUE_SIZE);
 
-    thread->regs.cr3 = process->pd;
-
     if (parent)
     {
         process->parent = parent;
@@ -491,6 +480,27 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     //clone to kernel space since we are changing page directory soon
     char** new_argv = clone_string_array(argv);
     char** new_envp = clone_string_array(envp);
+
+    uint32_t pd = vmm_acquire_page_directory();
+
+    if (0 == pd)
+    {
+        printkf("Failed to create page directory for new process!\n");
+
+        destroy_string_array(new_argv);
+        destroy_string_array(new_envp);
+
+        fifobuffer_destroy(thread->signals);
+        fifobuffer_destroy(thread->message_queue);
+
+        kfree(thread);
+        kfree(process);
+
+        return NULL;
+    }
+    
+    process->pd = pd;
+    thread->regs.cr3 = process->pd;
 
     //Change memory view (page directory)
     CHANGE_PD(process->pd);

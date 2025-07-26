@@ -225,10 +225,11 @@ int kmain(struct Multiboot *mboot_ptr)
             {
                 terminal_x->disabled = TRUE;
 
-                //console_set_active_terminal(terminal_x);
+                console_set_active_terminal(terminal_x);
             }
-            //execute_file("/initrd/nano-X", argv, envp, tty_node_x);
-            //execute_file("/initrd/tasks", argv, envp, fs_get_node("/dev/null"));
+
+            execute_file("/initrd/nano-X", argv, envp, tty_node_x);
+            execute_file("/initrd/nanowm", argv, envp, fs_get_node("/dev/null"));
             
         }
         else

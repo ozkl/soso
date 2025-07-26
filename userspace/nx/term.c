@@ -1842,6 +1842,16 @@ int execute_on_tty(const char *path, char *const argv[], char *const envp[], con
 	return syscall(3008, path, argv, envp, tty_path);
 }
 
+int posix_openpt_(int flags)
+{
+	return syscall(3001, flags);
+}
+
+int ptsname_r_(int fd, char *buf, int buflen)
+{
+	return syscall(3002, fd, buf, buflen);
+}
+
 extern char **environ;
 
 int term_init(void)
@@ -1850,7 +1860,7 @@ int term_init(void)
 	pid_t pid;
 	char ptyname[50];
 	
-	tfd = posix_openpt(O_RDWR | O_NOCTTY | O_NONBLOCK);
+	tfd = posix_openpt_(O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (tfd < 0) goto err;
     /*
 	signal(SIGCHLD, SIG_DFL);	// required before grantpt()
@@ -1859,7 +1869,7 @@ int term_init(void)
 	signal(SIGINT, sigchild);
     */
 
-    ptsname_r(tfd, ptyname, 50);
+    ptsname_r_(tfd, ptyname, 50);
 
 	char* argv[2];
     argv[0] = "/initrd/shell";
