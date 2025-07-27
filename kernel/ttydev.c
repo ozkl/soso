@@ -78,7 +78,7 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
 
     Device master;
     memset((uint8_t*)&master, 0, sizeof(Device));
-    snprintf(master.name, 16, "ptty%d-m", tty_dev->pty_number);
+    snprintf(master.name, 16, "pts/%d-m", tty_dev->pty_number);
     master.device_type = FT_CHARACTER_DEVICE;
     master.open = master_open;
     master.close = master_close;
@@ -90,7 +90,7 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
 
     Device slave;
     memset((uint8_t*)&slave, 0, sizeof(Device));
-    snprintf(slave.name, 16, "ptty%d", tty_dev->pty_number);
+    snprintf(slave.name, 16, "pts/%d", tty_dev->pty_number);
     slave.device_type = FT_CHARACTER_DEVICE;
     slave.open = slave_open;
     slave.close = slave_close;

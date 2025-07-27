@@ -188,6 +188,11 @@ static void refresh_callback(Ozterm* term)
 {
     Terminal* terminal = (Terminal*)ozterm_get_custom_data(term);
 
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     if (g_active_terminal == terminal)
     {
         OztermColor default_fg;
@@ -226,6 +231,11 @@ static void set_character_callback(Ozterm* term, int16_t row, int16_t column, Oz
 {
     Terminal* terminal = (Terminal*)ozterm_get_custom_data(term);
 
+    if (terminal->disabled)
+    {
+        return;
+    }
+
     if (g_active_terminal == terminal)
     {
         if (g_graphic_mode)
@@ -255,6 +265,11 @@ static void set_character_callback(Ozterm* term, int16_t row, int16_t column, Oz
 static void move_cursor_callback(Ozterm* term, int16_t old_row, int16_t old_column, int16_t row, int16_t column)
 {
     Terminal* terminal = (Terminal*)ozterm_get_custom_data(term);
+
+    if (terminal->disabled)
+    {
+        return;
+    }
 
     if (g_active_terminal == terminal)
     {

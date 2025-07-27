@@ -284,6 +284,49 @@ int str_first_index_of(const char *src, char c)
     return -1;
 }
 
+
+void get_parent_path(const char *input, char *output, size_t output_size)
+{
+    if (!input || !output || output_size == 0)
+    {
+        if (output && output_size > 0)
+            output[0] = '\0';
+        return;
+    }
+
+    size_t len = strlen(input);
+    if (len == 0 || (len == 1 && input[0] == '/'))
+    {
+        snprintf(output, output_size, "/");
+        return;
+    }
+
+    // Skip trailing slashes
+    while (len > 1 && input[len - 1] == '/')
+    {
+        len--;
+    }
+
+    // Find the last slash
+    size_t last_slash = len;
+    while (last_slash > 0 && input[last_slash - 1] != '/')
+    {
+        last_slash--;
+    }
+
+    // Special case: parent of /abc is /
+    if (last_slash == 0)
+    {
+        snprintf(output, output_size, "/");
+    } else
+    {
+        size_t copy_len = (last_slash < output_size - 1) ? last_slash : output_size - 1;
+        memcpy(output, input, copy_len);
+        output[copy_len] = '\0';
+    }
+}
+
+
 uint32_t rand()
 {
     static uint32_t x = 123456789;

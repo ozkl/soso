@@ -213,13 +213,13 @@ int kmain(struct Multiboot *mboot_ptr)
         {
             printkf("Starting shell on TTYs\n");
 
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty1"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty2"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty3"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/ptty4"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/1"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/2"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/3"));
+            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/4"));
 
             
-            FileSystemNode* tty_node_x = fs_get_node("/dev/ptty7");
+            FileSystemNode* tty_node_x = fs_get_node("/dev/pts/7");
             Terminal* terminal_x = console_get_terminal_by_slave(tty_node_x);
             if (terminal_x)
             {
