@@ -4,9 +4,16 @@
 #include "common.h"
 
 #define O_ACCMODE   0003
+
 #define O_RDONLY    00
 #define O_WRONLY    01
-#define O_RDWR      02
+#define O_RDWR      0x2         //Open for reading/writing
+#define O_CREAT	    0x40        //Create if not exists
+#define O_EXCL	    0x80        //Fail if already exists (exclusive)
+#define O_NONBLOCK  0x800       //Non-blocking mode
+#define O_NOFOLLOW  0x20000     //Do not follow symlinks
+#define O_CLOEXEC   0x80000     //Close fd on exec()
+
 #define CHECK_ACCESS(flags, test) ((flags & O_ACCMODE) == test)
 
 typedef enum FileType
@@ -40,6 +47,7 @@ typedef int32_t (*ReadWriteFunction)(File* file, uint32_t size, uint8_t* buffer)
 typedef BOOL (*ReadWriteTestFunction)(File* file);
 typedef int32_t (*ReadWriteBlockFunction)(FileSystemNode* node, uint32_t block_number, uint32_t count, uint8_t* buffer);
 typedef BOOL (*OpenFunction)(File* file, uint32_t flags);
+typedef FileSystemNode * (*CreateFunction)(FileSystemNode* node, char *name, uint32_t flags);
 typedef void (*CloseFunction)(File* file);
 typedef int32_t (*UnlinkFunction)(FileSystemNode* node, uint32_t flags);
 typedef int32_t (*IoctlFunction)(File *file, int32_t request, void * argp);
@@ -77,6 +85,7 @@ typedef struct FileSystemNode
     ReadWriteTestFunction read_test_ready;
     ReadWriteTestFunction write_test_ready;
     OpenFunction open;
+    CreateFunction create;
     CloseFunction close;
     UnlinkFunction unlink;
     IoctlFunction ioctl;

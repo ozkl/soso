@@ -36,6 +36,7 @@ enum
     SYS_rt_sigaction = 174,
     SYS_getcwd = 183,
     SYS_mmap2 = 192,
+    SYS_ftruncate64 = 194,
     SYS_getdents64 = 220,
     SYS_set_thread_area = 243,
     SYS_exit_group = 252,

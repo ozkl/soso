@@ -4,6 +4,7 @@
 #include "alloc.h"
 #include "spinlock.h"
 #include "vmm.h"
+#include "serial.h"
 #include "sharedmemory.h"
 
 static List* g_shm_list = NULL;
@@ -14,6 +15,7 @@ static FileSystemNode* g_shm_root = NULL;
 static FileSystemDirent g_dirent;
 
 static BOOL sharedmemorydir_open(File *file, uint32_t flags);
+static FileSystemNode *sharedmemorydir_create(FileSystemNode* node, char *name, uint32_t flags);
 static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name);
 
@@ -42,23 +44,49 @@ void sharedmemory_initialize()
 
     g_shm_list = list_create();
 
-    g_shm_root = fs_get_node("/system/shm");
+    FileSystemNode * shm_mount_path = fs_get_node("/dev/shm");
 
-    if (NULL == g_shm_root)
+    if (NULL == shm_mount_path)
     {
-        WARNING("/system/shm not found!!");
+        FileSystemNode* dev_node = fs_get_node("/dev");
+        if (fs_mkdir(dev_node, "shm", 0))
+        {
+            shm_mount_path = fs_get_node("/dev/shm");
+        }
+    }
+    
+    if (shm_mount_path)
+    {
+        g_shm_root = kmalloc(sizeof(FileSystemNode));
+        memset((uint8_t*)g_shm_root, 0, sizeof(FileSystemNode));
+        
+        shm_mount_path->node_type |= FT_MOUNT_POINT;
+        shm_mount_path->mount_point = g_shm_root;
+
+        g_shm_root->parent = g_shm_root->parent;
+        g_shm_root->node_type = FT_DIRECTORY;
+        
+        g_shm_root->open = sharedmemorydir_open;
+        g_shm_root->create = sharedmemorydir_create;
+        g_shm_root->finddir = sharedmemorydir_finddir;
+        g_shm_root->readdir = sharedmemorydir_readdir;
+
+        //TODO: when creating and destroying handle nodes through g_shm_root
     }
     else
     {
-        g_shm_root->open = sharedmemorydir_open;
-        g_shm_root->finddir = sharedmemorydir_finddir;
-        g_shm_root->readdir = sharedmemorydir_readdir;
+        WARNING("/dev/shm cannot initialized!!");
     }
 }
 
 static BOOL sharedmemorydir_open(File *file, uint32_t flags)
 {
     return TRUE;
+}
+
+static FileSystemNode *sharedmemorydir_create(FileSystemNode* node, char *name, uint32_t flags)
+{
+    return sharedmemory_create(name);
 }
 
 static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t index)

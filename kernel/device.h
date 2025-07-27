@@ -15,6 +15,7 @@ typedef struct Device
     ReadWriteTestFunction read_test_ready;
     ReadWriteTestFunction write_test_ready;
     OpenFunction open;
+    CreateFunction create;
     CloseFunction close;
     IoctlFunction ioctl;
     FtruncateFunction ftruncate;

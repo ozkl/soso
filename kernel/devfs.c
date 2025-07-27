@@ -131,6 +131,7 @@ FileSystemNode *devfs_create_device_under_node(Device *device, FileSystemNode *n
     strcpy(device_node->name, name);
     device_node->node_type = device->device_type;
     device_node->open = device->open;
+    device_node->create = device->create;
     device_node->close = device->close;
     device_node->read_block = device->read_block;
     device_node->write_block = device->write_block;

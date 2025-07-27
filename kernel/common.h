@@ -88,6 +88,7 @@ char * strstr(const char * haystack, const char * needle);
 char* strchr(const char* str, int ch);
 int str_first_index_of(const char *src, char c);
 void get_parent_path(const char *input, char *output, size_t output_size);
+void get_basename(const char *input, char *output, size_t output_size);
 int snprintf(char* buffer, uint32_t buffer_size, const char *format, ...);
 
 void printkf(const char *format, ...);

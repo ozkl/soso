@@ -141,6 +141,7 @@ int syscall_munmap(void *addr, int length);
 int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
+int syscall_ftruncate64(int fd, uint32_t len_lo, uint32_t len_hi);
 int syscall_posix_openpt(int flags);
 int syscall_ptsname_r(int fd, char *buf, int buflen);
 int syscall_printk(const char *str, int num);
@@ -203,6 +204,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_shm_open] = syscall_shm_open;
     g_syscall_table[SYS_unlink] = syscall_unlink;
     g_syscall_table[SYS_ftruncate] = syscall_ftruncate;
+    g_syscall_table[SYS_ftruncate64] = syscall_ftruncate64;
     g_syscall_table[SYS_posix_openpt] = syscall_posix_openpt;
     g_syscall_table[SYS_ptsname_r] = syscall_ptsname_r;
     g_syscall_table[SYS_printk] = syscall_printk;
@@ -336,6 +338,32 @@ int syscall_open(const char *pathname, int flags)
     if (process)
     {
         FileSystemNode* node = fs_get_node_absolute_or_relative(pathname, process);
+        if (node)
+        {
+            if ((flags & O_CREAT) && (flags & O_EXCL))
+            {
+                return -EEXIST;
+            }
+        }
+        else if (flags & O_CREAT)
+        {
+            char parent_path[255];
+            memset((uint8_t*)parent_path, 0, sizeof(parent_path));
+            get_parent_path(pathname, parent_path, sizeof(parent_path));
+            FileSystemNode* parent_node = fs_get_node_absolute_or_relative(parent_path, process);
+            if (parent_node)
+            {
+                if ( (parent_node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && parent_node->mount_point != NULL )
+                {
+                    parent_node = parent_node->mount_point;
+                }
+                char base_name[128];
+                memset((uint8_t*)base_name, 0, sizeof(base_name));
+                get_basename(pathname, base_name, sizeof(base_name));
+                node = parent_node->create(parent_node, base_name, flags);
+            }
+        }
+
         if (node)
         {
             File* file = fs_open(node, flags);
@@ -1895,7 +1923,6 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
     return -1;
 }
 
-#define O_CREAT 0x200
 
 int syscall_shm_open(const char *name, int oflag, int mode)
 {
@@ -1966,6 +1993,40 @@ int syscall_ftruncate(int fd, int size)
             if (file)
             {
                 return fs_ftruncate(file, size);
+            }
+            else
+            {
+                return -EBADF;
+            }
+        }
+        else
+        {
+            return -EBADF;
+        }
+    }
+    else
+    {
+        PANIC("Process is NULL!\n");
+    }
+
+    return -1;
+}
+
+int syscall_ftruncate64(int fd, uint32_t len_lo, uint32_t len_hi)
+{
+    uint64_t length = ((uint64_t)len_hi << 32) | len_lo;
+
+    Process* process = thread_get_current()->owner;
+    if (process)
+    {
+        if (fd < SOSO_MAX_OPENED_FILES)
+        {
+            File* file = process->fd[fd];
+
+            if (file)
+            {
+                //TODO: large file support 64 bit
+                return fs_ftruncate(file, (int32_t)length);
             }
             else
             {

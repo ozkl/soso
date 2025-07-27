@@ -284,7 +284,6 @@ int str_first_index_of(const char *src, char c)
     return -1;
 }
 
-
 void get_parent_path(const char *input, char *output, size_t output_size)
 {
     if (!input || !output || output_size == 0)
@@ -295,30 +294,35 @@ void get_parent_path(const char *input, char *output, size_t output_size)
     }
 
     size_t len = strlen(input);
-    if (len == 0 || (len == 1 && input[0] == '/'))
+    if (len == 0)
     {
-        snprintf(output, output_size, "/");
+        snprintf(output, output_size, ".");
         return;
     }
 
-    // Skip trailing slashes
+    // Strip trailing slashes (but keep root "/" intact)
     while (len > 1 && input[len - 1] == '/')
     {
         len--;
     }
 
-    // Find the last slash
+    // Find last slash
     size_t last_slash = len;
     while (last_slash > 0 && input[last_slash - 1] != '/')
     {
         last_slash--;
     }
 
-    // Special case: parent of /abc is /
     if (last_slash == 0)
     {
-        snprintf(output, output_size, "/");
-    } else
+        // No slash found or parent is root
+        if (input[0] == '/') {
+            snprintf(output, output_size, "/");
+        } else {
+            snprintf(output, output_size, ".");
+        }
+    }
+    else
     {
         size_t copy_len = (last_slash < output_size - 1) ? last_slash : output_size - 1;
         memcpy(output, input, copy_len);
@@ -326,6 +330,44 @@ void get_parent_path(const char *input, char *output, size_t output_size)
     }
 }
 
+void get_basename(const char *input, char *output, size_t output_size)
+{
+    if (!input || !output || output_size == 0)
+    {
+        if (output && output_size > 0)
+            output[0] = '\0';
+        return;
+    }
+
+    size_t len = strlen(input);
+    if (len == 0) {
+        snprintf(output, output_size, ".");
+        return;
+    }
+
+    // Strip trailing slashes (but keep root "/" intact)
+    while (len > 1 && input[len - 1] == '/')
+    {
+        len--;
+    }
+
+    // Now find last slash
+    size_t last_slash = len;
+    while (last_slash > 0 && input[last_slash - 1] != '/')
+    {
+        last_slash--;
+    }
+
+    const char *base = input + last_slash;
+    size_t base_len = len - last_slash;
+
+    // Copy to output
+    if (base_len >= output_size)
+        base_len = output_size - 1;
+
+    memcpy(output, base, base_len);
+    output[base_len] = '\0';
+}
 
 uint32_t rand()
 {
