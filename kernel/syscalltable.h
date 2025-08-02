@@ -80,7 +80,7 @@ enum
     SYS_accept,
     SYS_getthreads,
     SYS_getprocs,
-    SYS_shm_open,
+    SYS_unused3,
     SYS_execute,
     SYS_execute_on_tty,
     SYS_soso_read_dir,

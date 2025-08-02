@@ -15,6 +15,8 @@ void console_initialize(BOOL graphic_mode);
 
 void console_send_key(uint8_t scancode);
 
+int32_t console_get_active_terminal_index();
+
 void console_set_active_terminal_index(uint32_t index);
 
 void console_set_active_terminal(Terminal* terminal);

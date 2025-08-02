@@ -138,7 +138,6 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
 void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
-int syscall_shm_open(const char *name, int oflag, int mode);
 int syscall_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
 int syscall_ftruncate64(int fd, uint32_t len_lo, uint32_t len_hi);
@@ -201,7 +200,6 @@ void syscalls_initialize()
     g_syscall_table[SYS_mmap] = syscall_mmap;
     g_syscall_table[SYS_mmap2] = syscall_mmap2;
     g_syscall_table[SYS_munmap] = syscall_munmap;
-    g_syscall_table[SYS_shm_open] = syscall_shm_open;
     g_syscall_table[SYS_unlink] = syscall_unlink;
     g_syscall_table[SYS_ftruncate] = syscall_ftruncate;
     g_syscall_table[SYS_ftruncate64] = syscall_ftruncate64;
@@ -1918,38 +1916,6 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
     else
     {
         PANIC("Process is NULL!\n");
-    }
-
-    return -1;
-}
-
-
-int syscall_shm_open(const char *name, int oflag, int mode)
-{
-    if (!check_user_access((char*)name))
-    {
-        return -EFAULT;
-    }
-
-    FileSystemNode* node = NULL;
-
-    if ((oflag & O_CREAT) == O_CREAT)
-    {
-        node = sharedmemory_create(name);
-    }
-    else
-    {
-        node = sharedmemory_get_node(name);
-    }
-
-    if (node)
-    {
-        File* file = fs_open(node, oflag);
-
-        if (file)
-        {
-            return file->fd;
-        }
     }
 
     return -1;

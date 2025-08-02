@@ -117,6 +117,7 @@ struct Thread
 
     ThreadState state;
     void* state_privateData;
+    void* state_privateData2;
 
     Process* owner;
 
