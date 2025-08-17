@@ -7,7 +7,7 @@ CFLAGS  := -c -O3 -I../../../../microwindows/src/include -I../../../TinyGL/inclu
 LDFLAGS := -L../../../../microwindows/src/lib -L../../../TinyGL/src -lTinyGL -lnano-X
 
 BIN_DIR := ../../bin
-EXE     ?= term2                 # set with `make EXE=myprog`
+EXE     ?= term                 # set with `make EXE=myprog`
 TARGET  := $(BIN_DIR)/$(EXE)
 
 .PHONY: all clean

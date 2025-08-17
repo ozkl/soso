@@ -8,7 +8,7 @@
 #include "list.h"
 
 #define SOCKET_NAME_SIZE 64
-#define SOCKET_BUFFER_SIZE (500*1024)
+#define SOCKET_BUFFER_SIZE (1024*1024)
 
 typedef uint16_t sa_family_t;
 typedef uint32_t socklen_t;

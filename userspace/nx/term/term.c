@@ -18,11 +18,17 @@
 
 #include "ozterm.h"
 
+static void terminal_move_cursor(Ozterm* term, int16_t old_row, int16_t old_column, int16_t row, int16_t column);
+static void draw_scrollbar(Ozterm* term);
+
 
 #define stdforeground WHITE
 #define stdbackground BLACK
 #define COLS 80
 #define ROWS 25
+
+#define SCROLLBAR_WIDTH 4
+#define SCROLLBAR_MARGIN 2
 
 #define TITLE		"term"
 
@@ -102,7 +108,7 @@ int term_init(void)
 
 static void window_put_text(int row, int column, char *text)
 {
-	if (row >= 0 && row < ROWS && column >=0 && column < COLS)
+	if (row >= 0 && row < ROWS && column >= 0 && column < COLS)
 	{
 		GrText(g_window_id, g_graphics_context, column * g_font_info.maxwidth, (row + 1) * g_font_info.height, text, -1, GR_TFASCII);
 	}
@@ -129,6 +135,17 @@ static void window_refresh(Ozterm* term)
 
 		window_put_text(y, 0, line);
     }
+
+	int16_t scroll = ozterm_get_scroll(term);
+	
+	draw_scrollbar(term);
+
+	if (scroll == 0)
+	{
+		int16_t cursor_row = ozterm_get_cursor_row(term);
+		int16_t cursor_column = ozterm_get_cursor_column(term);
+		terminal_move_cursor(term, cursor_row, cursor_column, cursor_row, cursor_column);
+	}
 }
 
 void handle_key_press(GR_EVENT_KEYSTROKE *kp)
@@ -139,7 +156,7 @@ void handle_key_press(GR_EVENT_KEYSTROKE *kp)
 	//printf("keypress:%d\n", wkey);
 
 	uint8_t modifier = 0;
-	uint8_t terminal_key = OZTERM_KEY_NONE;
+	int terminal_key = OZTERM_KEY_NONE;
 
 	if (wmodifier & MWKMOD_LSHIFT) modifier |= OZTERM_KEYM_LEFTSHIFT;
 	if (wmodifier & MWKMOD_RSHIFT) modifier |= OZTERM_KEYM_RIGHTSHIFT;
@@ -152,14 +169,14 @@ void handle_key_press(GR_EVENT_KEYSTROKE *kp)
 	case MWKEY_BACKSPACE:terminal_key = OZTERM_KEY_BACKSPACE; break;
 	case MWKEY_ESCAPE:   terminal_key = OZTERM_KEY_ESCAPE; break;
 	case MWKEY_TAB:      terminal_key = OZTERM_KEY_TAB; break;
-	case MWKEY_DOWN:     terminal_key = OZTERM_KEY_DOWN; break;
-	case MWKEY_UP:       terminal_key = OZTERM_KEY_UP; break;
-	case MWKEY_LEFT:     terminal_key = OZTERM_KEY_LEFT; break;
-	case MWKEY_RIGHT:    terminal_key = OZTERM_KEY_RIGHT; break;
-	case MWKEY_HOME:     terminal_key = OZTERM_KEY_HOME; break;
-	case MWKEY_END:      terminal_key = OZTERM_KEY_END; break;
-	case MWKEY_PAGEUP:   terminal_key = OZTERM_KEY_PAGEUP; break;
-	case MWKEY_PAGEDOWN: terminal_key = OZTERM_KEY_PAGEDOWN; break;
+	case MWKEY_DOWN: case MWKEY_KP2:    terminal_key = OZTERM_KEY_DOWN; break;
+	case MWKEY_UP: case MWKEY_KP8:      terminal_key = OZTERM_KEY_UP; break;
+	case MWKEY_LEFT: case MWKEY_KP4:    terminal_key = OZTERM_KEY_LEFT; break;
+	case MWKEY_RIGHT: case MWKEY_KP6:   terminal_key = OZTERM_KEY_RIGHT; break;
+	case MWKEY_HOME: case MWKEY_KP7:    terminal_key = OZTERM_KEY_HOME; break;
+	case MWKEY_END:  case MWKEY_KP1:    terminal_key = OZTERM_KEY_END; break;
+	case MWKEY_PAGEUP: case MWKEY_KP9:  terminal_key = OZTERM_KEY_PAGEUP; break;
+	case MWKEY_PAGEDOWN: case MWKEY_KP3: terminal_key = OZTERM_KEY_PAGEDOWN; break;
 	case MWKEY_F1:  terminal_key = OZTERM_KEY_F1; break;
 	case MWKEY_F2:  terminal_key = OZTERM_KEY_F2; break;
 	case MWKEY_F3:  terminal_key = OZTERM_KEY_F3; break;
@@ -174,14 +191,75 @@ void handle_key_press(GR_EVENT_KEYSTROKE *kp)
 	case MWKEY_F12: terminal_key = OZTERM_KEY_F12; break;
 	
 	default:
-		terminal_key = (uint8_t)wkey;
+		terminal_key = wkey;
 		break;
 	}
 
 	if (terminal_key != OZTERM_KEY_NONE)
 	{
-		ozterm_send_key(g_terminal->term, modifier, terminal_key);
+		if (terminal_key == MWKEY_LSHIFT || terminal_key == MWKEY_RSHIFT ||
+			terminal_key == MWKEY_LALT || terminal_key == MWKEY_RALT ||
+			terminal_key == MWKEY_LCTRL || terminal_key == MWKEY_RCTRL)
+		{
+
+		}
+		else if (((modifier & OZTERM_KEYM_LEFTSHIFT) || (modifier & OZTERM_KEYM_RIGHTSHIFT)) &&
+			(terminal_key == OZTERM_KEY_PAGEUP || terminal_key == OZTERM_KEY_PAGEDOWN))
+		{
+			int16_t offset = terminal_key == OZTERM_KEY_PAGEUP ? 1 : -1;
+
+			ozterm_scroll(g_terminal->term, ozterm_get_scroll(g_terminal->term) + offset);
+		}
+		else
+		{
+			int16_t scroll = ozterm_get_scroll(g_terminal->term);
+			if (scroll != 0)
+			{
+				ozterm_scroll(g_terminal->term, 0);
+			}
+			ozterm_send_key(g_terminal->term, modifier, (uint8_t)terminal_key);
+		}
 	}
+}
+
+static int get_scrollbar_height(Ozterm* term)
+{
+    int16_t row_count = ozterm_get_row_count(term);
+
+    int win_height = row_count * g_font_info.height;
+    int total_lines = ozterm_get_scroll_count(term) + row_count;
+    int visible_lines = row_count;
+
+    // Calculate scrollbar height and position
+    float visible_ratio = (float)visible_lines / total_lines;
+    int bar_height = (int)(visible_ratio * win_height);
+    if (bar_height < 10) bar_height = 10; // minimum size
+
+    return bar_height;
+}
+
+static void draw_scrollbar(Ozterm* term)
+{
+    int16_t scrollback_count = ozterm_get_scroll_count(term);
+
+    // Only show scrollbar if scrollback exists
+    if (scrollback_count > 0)
+    {
+        int scroll_offset = ozterm_get_scroll(term);
+
+        int win_height = ozterm_get_row_count(term) * g_font_info.height;
+        int bar_x = ozterm_get_column_count(term) * g_font_info.maxwidth - SCROLLBAR_WIDTH - SCROLLBAR_MARGIN;
+
+        int bar_height = get_scrollbar_height(term);
+
+        int max_offset = scrollback_count;
+        if (max_offset == 0) max_offset = 1; // avoid divide-by-zero
+
+        float scroll_ratio = (float)scroll_offset / max_offset;
+        int bar_y = (int)((1.0f - scroll_ratio) * (win_height - bar_height));
+
+		GrFillRect(g_window_id, g_graphics_context, bar_x, bar_y, SCROLLBAR_WIDTH, bar_height);
+    }
 }
 
 static void write_to_master(Ozterm* term, const uint8_t* data, int32_t size)
@@ -207,7 +285,44 @@ static void terminal_set_character(Ozterm* term, int16_t row, int16_t column, Oz
 
 static void terminal_move_cursor(Ozterm* term, int16_t old_row, int16_t old_column, int16_t row, int16_t column)
 {
-    //TODO:
+	int16_t scroll_offset = ozterm_get_scroll(term);
+
+    // Only draw the cursor when not scrolled
+    if (scroll_offset != 0)
+        return;
+
+	char text[2];
+
+	GrSetGCUseBackground(g_graphics_context, TRUE);
+
+	if (old_row != row || old_column != column)
+	{
+		OztermCell* old_row_data = ozterm_get_row_data(term, old_row);
+		OztermCell* old_cell = old_row_data + old_column;
+
+		GrSetGCBackground(g_graphics_context, stdbackground);
+		GrSetGCForeground(g_graphics_context, stdforeground);
+		
+		text[0] = old_cell->character;
+		text[1] = 0;
+		window_put_text(old_row, old_column, text);
+
+		//old cursor pos character restored
+	}
+
+    //now draw cursor
+
+	GrSetGCBackground(g_graphics_context, stdforeground);
+	GrSetGCForeground(g_graphics_context, stdbackground);
+
+	OztermCell* row_data = ozterm_get_row_data(term, row);
+    OztermCell* cell = row_data + column;
+	text[0] = cell->character;
+	text[1] = 0;
+	window_put_text(row, column, text);
+
+	GrSetGCBackground(g_graphics_context, stdbackground);
+	GrSetGCForeground(g_graphics_context, stdforeground);
 }
 
 int main(int argc, char **argv)
