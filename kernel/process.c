@@ -1288,6 +1288,7 @@ void schedule(TimerInt_Registers* registers)
 
             switch (signal)
             {
+            case SIGHUP:
             case SIGTERM:
             case SIGKILL:
             case SIGSEGV:

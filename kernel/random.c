@@ -17,7 +17,7 @@ void random_initialize()
     device.open = random_open;
     device.read = random_read;
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 }
 
 static BOOL random_open(File *file, uint32_t flags)

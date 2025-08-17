@@ -118,6 +118,8 @@ int syscall_exit();
 void *syscall_brk(void *addr);
 int syscall_fork();
 int syscall_getpid();
+int syscall_setpgid(int pid, int pgid);
+int syscall_getpgid(int pid);
 int syscall_execute(const char *path, char *const argv[], char *const envp[]);
 int syscall_execve(const char *path, char *const argv[], char *const envp[]);
 int syscall_wait(int *wstatus);
@@ -180,6 +182,8 @@ void syscalls_initialize()
     g_syscall_table[SYS_brk] = syscall_brk;
     g_syscall_table[SYS_fork] = syscall_fork;
     g_syscall_table[SYS_getpid] = syscall_getpid;
+    g_syscall_table[SYS_setpgid] = syscall_setpgid;
+    g_syscall_table[SYS_getpgid] = syscall_getpgid;
 
     g_syscall_table[SYS_execute] = syscall_execute;
     g_syscall_table[SYS_execve] = syscall_execve;
@@ -851,6 +855,18 @@ int syscall_getpid()
         PANIC("Process is NULL!\n");
     }
 
+    return -1;
+}
+
+int syscall_setpgid(int pid, int pgid)
+{
+    //TODO:
+    return -1;
+}
+
+int syscall_getpgid(int pid)
+{
+    //TODO:
     return -1;
 }
 

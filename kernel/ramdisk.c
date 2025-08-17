@@ -46,7 +46,7 @@ BOOL ramdisk_create(const char* devName, uint32_t size, uint8_t* preallocated_bu
     device.ioctl = ioctl;
     device.private_data = ramdisk;
 
-    if (devfs_register_device(&device))
+    if (devfs_register_device(&device, TRUE))
     {
         return TRUE;
     }

@@ -40,7 +40,7 @@ void initialize_mouse()
     device.read = mouse_read;
     interrupt_register(IRQ12, handle_mouse_interrupt);
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 
     memset(g_mouse_packet, 0, MOUSE_PACKET_SIZE);
 

@@ -33,7 +33,7 @@ void framebuffer_initialize(uint8_t* p_address, uint8_t* v_address)
     device.mmap = fb_mmap;
     device.munmap = fb_munmap;
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 }
 
 static BOOL fb_open(File *file, uint32_t flags)

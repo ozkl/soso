@@ -13,7 +13,7 @@ void null_initialize()
     device.device_type = FT_CHARACTER_DEVICE;
     device.open = null_open;
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 }
 
 static BOOL null_open(File *file, uint32_t flags)

@@ -53,7 +53,7 @@ void keyboard_initialize()
 
     g_readers = list_create();
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 
     interrupt_register(IRQ1, handle_keyboard_interrupt);
 }

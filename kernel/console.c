@@ -58,7 +58,7 @@ void console_initialize(BOOL graphic_mode)
     device.open = console_open;
     device.close = console_close;
     device.ioctl = console_ioctl;
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 }
 
 

@@ -124,7 +124,7 @@ static BOOL devfs_mkdir(FileSystemNode *node, const char *name, uint32_t flags)
     return TRUE;
 }
 
-FileSystemNode *devfs_create_device_under_node(Device *device, FileSystemNode *node, const char *name)
+static FileSystemNode *devfs_create_device(Device *device, const char *name)
 {
     FileSystemNode* device_node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8_t*)device_node, 0, sizeof(FileSystemNode));
@@ -144,6 +144,12 @@ FileSystemNode *devfs_create_device_under_node(Device *device, FileSystemNode *n
     device_node->mmap = device->mmap;
     device_node->munmap = device->munmap;
     device_node->private_node_data = device->private_data;
+
+    return device_node;
+}
+
+static void devfs_add_device_under_node(FileSystemNode* device_node, FileSystemNode *node)
+{
     device_node->parent = node;
 
     if (node->first_child == NULL)
@@ -159,11 +165,9 @@ FileSystemNode *devfs_create_device_under_node(Device *device, FileSystemNode *n
         }
         n->next_sibling = device_node;
     }
-
-    return device_node;
 }
 
-FileSystemNode* devfs_register_device(Device* device)
+FileSystemNode* devfs_register_device(Device* device, BOOL add_to_fs)
 {
     FileSystemNode *node = g_dev_root;
     char *path = device->name;
@@ -207,7 +211,12 @@ FileSystemNode* devfs_register_device(Device* device)
             if (NULL == n)
             {
                 //create device
-                return devfs_create_device_under_node(device, node, path_last);
+                FileSystemNode* device_node = devfs_create_device(device, path_last);
+                if (add_to_fs)
+                {
+                    devfs_add_device_under_node(device_node, node);
+                }
+                return device_node;
             }
             else
             {
@@ -220,4 +229,32 @@ FileSystemNode* devfs_register_device(Device* device)
     }
     
     return NULL;
+}
+
+void devfs_unregister_device(FileSystemNode* device_node)
+{
+    if (device_node->parent)
+    {
+        FileSystemNode *parent = device_node->parent;
+
+        if (parent->first_child == device_node)
+        {
+            parent->first_child = device_node->next_sibling;
+        }
+        else
+        {
+            FileSystemNode *n = parent->first_child;
+            while (n && n->next_sibling)
+            {
+                if (n->next_sibling == device_node)
+                {
+                    n->next_sibling = device_node->next_sibling;
+                    break;
+                }
+                n = n->next_sibling;
+            }
+        }
+    }
+
+    kfree(device_node);
 }

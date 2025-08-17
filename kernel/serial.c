@@ -55,7 +55,7 @@ void serial_initialize_file_device()
     device.read_test_ready = serial_read_test_ready;
     device.write_test_ready = serial_write_test_ready;
 
-    devfs_register_device(&device);
+    devfs_register_device(&device, TRUE);
 }
 
 static int port_received()

@@ -40,10 +40,12 @@ typedef struct TtyDev
     FifoBuffer* buffer_echo; //used in only echoing by master_write, no need lock
     List* slave_readers;
     Spinlock slave_readers_lock;
+    int32_t slave_open_count;
     Thread* master_reader;
     TtyIOReady master_read_ready; //used for kernel terminal, because it does not read like a user process
     uint8_t line_buffer[TTYDEV_LINEBUFFER_SIZE];
     uint32_t line_buffer_index;
+    BOOL is_closed;
     struct termios term;
 
 } TtyDev;
