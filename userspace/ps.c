@@ -29,6 +29,7 @@ typedef struct ThreadInfo
 typedef struct ProcInfo
 {
     uint32_t process_id;
+    uint32_t process_gid;
     int32_t parent_process_id;
     uint32_t fd[SOSO_MAX_OPENED_FILES];
 
@@ -83,14 +84,14 @@ int main(int argc, char** argv)
     int thread_count = getthreads(threads, 20, 0);
 
     printf("Process count: %d\n", proc_count);
-    printf("PID NAME CPU(%%)\n");
+    printf("PID\tGID\tPARENT\tCPU(%%)\tCMD\n");
     for (size_t i = 0; i < proc_count; i++)
     {
         ProcInfo* p = procs + i;
 
         uint32_t usage = get_process_cpu_usage(p->process_id, threads, thread_count);
 
-        printf("%d %s %d\n", p->process_id, p->name, usage);
+        printf("%d\t%d\t%d\t%d\t%s\n", p->process_id, p->process_gid, p->parent_process_id, usage, p->name);
     }
 
     return 0;

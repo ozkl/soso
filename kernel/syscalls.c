@@ -860,13 +860,52 @@ int syscall_getpid()
 
 int syscall_setpgid(int pid, int pgid)
 {
-    //TODO:
+    //TODO: leader?
+
+    //printkf("syscall_setpgid: from:%d pid:%d pgid:%d\n", thread_get_current()->owner->pid, pid, pgid);
+    
+    Process* process = NULL;
+    if (pid == 0)
+    {
+        process = thread_get_current()->owner;
+    }
+    else
+    {
+        process = process_get(pid);
+    }
+
+    if (NULL != process)
+    {
+        if (pgid == 0)
+        {
+            pgid = process->pid;
+        }
+
+        process->pgid = pgid;
+
+        return 0;
+    }
+
     return -1;
 }
 
 int syscall_getpgid(int pid)
 {
-    //TODO:
+    Process* process = NULL;
+    if (pid == 0)
+    {
+        process = thread_get_current()->owner;
+    }
+    else
+    {
+        process = process_get(pid);
+    }
+
+    if (NULL != process)
+    {
+        return process->pgid;
+    }
+
     return -1;
 }
 
@@ -1048,6 +1087,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
                 disable_interrupts(); //just in case if a file operation left interrupts enabled.
 
                 Process* new_process = process_create_ex(argv[0], calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
+                new_process->pgid = calling_process->pgid;
 
                 fs_close(f);
 

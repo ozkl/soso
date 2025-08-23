@@ -103,7 +103,7 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
     slave.ioctl = slave_ioctl;
     slave.private_data = tty_dev;
 
-    FileSystemNode* master_node = devfs_register_device(&master, TRUE);
+    FileSystemNode* master_node = devfs_register_device(&master, FALSE);
     FileSystemNode* slave_node = devfs_register_device(&slave, TRUE);
 
     tty_dev->master_node = master_node;
@@ -155,8 +155,9 @@ static void master_close(File *file)
 
     if (tty->foreground_process > 0)
     {
-        process_signal(tty->foreground_process, SIGHUP);
-        process_signal(tty->foreground_process, SIGCONT);
+        //printkf("master_close:sending SIGHUP pgid:%d\n", tty->foreground_process);
+        process_signal_group(tty->foreground_process, SIGHUP);
+        process_signal_group(tty->foreground_process, SIGCONT);
     }
 
     check_and_destroy(tty);
@@ -516,8 +517,9 @@ static int32_t slave_ioctl(File *file, int32_t request, void * argp)
         tty->foreground_process = *(int32_t*)argp;
         if (tty->is_closed)
         {
-            process_signal(tty->foreground_process, SIGHUP);
-            process_signal(tty->foreground_process, SIGCONT);
+            //printkf("ioctl:sending SIGHUP pgid:%d\n", tty->foreground_process);
+            process_signal_group(tty->foreground_process, SIGHUP);
+            process_signal_group(tty->foreground_process, SIGCONT);
         }
         return 0;
         break;

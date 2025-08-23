@@ -55,6 +55,7 @@ struct Process
     char name[SOSO_PROCESS_NAME_MAX];
 
     uint32_t pid;
+    uint32_t pgid;
 
     uint32_t pd;
 
@@ -178,6 +179,7 @@ void thread_change_state(Thread* thread, ThreadState state, void* private_data);
 void thread_resume(Thread* thread);
 BOOL thread_signal(Thread* thread, uint8_t signal);
 BOOL process_signal(uint32_t pid, uint8_t signal);
+void process_signal_group(uint32_t pgrp, uint8_t signal);
 void thread_state_to_string(ThreadState state, uint8_t* buffer, uint32_t buffer_size);
 void wait_for_schedule();
 int32_t process_get_empty_fd(Process* process);
@@ -191,6 +193,7 @@ Thread* thread_get_current();
 void schedule(TimerInt_Registers* registers);
 BOOL thread_is_valid(Thread* thread);
 BOOL process_is_valid(Process* process);
+Process * process_get(int pid);
 uint32_t get_system_context_switch_count();
 
 extern Thread* g_current_thread;

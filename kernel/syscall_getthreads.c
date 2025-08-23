@@ -84,6 +84,7 @@ int32_t syscall_getprocs(ProcInfo* procs, uint32_t max_count, uint32_t flags)
         if (!exists_in_info_list(process->pid, procs, process_count))
         {
             info->process_id = process->pid;
+            info->process_gid = process->pgid;
             info->parent_process_id = -1;
             if (process->parent)
             {

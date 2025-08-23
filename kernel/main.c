@@ -194,7 +194,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     printkf("System started!\n");
 
-    char* argv[] = {"shell", NULL};
+    char* argv[] = {"init", NULL};
     char* envp[] = {"HOME=/", "PATH=/initrd", NULL};
 
     if (initrd_location == NULL)
@@ -211,26 +211,9 @@ int kmain(struct Multiboot *mboot_ptr)
 
         if (mountSuccess)
         {
-            printkf("Starting shell on TTYs\n");
+            printkf("Starting /initrd/init\n");
 
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/1"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/2"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/3"));
-            execute_file("/initrd/shell", argv, envp, fs_get_node("/dev/pts/4"));
-
-            
-            FileSystemNode* tty_node_x = fs_get_node("/dev/pts/7");
-            Terminal* terminal_x = console_get_terminal_by_slave(tty_node_x);
-            if (terminal_x)
-            {
-                terminal_x->disabled = TRUE;
-
-                console_set_active_terminal(terminal_x);
-            }
-
-            execute_file("/initrd/nano-X", argv, envp, tty_node_x);
-            execute_file("/initrd/nanowm", argv, envp, fs_get_node("/dev/null"));
-            
+            execute_file("/initrd/init", argv, envp, fs_get_node("/dev/null"));
         }
         else
         {

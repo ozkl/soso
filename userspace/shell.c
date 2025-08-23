@@ -319,10 +319,12 @@ int run_command_unix(const char* path, char **argv, char **env)
         sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         
         // Set child in its own process group
-        setpgid(0, 0);
+        //setpgid(0, 0);
+
+        int p = getpgrp(); //getpid();
         
         // Take control of terminal
-        tcsetpgrp(STDIN_FILENO, getpid());
+        tcsetpgrp(STDIN_FILENO, p);
         
         // Reset terminal to canonical mode for child
         tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
@@ -339,12 +341,6 @@ int run_command_unix(const char* path, char **argv, char **env)
     {
         // Parent process
         
-        // Set child in its own process group
-        setpgid(pid, pid);
-        
-        // Give terminal control to child
-        tcsetpgrp(STDIN_FILENO, pid);
-        
         // Restore signal mask in parent
         sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
@@ -352,8 +348,10 @@ int run_command_unix(const char* path, char **argv, char **env)
         int status = 0;
         int result = waitpid(pid, &status, WUNTRACED);
 
+        int pgrp = getpgrp();
+
         // Reclaim terminal control
-        tcsetpgrp(STDIN_FILENO, getpgrp());
+        tcsetpgrp(STDIN_FILENO, pgrp);
 
         // Check if child was stopped
         if (WIFSTOPPED(status))
@@ -1112,8 +1110,10 @@ int main(int argc, char **argv)
     // Ignore SIGTTOU to prevent stopping when we call tcsetpgrp
     signal(SIGTTOU, SIG_IGN);
 
-    printf("User shell v0.7 (pid:%d)!\n", shellPid);
+    printf("User shell v0.8 (pid:%d)!\n", shellPid);
     fflush(stdout);
+
+    setpgid(0, 0);
     
     // Make sure the shell is in the foreground process group
     tcsetpgrp(STDIN_FILENO, shellPid);

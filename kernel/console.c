@@ -19,6 +19,10 @@
 #define VT_WAITACTIVE   0x5607
 #define VT_GETACTIVE    0x560f
 
+//soso specific
+#define VT_SOSO_ENABLE  0x9901f
+#define VT_SOSO_DISABLE 0x9902f
+
 static Terminal* g_terminals[TERMINAL_COUNT];
 Terminal* g_active_terminal = NULL;
 
@@ -152,6 +156,26 @@ static int32_t console_ioctl(File *file, int32_t request, void * argp)
             enable_interrupts();
             halt();
 
+            return 0;
+        }
+    }
+    else if (request == VT_SOSO_ENABLE)
+    {
+        uint32_t index = (uint32_t)argp - 1;
+        Terminal* terminal = console_get_terminal(index);
+        if (terminal)
+        {
+            terminal->disabled = FALSE;
+            return 0;
+        }
+    }
+    else if (request == VT_SOSO_DISABLE)
+    {
+        uint32_t index = (uint32_t)argp - 1;
+        Terminal* terminal = console_get_terminal(index);
+        if (terminal)
+        {
+            terminal->disabled = TRUE;
             return 0;
         }
     }
@@ -307,7 +331,7 @@ static void process_scancode(uint8_t scancode)
             break;
         }
 
-        if ((g_key_modifier & KM_Ctrl) == KM_Ctrl)
+        if (g_key_modifier & KM_Alt)
         {
             int ttyIndex = scancode - KEY_F1;
             

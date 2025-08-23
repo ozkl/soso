@@ -470,6 +470,14 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
         process->working_directory = parent->working_directory;
 
         process->tty = parent->tty;
+
+        process->pgid = parent->pgid;
+    }
+
+
+    if (process->pgid == 0)
+    {
+        process->pgid = process->pid;
     }
 
     if (tty)
@@ -612,6 +620,7 @@ Process * process_fork(Thread *parent_thread)
 
     process->parent = parent;
     process->working_directory = parent->working_directory;
+    process->pgid = parent->pgid;
     process->tty = parent->tty;
 
     memcpy((uint8_t*)process->mmapped_virtual_memory, (uint8_t*)parent->mmapped_virtual_memory, sizeof(parent->mmapped_virtual_memory));
@@ -866,6 +875,20 @@ BOOL process_signal(uint32_t pid, uint8_t signal)
     return FALSE;
 }
 
+void process_signal_group(uint32_t pgrp, uint8_t signal)
+{
+    Thread* t = thread_get_first();
+
+    while (t != NULL)
+    {
+        if (t->owner->pgid == pgrp)
+        {
+            thread_signal(t, signal);
+        }
+        t = t->next;
+    }
+}
+
 void thread_state_to_string(ThreadState state, uint8_t* buffer, uint32_t buffer_size)
 {
     if (buffer_size < 1)
@@ -1076,6 +1099,22 @@ BOOL process_is_valid(Process* process)
     }
 
     return FALSE;
+}
+
+Process * process_get(int pid)
+{
+    Thread *t = g_first_thread;
+
+    while (t != NULL)
+    {
+        if (t->owner->pid == pid)
+        {
+            return t->owner;
+        }
+        t = t->next;
+    }
+
+    return NULL;
 }
 
 static void thread_switch_to(Thread* thread, int mode);

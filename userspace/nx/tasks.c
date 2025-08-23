@@ -33,6 +33,7 @@ typedef struct ThreadInfo
 typedef struct ProcInfo
 {
     uint32_t process_id;
+    uint32_t process_gid;
     int32_t parent_process_id;
     uint32_t fd[SOSO_MAX_OPENED_FILES];
 
