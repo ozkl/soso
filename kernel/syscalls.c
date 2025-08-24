@@ -1088,6 +1088,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
                 Process* new_process = process_create_ex(argv[0], calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
                 new_process->pgid = calling_process->pgid;
+                new_process->working_directory = calling_process->working_directory;
 
                 fs_close(f);
 

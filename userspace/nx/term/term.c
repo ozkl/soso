@@ -30,7 +30,7 @@ static void draw_scrollbar(Ozterm* term);
 #define SCROLLBAR_WIDTH 4
 #define SCROLLBAR_MARGIN 2
 
-#define TITLE		"term"
+#define TITLE		"Terminal"
 
 extern char **environ;
 
@@ -382,7 +382,9 @@ int main(int argc, char **argv)
 	char buf[8192];
 	
 	GR_EVENT wevent;
-	GR_EVENT_KEYSTROKE *kp;
+	GR_EVENT_KEYSTROKE *kp = NULL;
+	GR_EVENT_BUTTON *button_event = NULL;
+	
 	while (1)
 	{
 		GrGetNextEvent(&wevent);
@@ -400,6 +402,14 @@ int main(int argc, char **argv)
 		case GR_EVENT_TYPE_KEY_DOWN:
 			kp = (GR_EVENT_KEYSTROKE *)&wevent;
 			handle_key_press(kp);
+			break;
+		case GR_EVENT_TYPE_BUTTON_DOWN:
+			button_event = (GR_EVENT_BUTTON*)&wevent;
+			if (button_event->wid == g_window_id)
+			{
+				//GrSetFocus(g_window_id);
+				//GrRaiseWindow(g_window_id);
+			}
 			break;
 		case GR_EVENT_TYPE_FDINPUT:
 		{

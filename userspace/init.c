@@ -39,12 +39,17 @@ int main()
     argv[0] = "/initrd/nano-X";
     execute_on_tty(argv[0], argv, envp, "/dev/pts/7");
 
-    usleep(1000 * 500);
+    usleep(1000 * 1000);
 
     argv[0] = "/initrd/nanowm";
     execute_on_tty(argv[0], argv, envp, "/dev/null");
 
     usleep(1000 * 500);
+
+    argv[0] = "/initrd/progs";
+    execute_on_tty(argv[0], argv, envp, "/dev/null");
+
+    usleep(1000 * 100);
 
     argv[0] = "/initrd/term";
     execute_on_tty(argv[0], argv, envp, "/dev/null");
