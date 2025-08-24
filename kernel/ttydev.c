@@ -184,8 +184,6 @@ static BOOL master_read_rest_ready(File *file)
 
 static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
 {
-    enable_interrupts();
-
     if (size > 0)
     {
         TtyDev* tty = (TtyDev*)file->node->private_node_data;
@@ -193,6 +191,8 @@ static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
         
         while (TRUE)
         {
+            disable_interrupts();
+
             spinlock_lock(&tty->buffer_master_read_lock);
 
             uint32_t needed_size = 1;
@@ -214,6 +214,8 @@ static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
 
             tty->master_reader = file->thread;
             thread_change_state(file->thread, TS_WAITIO, tty);
+
+            enable_interrupts();
             halt();
         }
     }
@@ -297,8 +299,6 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     fifobuffer_clear(tty->buffer_echo);
-
-    //enableInterrupts(); //TODO: check
 
     spinlock_lock(&tty->buffer_master_write_lock);
 
@@ -632,8 +632,6 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
         return -1;
     }
 
-    enable_interrupts();
-
     //TODO: implement VTIME
     //uint32_t timer = get_uptime_milliseconds();
 
@@ -641,6 +639,8 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
     {
         while (TRUE)
         {
+            disable_interrupts();
+
             spinlock_lock(&tty->buffer_master_write_lock);
 
             uint32_t needed_size = 1;
@@ -684,6 +684,8 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
             spinlock_unlock(&tty->slave_readers_lock);
 
             thread_change_state(file->thread, TS_WAITIO, tty);
+
+            enable_interrupts();
             halt();
         }
     }
