@@ -7,6 +7,7 @@
 #include "list.h"
 #include "fifobuffer.h"
 #include "spinlock.h"
+#include "errno.h"
 
 static uint8_t g_mouse_byte_counter = 0;
 
@@ -95,7 +96,7 @@ static BOOL mouse_read_test_ready(File *file)
 {
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-    if (fifobuffer_get_size(fifo) >= MOUSE_PACKET_SIZE)
+    if (fifobuffer_get_size(fifo) > 0)
     {
         return TRUE;
     }
@@ -107,18 +108,32 @@ static int32_t mouse_read(File *file, uint32_t size, uint8_t *buffer)
 {
     FifoBuffer* fifo = (FifoBuffer*)file->private_data;
 
-    while (mouse_read_test_ready(file) == FALSE)
-    {
-        thread_change_state(file->thread, TS_WAITIO, mouse_read);
+    uint32_t available = fifobuffer_get_size(fifo);
 
-        enable_interrupts();
-        halt();
+    if (file->flags & O_NONBLOCK)
+    {
+        if (available == 0)
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        while (fifobuffer_get_size(fifo) == 0)
+        {
+            thread_change_state(file->thread, TS_WAITIO, mouse_read);
+
+            enable_interrupts();
+            halt();
+        }
     }
 
+    
     disable_interrupts();
 
+    available = fifobuffer_get_size(fifo);
 
-    uint32_t available = fifobuffer_get_size(fifo);
+    
     uint32_t smaller = MIN(available, size);
 
     fifobuffer_dequeue(fifo, buffer, smaller);
@@ -178,6 +193,11 @@ static void handle_mouse_interrupt(Registers *regs)
     } while (((status & 0x20) == 0) && --try_count > 0);
 
     uint8_t data = inb(0x60);
+
+    if (g_mouse_byte_counter == 0 && !(data & 8))
+    {
+        return;
+    }
 
     g_mouse_packet[g_mouse_byte_counter] = data;
 
