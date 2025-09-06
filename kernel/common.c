@@ -666,7 +666,7 @@ void panic(const char *message, const char *file, uint32_t line)
 
     log_printf("PANIC:%s:%d:%s\n", file, line, message);
 
-    //disable_interrupts();
+    disable_interrupts();
     halt();
 }
 

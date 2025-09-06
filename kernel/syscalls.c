@@ -759,7 +759,7 @@ int syscall_ioctl(int fd, int32_t request, void *arg)
     Process* process = thread_get_current()->owner;
     if (process)
     {
-        //serial_printf("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
+        //log_printf("syscall_ioctl fd:%d request:%d(%x) arg:%d(%x) pid:%d\n", fd, request, request, arg, arg, process->pid);
 
         if (fd < SOSO_MAX_OPENED_FILES)
         {

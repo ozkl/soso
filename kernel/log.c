@@ -4,6 +4,14 @@
 #include "serial.h"
 
 static File* g_file = NULL;
+static BOOL g_log_serial = FALSE;
+
+void log_initialize_serial()
+{
+  g_log_serial = TRUE;
+
+  log_printf("Logging initialized for serial!\n");
+}
 
 void log_initialize(const char* file_name)
 {
@@ -11,9 +19,22 @@ void log_initialize(const char* file_name)
   {
     FileSystemNode* node = fs_get_node(file_name);
 
+    BOOL success = FALSE;
+
     if (node)
     {
       g_file = fs_open(node, 0);
+
+      if (g_file)
+      {
+        log_printf("Logging initialized for %s!\n", file_name);
+        success = TRUE;
+      }
+    }
+
+    if (!success)
+    {
+      log_printf("Logging failed to initialize for %s!!\n", file_name);
     }
   }
 }
@@ -27,7 +48,6 @@ void log_printf(const char *format, ...)
 
     int buffer_index = 0;
 
-    //arg++;
     __builtin_va_list vl;
     __builtin_va_start(vl, format);
 
@@ -84,15 +104,15 @@ void log_printf(const char *format, ...)
 
     buffer[buffer_index] = '\0';
 
+    if (g_log_serial)
+    {
+      serial_printf(buffer);
+    }
+
     if (g_file)
     {
         fs_write(g_file, strlen(buffer), (uint8_t*)buffer);
     }
-    else
-    {
-      //serial_printf(buffer);
-    }
-    serial_printf(buffer);
 
     __builtin_va_end(vl);
 }

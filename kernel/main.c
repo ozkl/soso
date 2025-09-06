@@ -108,11 +108,14 @@ void print_ascii_art()
 
 int kmain(struct Multiboot *mboot_ptr)
 {
-    int stack = 5;
-
     descriptor_tables_initialize();
 
     serial_initialize();
+
+    if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
+    {
+        log_initialize_serial();
+    }
 
     uint32_t initrd_size = 0;
     uint8_t* initrd_location = locate_initrd(mboot_ptr, &initrd_size);
@@ -136,6 +139,8 @@ int kmain(struct Multiboot *mboot_ptr)
     fs_initialize();
     devfs_initialize();
 
+    serial_initialize_file_device();
+
     BOOL graphics_mode = (MULTIBOOT_FRAMEBUFFER_TYPE_RGB == mboot_ptr->framebuffer_type);
 
     if (graphics_mode)
@@ -146,6 +151,8 @@ int kmain(struct Multiboot *mboot_ptr)
     tasking_initialize();
     
     console_initialize(graphics_mode);
+
+    log_initialize("/dev/pts/9");
 
     print_ascii_art();
 
@@ -170,17 +177,6 @@ int kmain(struct Multiboot *mboot_ptr)
     if (0 != mboot_ptr->cmdline)
     {
         printkf("Kernel cmdline:%s\n", (char*)mboot_ptr->cmdline);
-    }
-
-    serial_initialize_file_device();
-
-    //if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
-    {
-        log_initialize(NULL);
-    }
-    //else
-    {
-        //log_initialize("/dev/ptty9");
     }
 
     log_printf("Kernel built on %s %s\n", __DATE__, __TIME__);

@@ -84,29 +84,16 @@ void vmm_initialize(uint32_t high_mem)
     g_kern_heap_begin = (index_kernel_base + end_index_4m + 1) * PAGESIZE_4M;
 
 
-    //serial_printf("g_kernel_page_directory=%x\n", g_kernel_page_directory);
-    //serial_printf("g_kernel_page_directory_physical=%x\n", g_kernel_page_directory_physical);
+    //log_printf("g_kernel_page_directory=%x\n", g_kernel_page_directory);
+    //log_printf("g_kernel_page_directory_physical=%x\n", g_kernel_page_directory_physical);
 
-    //serial_printf("g_kern_heap_begin=%x\n", g_kern_heap_begin);
+    //log_printf("g_kern_heap_begin=%x\n", g_kern_heap_begin);
     
 
     //Recursive page directory strategy
     g_kernel_page_directory[1023] = g_kernel_page_directory_physical | PG_PRESENT | PG_WRITE;
     CHANGE_PD(g_kernel_page_directory_physical);
-    //serial_printf("calc_physical=%x\n", get_physical_address_of_page_directory());
-
-    /*
-    //Enable paging
-    asm("	mov %0, %%eax \n \
-        mov %%eax, %%cr3 \n \
-        mov %%cr4, %%eax \n \
-        or %2, %%eax \n \
-        mov %%eax, %%cr4 \n \
-        mov %%cr0, %%eax \n \
-        or %1, %%eax \n \
-        mov %%eax, %%cr0"::"m"(g_kernel_page_directory), "i"(PAGING_FLAG), "i"(PSE_FLAG));
-
-    */
+    //log_printf("calc_physical=%x\n", get_physical_address_of_page_directory());
 
     initialize_kernel_heap();
 }
@@ -147,7 +134,6 @@ uint32_t vmm_acquire_page_frame_4k()
                     SET_PAGEFRAME_USED(g_physical_page_frame_bitmap, page);
 
                     //log_printf("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
-                    //serial_printf("DEBUG: Acquired 4K Physical %x (pid:%d)\n", page * PAGESIZE_4K, pid);
 
                     return (page * PAGESIZE_4K);
                 }
@@ -162,7 +148,6 @@ uint32_t vmm_acquire_page_frame_4k()
 void vmm_release_page_frame_4k(uint32_t p_addr)
 {
     //log_printf("DEBUG: Released 4K Physical %x\n", p_addr);
-    //serial_printf("DEBUG: Released 4K Physical %x\n", p_addr);
 
     SET_PAGEFRAME_UNUSED(g_physical_page_frame_bitmap, p_addr);
 }
@@ -408,8 +393,6 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 {
     // Both addresses are page-aligned.
 
-    //serial_printf("vmm_add_page_to_pd v_addr:%x p_addr:%x\n", v_addr, p_addr);
-
     int pd_index = (((uint32_t) v_addr) >> 22);
     int pt_index = (((uint32_t) v_addr) >> 12) & 0x03FF;
 
@@ -426,20 +409,13 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
         CHANGE_PD(g_kernel_page_directory_physical);
     }
 
-    //serial_printf("vmm_add_page_to_pd 1");
     if ((pd[pd_index] & PG_PRESENT) != PG_PRESENT)
     {
-        //serial_printf("vmm_add_page_to_pd 2");
         uint32_t tablePhysical = vmm_acquire_page_frame_4k();
 
-        //serial_printf("vmm_add_page_to_pd 3");
         pd[pd_index] = (tablePhysical) | (flags & 0xFFF) | (PG_PRESENT | PG_WRITE);
 
-        //serial_printf("vmm_add_page_to_pd 4");
-
         INVALIDATE(v_addr);
-
-        //serial_printf("vmm_add_page_to_pd 5");
 
         //Zero out table as it may contain thrash data from previously allocated page frame
         for (int i = 0; i < 1024; ++i)
@@ -450,8 +426,6 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 
     if ((pt[pt_index] & PG_PRESENT) == PG_PRESENT)
     {
-        //serial_printf("vmm_add_page_to_pd 6");
-
         if (0 != cr3)
         {
             //restore
@@ -463,11 +437,7 @@ BOOL vmm_add_page_to_pd(char *v_addr, uint32_t p_addr, int flags)
 
     pt[pt_index] = (p_addr) | (flags & 0xFFF) | (PG_PRESENT | PG_WRITE);
 
-    //serial_printf("vmm_add_page_to_pd 7");
-
     INVALIDATE(v_addr);
-
-    //serial_printf("vmm_add_page_to_pd 8");
 
     if (0 != cr3)
     {
