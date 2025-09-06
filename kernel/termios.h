@@ -1,8 +1,6 @@
 #ifndef TERMIOS_H
 #define TERMIOS_H
 
-//This file will also be included by C library.
-
 typedef unsigned char       cc_t;
 typedef unsigned int        speed_t;
 typedef unsigned int        tcflag_t;

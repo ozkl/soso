@@ -1,3 +1,13 @@
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2017, ozkl
+ * All rights reserved.
+ *
+ * This file is licensed under the BSD 2-Clause License.
+ * See the LICENSE file in the project root for full license information.
+ */
+
 #include "spinlock.h"
 
 static inline int32_t exchange_atomic(volatile int32_t* old_value_address, int32_t new_value)

@@ -1,3 +1,16 @@
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2017, ozkl
+ * All rights reserved.
+ *
+ * This file is licensed under the BSD 2-Clause License.
+ * See the LICENSE file in the project root for full license information.
+ * 
+ * 
+ * ELF constants and structures in this file are based on the ELF specification.
+ */
+
 #ifndef ELF_H
 #define ELF_H
 

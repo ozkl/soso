@@ -1,3 +1,13 @@
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2017, ozkl
+ * All rights reserved.
+ *
+ * This file is licensed under the BSD 2-Clause License.
+ * See the LICENSE file in the project root for full license information.
+ */
+
 #include "hashtable.h"
 #include "alloc.h"
 
@@ -35,7 +45,7 @@ void hashtable_destroy(HashTable* hashtable)
     kfree(hashtable);
 }
 
-DataItem* HashTable_search_internal(HashTable* hashtable, uint32_t key)
+static DataItem* hashtable_search_internal(HashTable* hashtable, uint32_t key)
 {
    //get the hash
    uint32_t hash_index = hash_code(hashtable, key);
@@ -65,7 +75,7 @@ DataItem* HashTable_search_internal(HashTable* hashtable, uint32_t key)
 
 BOOL hashtable_search(HashTable* hashtable, uint32_t key, uint32_t* value)
 {
-    DataItem* existing = HashTable_search_internal(hashtable, key);
+    DataItem* existing = hashtable_search_internal(hashtable, key);
 
     if (existing)
     {
@@ -79,7 +89,7 @@ BOOL hashtable_search(HashTable* hashtable, uint32_t key, uint32_t* value)
 
 BOOL hashtable_insert(HashTable* hashtable, uint32_t key, uint32_t data)
 {
-    DataItem* existing = HashTable_search_internal(hashtable, key);
+    DataItem* existing = hashtable_search_internal(hashtable, key);
 
     if (existing)
     {
@@ -119,7 +129,7 @@ BOOL hashtable_insert(HashTable* hashtable, uint32_t key, uint32_t data)
 
 BOOL hashtable_remove(HashTable* hashtable, uint32_t key)
 {
-    DataItem* existing = HashTable_search_internal(hashtable, key);
+    DataItem* existing = hashtable_search_internal(hashtable, key);
 
     if (existing)
     {
