@@ -152,7 +152,7 @@ int kmain(struct Multiboot *mboot_ptr)
     
     console_initialize(graphics_mode);
 
-    log_initialize("/dev/pts/9");
+    log_initialize("/dev/pts/8");
 
     print_ascii_art();
 

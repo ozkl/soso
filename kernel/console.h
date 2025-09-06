@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-#define TERMINAL_COUNT 10
+#define TERMINAL_COUNT 8
 
 typedef struct Terminal Terminal;
 
