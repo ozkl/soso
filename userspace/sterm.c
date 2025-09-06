@@ -11,6 +11,21 @@
 
 extern char **environ;
 
+int execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path)
+{
+	return syscall(3008, path, argv, envp, tty_path);
+}
+
+int posix_openpt_(int flags)
+{
+	return syscall(3001, flags);
+}
+
+int ptsname_r_(int fd, char *buf, int buflen)
+{
+	return syscall(3002, fd, buf, buflen);
+}
+
 int main()
 {
     int fdSerial = open("/dev/com1", O_RDWR);
@@ -20,7 +35,7 @@ int main()
         return 1;
     }
 
-    int fdMaster = posix_openpt(0);
+    int fdMaster = posix_openpt_(O_RDWR | O_NOCTTY | O_NONBLOCK);
     //printf("master:%d\n", master);
 
     if (fdMaster < 0)
@@ -29,7 +44,7 @@ int main()
     }
 
     char slavePath[128];
-    ptsname_r(fdMaster, slavePath, 128);
+    ptsname_r_(fdMaster, slavePath, 128);
     
     fd_set rfds;
     struct timeval tv;
