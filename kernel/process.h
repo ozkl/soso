@@ -25,6 +25,15 @@
 #include "spinlock.h"
 #include "signal.h"
 
+
+struct k_sigaction
+{
+	void (*handler)(int);
+	unsigned long flags;
+	void (*restorer)(void);
+	unsigned mask[2];  // For signal_handlers[0]: process-wide ignore mask; For others: handler-specific mask
+};
+
 typedef enum ThreadState
 {
     TS_RUN,
@@ -84,6 +93,8 @@ struct Process
     File* fd[SOSO_MAX_OPENED_FILES];
 
     BOOL exiting;
+
+    struct k_sigaction signal_handlers[SIGNAL_COUNT];
 
 } __attribute__ ((packed));
 

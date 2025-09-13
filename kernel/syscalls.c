@@ -64,12 +64,6 @@ struct statx {
     uint64_t spare[14];
 };
 
-struct k_sigaction {
-	void (*handler)(int);
-	unsigned long flags;
-	void (*restorer)(void);
-	unsigned mask[2];
-};
 
 struct shmid_ds;
 
@@ -147,6 +141,7 @@ int syscall_soso_read_dir(int fd, void *dirent, int index);
 int syscall_execute_on_tty(const char *path, char *const argv[], char *const envp[], const char *tty_path);
 int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
+int syscall_rt_sigprocmask(int how, const uint32_t *set, uint32_t *oldset, uint32_t sigsetsize);
 void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
 void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset);
 int syscall_munmap(void *addr, int length);
@@ -211,6 +206,7 @@ void syscalls_initialize()
     g_syscall_table[SYS_execute_on_tty] = syscall_execute_on_tty;
     g_syscall_table[SYS_manage_message] = syscall_manage_message;
     g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
+    g_syscall_table[SYS_rt_sigprocmask] = syscall_rt_sigprocmask;
     g_syscall_table[SYS_mmap] = syscall_mmap;
     g_syscall_table[SYS_mmap2] = syscall_mmap2;
     g_syscall_table[SYS_munmap] = syscall_munmap;
@@ -1741,8 +1737,102 @@ int syscall_manage_message(int command, void* message)
 
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize)
 {
-    //TODO
-    return -1;
+    if (signum < 1 || signum >= SIGNAL_COUNT)
+    {
+        return -1; // Invalid signal number
+    }
+    
+    // SIGKILL and SIGSTOP cannot be caught or ignored
+    if (signum == SIGKILL || signum == SIGSTOP)
+    {
+        return -1;
+    }
+    
+    Process* process = thread_get_current()->owner;
+    
+    // Save old signal handler if requested
+    if (oldact != NULL)
+    {
+        if (!check_user_access((void*)oldact))
+        {
+            return -EFAULT;
+        }
+        // Copy the old signal handler to user space
+        memcpy((uint8_t*)oldact, (uint8_t*)&process->signal_handlers[signum], sizeof(struct k_sigaction));
+    }
+    
+    // Set new signal handler if provided
+    if (act != NULL)
+    {
+        if (!check_user_access((void*)act))
+        {
+            return -EFAULT;
+        }
+        // Copy the new signal handler from user space
+        memcpy((uint8_t*)&process->signal_handlers[signum], (uint8_t*)act, sizeof(struct k_sigaction));
+    }
+    
+    return 0;
+}
+
+int syscall_rt_sigprocmask(int how, const uint32_t *set, uint32_t *oldset, uint32_t sigsetsize)
+{
+    Process* process = thread_get_current()->owner;
+    
+    // Validate sigsetsize - we use 2 uint32_t values (64 bits total)
+    if (sigsetsize != 8)
+    {
+        // 2 * sizeof(uint32_t)
+        return -EINVAL;
+    }
+    
+    // Save old signal mask if requested
+    if (oldset != NULL)
+    {
+        if (!check_user_access((void*)oldset))
+        {
+            return -EFAULT;
+        }
+        // Copy the old signal mask to user space (using signal_handlers[0].mask as process-wide ignore mask)
+        memcpy((uint8_t*)oldset, (uint8_t*)process->signal_handlers[0].mask, 8);
+    }
+    
+    // Set new signal mask if provided
+    if (set != NULL)
+    {
+        if (!check_user_access((void*)set))
+        {
+            return -EFAULT;
+        }
+        
+        uint32_t new_mask[2];
+        memcpy((uint8_t*)new_mask, (uint8_t*)set, 8);
+        
+        // Ensure SIGKILL and SIGSTOP cannot be ignored
+        // Clear their bits in the mask
+        new_mask[0] &= ~(1U << (SIGKILL % 32));   // SIGKILL is 9, so bit 9 in first word
+        new_mask[0] &= ~(1U << (SIGSTOP % 32));   // SIGSTOP is 19, so bit 19 in first word
+        
+        switch (how)
+        {
+            case SIG_BLOCK: // add signals to the mask
+                process->signal_handlers[0].mask[0] |= new_mask[0];
+                process->signal_handlers[0].mask[1] |= new_mask[1];
+                break;
+            case SIG_UNBLOCK: // remove signals from the mask
+                process->signal_handlers[0].mask[0] &= ~new_mask[0];
+                process->signal_handlers[0].mask[1] &= ~new_mask[1];
+                break;
+            case SIG_SETMASK: // set the mask to the new value
+                process->signal_handlers[0].mask[0] = new_mask[0];
+                process->signal_handlers[0].mask[1] = new_mask[1];
+                break;
+            default:
+                return -EINVAL;
+        }
+    }
+    
+    return 0;
 }
 
 //we don't support mmap offset argument

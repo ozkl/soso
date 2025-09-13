@@ -354,15 +354,15 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
         {
             if (character == tty->term.c_cc[VINTR])
             {
-                process_signal(tty->foreground_process, SIGINT);
+                process_signal_group(tty->foreground_process, SIGINT);
             }
             else if (character == tty->term.c_cc[VSUSP])
             {
-                process_signal(tty->foreground_process, SIGTSTP);
+                process_signal_group(tty->foreground_process, SIGTSTP);
             }
             else if (character == tty->term.c_cc[VQUIT])
             {
-                process_signal(tty->foreground_process, SIGQUIT);
+                process_signal_group(tty->foreground_process, SIGQUIT);
             }
         }
 

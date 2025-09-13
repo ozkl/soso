@@ -454,6 +454,19 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
     process->name[SOSO_PROCESS_NAME_MAX - 1] = 0;
     process->pid = process_id;
     process->working_directory = fs_get_root_node();
+    
+    // Initialize signal handlers to default values
+    for (int i = 0; i < SIGNAL_COUNT; i++)
+    {
+        process->signal_handlers[i].handler = NULL;
+        process->signal_handlers[i].flags = 0;
+        process->signal_handlers[i].restorer = NULL;
+        process->signal_handlers[i].mask[0] = 0;
+        process->signal_handlers[i].mask[1] = 0;
+    }
+    
+    // signal_handlers[0].mask is used as the process-wide signal ignore mask
+    // It's already initialized to 0 above, so no signals are ignored by default
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8_t*)thread, 0, sizeof(Thread));
@@ -830,15 +843,51 @@ void thread_resume(Thread* thread)
     thread->state_privateData = NULL;
 }
 
+// Helper function to check if a signal is in the ignore mask
+static BOOL is_signal_ignored(Process* process, uint8_t signal)
+{
+    if (signal >= SIGNAL_COUNT)
+    {
+        return FALSE;
+    }
+    
+    // SIGKILL and SIGSTOP cannot be ignored
+    if (signal == SIGKILL || signal == SIGSTOP)
+    {
+        return FALSE;
+    }
+    
+    // Check if signal is in the ignore mask (using signal_handlers[0].mask as process-wide ignore mask)
+    uint32_t mask_index = signal / 32;
+    uint32_t bit_position = signal % 32;
+    
+    return (process->signal_handlers[0].mask[mask_index] & (1U << bit_position)) != 0;
+}
+
 //must be called in interrupts disabled
 BOOL thread_signal(Thread* thread, uint8_t signal)
 {
-    //TODO: check for ignore mask
-
     BOOL result = FALSE;
 
     if (signal < SIGNAL_COUNT)
     {
+        // Check if signal should be ignored
+        if (is_signal_ignored(thread->owner, signal))
+        {
+            return FALSE; // Signal is ignored, don't deliver it
+        }
+
+        if (signal != SIGKILL && signal != SIGSTOP)
+        {
+            //TODO: call handlers!
+            //For now, lets ignore signals that handlers set by userspace!
+            if (thread->owner->signal_handlers[signal].handler)
+            {
+                return FALSE;
+            }
+        }
+
+
         if (signal == SIGCONT)
         {
             if (thread->state == TS_SUSPEND)
@@ -1331,33 +1380,33 @@ void schedule(TimerInt_Registers* registers)
             fifobuffer_dequeue(ready_thread->signals, &signal, 1);
             ready_thread->pending_signal_count = fifobuffer_get_size(ready_thread->signals);
 
-            printkf("Signal %d proccessing for pid:%d in scheduler!\n", (uint32_t)signal, ready_thread->owner->pid);
+            log_printf("Signal %d processing for pid:%d in scheduler!\n", (uint32_t)signal, ready_thread->owner->pid);
 
             //TODO: call signal handlers
-
-            switch (signal)
-            {
-            case SIGHUP:
-            case SIGTERM:
-            case SIGKILL:
-            case SIGSEGV:
-            case SIGINT:
-            case SIGILL:
+            
+                switch (signal)
+                {
+                case SIGHUP:
+                case SIGTERM:
+                case SIGKILL:
+                case SIGSEGV:
+                case SIGINT:
+                case SIGILL:
                 printkf("Killing pid:%d in scheduler!\n", ready_thread->owner->pid);
-            
-                process_destroy(ready_thread->owner, TRUE);
+                
+                    process_destroy(ready_thread->owner, TRUE);
 
-                ready_thread = look_threads(g_first_thread);
-                break;
-            case SIGSTOP:
-            case SIGTSTP:
-                ready_thread->state = TS_SUSPEND;
+                    ready_thread = look_threads(g_first_thread);
+                    break;
+                case SIGSTOP:
+                case SIGTSTP:
+                    ready_thread->state = TS_SUSPEND;
 
-                ready_thread = look_threads(g_first_thread);
-                break;
-            
-            default:
-                break;
+                    ready_thread = look_threads(g_first_thread);
+                    break;
+                
+                default:
+                    break;
             }
             
         }

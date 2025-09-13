@@ -38,4 +38,9 @@
 
 #define SIGNAL_COUNT 32
 
+// sigprocmask operations
+#define SIG_BLOCK     0
+#define SIG_UNBLOCK   1
+#define SIG_SETMASK   2
+
 #endif //SIGNAL_H

@@ -46,6 +46,7 @@ enum
     SYS_writev = 146,
     SYS_nanosleep = 162,
     SYS_rt_sigaction = 174,
+    SYS_rt_sigprocmask = 175,
     SYS_getcwd = 183,
     SYS_mmap2 = 192,
     SYS_ftruncate64 = 194,
