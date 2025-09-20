@@ -3,7 +3,7 @@ set -euo pipefail
 
 IMG=initrd.fat
 MNT=mnt
-SIZE_MB=8
+SIZE_MB=12
 
 mkdir -p "$MNT"
 dd if=/dev/zero of=$IMG bs=1M count=$SIZE_MB
