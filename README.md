@@ -3,10 +3,13 @@ Soso is a simple unix-like operating system written in Nasm assembly and mostly 
 It can be built using Nasm and Clang.
 Tested build environments are Linux, FreeBSD.
 
+As of version 0.4, executables are 32 bit static Linux binaries.
+
 Soso is a 32-bit x86 operating system and its features are
-- Runs simple statically built Linux binaries
+- Runs simple statically built Linux binaries (from version 0.4)
 - Multitasking with processes and threads
 - Paging
+- Higher half kernel (from version 0.4)
 - Kernelspace (runs in ring0) and userspace (runs in ring3) are separated
 - Virtual File System
 - FAT32 filesystem using FatFs
@@ -30,6 +33,11 @@ You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/d
 To try Soso in QEMU, just run:
 
     qemu-system-i386 -cdrom soso.iso
+
+To run doom from a terminal window:
+
+    cd /initrd
+    doom
 
 # building
 To build kernel just run:
