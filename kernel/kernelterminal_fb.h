@@ -16,5 +16,6 @@
 uint16_t fbterminal_get_column_count();
 uint16_t fbterminal_get_row_count();
 void fbterminal_set_character(uint16_t row, uint16_t column, uint8_t character, uint32_t fg_color, uint32_t bg_color);
+void fbterminal_put_text(uint16_t row, uint16_t column, uint8_t *text, uint16_t size, uint32_t fg_color, uint32_t bg_color);
 
 #endif //KERNELTERMINAL_FB_H

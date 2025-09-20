@@ -36,6 +36,7 @@
 #include "sleep.h"
 #include "console.h"
 #include "kernelterminal.h"
+#include "kernelterminal_fb.h"
 #include "socket.h"
 
 extern uint32_t _start;
@@ -156,6 +157,8 @@ int kmain(struct Multiboot *mboot_ptr)
     if (graphics_mode)
     {
         gfx_initialize((uint32_t*)(uint32_t)mboot_ptr->framebuffer_addr, mboot_ptr->framebuffer_width, mboot_ptr->framebuffer_height, mboot_ptr->framebuffer_bpp / 8, mboot_ptr->framebuffer_pitch);
+        
+        fbterminal_put_text(fbterminal_get_row_count() / 2, fbterminal_get_column_count() / 2 - 5, (uint8_t*)"Loading...", 10, 0, 0xFFFFFFFF);
     }
 
     tasking_initialize();
