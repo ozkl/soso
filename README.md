@@ -24,11 +24,11 @@ Soso is a 32-bit x86 operating system and its features are
 - TTY driver
 
 
-![Soso](screenshots/soso-v0.3.png)
+![Soso](screenshots/soso-v0.4.png)
 
 # running
 
-You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.3/soso.zip) from releases and try it in a PC emulator like QEMU. When it is started, you can run: "doom", "lua" in a terminal window.
+You can download a [CD image (ISO file)](https://github.com/ozkl/soso/releases/download/v0.4/soso.zip) from releases and try it in a PC emulator like QEMU. When it is started, you can run: "doom", "lua" in a terminal window.
 
 To try Soso in QEMU, just run:
 
