@@ -1323,6 +1323,12 @@ int syscall_mkdir(const char *path, uint32_t mode)
         return -EFAULT;
     }
 
+    Process* process = thread_get_current()->owner;
+    if (!process)
+    {
+        return -1;
+    }
+
     char parent_path[128];
     const char* name = NULL;
     int length = strlen(path);
@@ -1350,7 +1356,7 @@ int syscall_mkdir(const char *path, uint32_t mode)
 
     //Screen_PrintF("mkdir: parent:[%s] name:[%s]\n", parentPath, name);
 
-    FileSystemNode* target_node = fs_get_node(parent_path);
+    FileSystemNode* target_node = fs_get_node_absolute_or_relative(parent_path, process);
 
     if (target_node)
     {
