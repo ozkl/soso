@@ -11,6 +11,9 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
+#include "stdint.h"
+
 void random_initialize();
+int32_t random_fill(uint8_t* buffer, uint32_t size);
 
 #endif // RANDOM_H

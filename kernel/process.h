@@ -137,6 +137,10 @@ struct Thread
     FifoBuffer* signals;//no need to lock as this always accessed in interrupts disabled
     uint32_t pending_signal_count;
 
+    uint32_t signal_stack_pointer;
+    uint32_t signal_stack_size;
+    int32_t signal_stack_flags;
+
     ThreadState state;
     void* state_privateData;
     void* state_privateData2;
@@ -165,8 +169,8 @@ struct Thread
         uint32_t return_value;
         SyscallState state;
     } last_syscall;
-    
 
+    uint8_t fpu_state[512 + 15];
 
     FifoBuffer* message_queue;
     Spinlock message_queue_lock;
@@ -196,6 +200,7 @@ Process * process_fork(Thread *th);
 void thread_destroy(Thread* thread);
 void process_destroy(Process* process, BOOL wake_parent);
 void process_change_state(Process* process, ThreadState state);
+void process_inherit_files_for_exec(Process* destination, Process* source);
 void thread_change_state(Thread* thread, ThreadState state, void* private_data);
 void thread_resume(Thread* thread);
 BOOL thread_signal(Thread* thread, uint8_t signal);

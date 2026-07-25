@@ -31,6 +31,7 @@ IdtPointer g_idt_pointer;
 Tss g_tss;
 
 static void handle_double_fault(Registers *regs);
+static void handle_invalid_opcode(Registers *regs);
 static void handle_general_protection_fault(Registers *regs);
 
 void descriptor_tables_initialize()
@@ -41,6 +42,7 @@ void descriptor_tables_initialize()
 
     memset((uint8_t*)&g_interrupt_handlers, 0, sizeof(IsrFunction)*256);
 
+    interrupt_register(6, handle_invalid_opcode);
     interrupt_register(8, handle_double_fault);
     interrupt_register(13, handle_general_protection_fault);
 }
@@ -179,6 +181,57 @@ static void handle_double_fault(Registers *regs)
     printkf("Double fault!!! Error code:%d\n", regs->errorCode);
 
     PANIC("Double fault!!!");
+}
+
+static void handle_invalid_opcode(Registers *regs)
+{
+    log_printf("Invalid opcode!!! IP:%x\n", regs->eip);
+
+    Thread* faulting_thread = thread_get_current();
+    if (NULL != faulting_thread)
+    {
+        Thread* main_thread = thread_get_first();
+
+        if (main_thread == faulting_thread)
+        {
+            PANIC("Invalid opcode in Kernel main thread!!!");
+        }
+        else
+        {
+            log_printf("Faulting thread is %d and its state is %d\n", faulting_thread->threadId, faulting_thread->state);
+
+            if (faulting_thread->user_mode)
+            {
+                if (faulting_thread->state == TS_CRITICAL ||
+                    faulting_thread->state == TS_UNINTERRUPTIBLE)
+                {
+                    log_printf("CRITICAL!! process %d\n", faulting_thread->owner->pid);
+
+                    process_change_state(faulting_thread->owner, TS_SUSPEND);
+
+                    thread_change_state(faulting_thread, TS_DEAD, (void*)regs->eip);
+                }
+                else
+                {
+                    log_printf("Invalid opcode %d\n", faulting_thread->owner->pid);
+
+                    thread_signal(faulting_thread, SIGILL);
+                }
+            }
+            else
+            {
+                log_printf("Destroying kernel thread %d\n", faulting_thread->threadId);
+
+                thread_destroy(faulting_thread);
+            }
+
+            wait_for_schedule();
+        }
+    }
+    else
+    {
+        PANIC("Invalid opcode!!!");
+    }
 }
 
 static void handle_general_protection_fault(Registers *regs)

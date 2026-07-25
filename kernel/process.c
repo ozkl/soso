@@ -21,6 +21,7 @@
 #include "list.h"
 #include "ttydev.h"
 #include "sharedmemory.h"
+#include "fpu.h"
 
 #define MESSAGE_QUEUE_SIZE 64
 
@@ -75,6 +76,7 @@ void tasking_initialize()
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8_t*)thread, 0, sizeof(Thread));
+    fpu_initialize_thread(thread);
 
     thread->owner = g_kernel_process;
 
@@ -121,6 +123,7 @@ void thread_create_kthread(Function0 func)
 {
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8_t*)thread, 0, sizeof(Thread));
+    fpu_initialize_thread(thread);
 
     thread->owner = g_kernel_process;
 
@@ -470,6 +473,7 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
     Thread* thread = (Thread*)kmalloc(sizeof(Thread));
     memset((uint8_t*)thread, 0, sizeof(Thread));
+    fpu_initialize_thread(thread);
 
     thread->owner = process;
 
@@ -607,6 +611,8 @@ Process* process_create_ex(const char* name, uint32_t process_id, uint32_t threa
 
 Process * process_fork(Thread *parent_thread)
 {
+    fpu_save(parent_thread);
+
     Process* parent = parent_thread->owner;
 
     uint32_t pd = vmm_clone_page_directory_with_memory2();
@@ -627,6 +633,7 @@ Process * process_fork(Thread *parent_thread)
 
     Thread* child_thread = (Thread*)kmalloc(sizeof(Thread));
     memcpy((uint8_t*)child_thread, (uint8_t*)parent_thread, sizeof(Thread));
+    fpu_clone_thread(child_thread, parent_thread);
     child_thread->next = NULL;
     child_thread->owner = process;
     child_thread->threadId = thread_id;
@@ -829,6 +836,12 @@ void process_change_state(Process* process, ThreadState state)
 
         thread = thread->next;
     }
+}
+
+void process_inherit_files_for_exec(Process* destination, Process* source)
+{
+    //TODO: Implement inheritance with ref-counted open-file descriptions.
+    //File objects currently contain process and thread pointers and cannot be safely transferred.
 }
 
 void thread_change_state(Thread* thread, ThreadState state, void* private_data)
@@ -1279,6 +1292,8 @@ static Thread* look_threads(Thread* current)
 
 static void end_context(TimerInt_Registers* registers, Thread* thread)
 {
+    fpu_save(thread);
+
     thread->context_end_time = get_uptime_milliseconds();
     thread->consumed_cpu_time_ms += thread->context_end_time - thread->context_start_time;
 
@@ -1326,6 +1341,8 @@ static void start_context(Thread* thread)
     ++g_system_context_switch_count;
 
     ++thread->context_switch_count;
+
+    fpu_restore(thread);
 
     if (thread->regs.cs != 0x08)
     {
@@ -1392,6 +1409,7 @@ void schedule(TimerInt_Registers* registers)
                 case SIGSEGV:
                 case SIGINT:
                 case SIGILL:
+                case SIGABRT:
                 printkf("Killing pid:%d in scheduler!\n", ready_thread->owner->pid);
                 
                     process_destroy(ready_thread->owner, TRUE);

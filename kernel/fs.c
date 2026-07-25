@@ -227,7 +227,8 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
         file->node = node;
         file->process = process;
         file->thread = thread;
-        file->flags = flags;
+        file->flags = flags & ~O_CLOEXEC;
+        file->descriptor_flags = (flags & O_CLOEXEC) ? 1 : 0;
 
         BOOL success = node->open(file, flags);
 

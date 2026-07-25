@@ -24,6 +24,8 @@
 #define O_NOFOLLOW  0x20000     //Do not follow symlinks
 #define O_CLOEXEC   0x80000     //Close fd on exec()
 
+#define FD_CLOEXEC  1
+
 #define CHECK_ACCESS(flags, test) ((flags & O_ACCMODE) == test)
 
 typedef enum FileType
@@ -130,6 +132,7 @@ typedef struct File
     Thread* thread;
     int32_t fd;
     uint32_t flags;
+    uint32_t descriptor_flags;
     int32_t offset;
     void* private_data;
 } File;

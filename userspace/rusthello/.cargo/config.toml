@@ -1,0 +1,6 @@
+[build]
+target = "i686-unknown-linux-musl"
+
+[target.i686-unknown-linux-musl]
+linker = "./rusthello-linker.sh"
+rustflags = ["-C", "target-feature=+crt-static"]

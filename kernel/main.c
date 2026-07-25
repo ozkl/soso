@@ -38,6 +38,7 @@
 #include "kernelterminal.h"
 #include "kernelterminal_fb.h"
 #include "socket.h"
+#include "fpu.h"
 
 extern uint32_t _start;
 extern uint32_t _kernel_end;
@@ -120,6 +121,7 @@ void print_ascii_art()
 int kmain(struct Multiboot *mboot_ptr)
 {
     descriptor_tables_initialize();
+    fpu_initialize();
 
     serial_initialize();
 

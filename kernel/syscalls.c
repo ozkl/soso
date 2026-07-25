@@ -33,6 +33,7 @@
 #include "socket.h"
 #include "descriptortables.h"
 #include "syscall_getthreads.h"
+#include "random.h"
 
 struct iovec {
                void  *iov_base;    /* Starting address */
@@ -97,6 +98,25 @@ struct user_desc {
     uint32_t lm:1; // unused
 };
 
+struct sigaltstack {
+    uint32_t ss_sp;
+    int32_t ss_flags;
+    uint32_t ss_size;
+};
+
+#define SS_ONSTACK 1
+#define SS_DISABLE 2
+#define MINSIGSTKSZ 2048
+
+#define PROT_READ  0x1
+#define PROT_WRITE 0x2
+#define PROT_EXEC  0x4
+
+#define F_GETFD 1
+#define F_SETFD 2
+#define F_GETFL 3
+#define F_SETFL 4
+
 /**************
  * All of syscall entered with interrupts disabled!
  * A syscall can enable interrupts if it is needed.
@@ -144,6 +164,7 @@ int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sig
 int syscall_rt_sigprocmask(int how, const uint32_t *set, uint32_t *oldset, uint32_t sigsetsize);
 void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
 void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset);
+int32_t syscall_mprotect(void* addr, uint32_t length, int32_t prot);
 int syscall_munmap(void *addr, int length);
 int syscall_unlink(const char *name);
 int syscall_ftruncate(int fd, int size);
@@ -170,6 +191,11 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg);
 int syscall_shmdt(const void *shmaddr);
 int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf);
 int syscall_nanosleep(const struct timespec *req, struct timespec *rem);
+int syscall_tkill(int tid, int sig);
+int syscall_sigaltstack(const struct sigaltstack *ss, struct sigaltstack *old_ss);
+int32_t syscall_gettid();
+int32_t syscall_getrandom(uint8_t* buffer, uint32_t length, uint32_t flags);
+int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument);
 
 void syscalls_initialize()
 {
@@ -207,8 +233,10 @@ void syscalls_initialize()
     g_syscall_table[SYS_manage_message] = syscall_manage_message;
     g_syscall_table[SYS_rt_sigaction] = syscall_rt_sigaction;
     g_syscall_table[SYS_rt_sigprocmask] = syscall_rt_sigprocmask;
+    g_syscall_table[SYS_sigaltstack] = syscall_sigaltstack;
     g_syscall_table[SYS_mmap] = syscall_mmap;
     g_syscall_table[SYS_mmap2] = syscall_mmap2;
+    g_syscall_table[SYS_mprotect] = syscall_mprotect;
     g_syscall_table[SYS_munmap] = syscall_munmap;
     g_syscall_table[SYS_unlink] = syscall_unlink;
     g_syscall_table[SYS_ftruncate] = syscall_ftruncate;
@@ -249,6 +277,11 @@ void syscalls_initialize()
     g_syscall_table[SYS_shutdown] = syscall_shutdown;
     g_syscall_table[SYS_accept] = syscall_accept;
     g_syscall_table[SYS_nanosleep] = syscall_nanosleep;
+    g_syscall_table[SYS_poll] = syscall_poll;
+    g_syscall_table[SYS_tkill] = syscall_tkill;
+    g_syscall_table[SYS_gettid] = syscall_gettid;
+    g_syscall_table[SYS_getrandom] = syscall_getrandom;
+    g_syscall_table[SYS_fcntl64] = syscall_fcntl64;
     g_syscall_table[SYS_getthreads] = syscall_getthreads;
     g_syscall_table[SYS_getprocs] = syscall_getprocs;
 
@@ -1102,6 +1135,8 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
 
                 if (new_process)
                 {
+                    process_inherit_files_for_exec(new_process, calling_process);
+
                     process_destroy(calling_process, FALSE);
 
                     wait_for_schedule();
@@ -1256,6 +1291,172 @@ int syscall_kill(int pid, int sig)
     }
 
     return -1;
+}
+
+int syscall_tkill(int tid, int sig)
+{
+    Thread* thread = thread_get_by_id(tid);
+    if (thread == NULL)
+    {
+        return -ESRCH;
+    }
+
+    if (sig < 0 || sig >= SIGNAL_COUNT)
+    {
+        return -EINVAL;
+    }
+
+    if (sig != 0)
+    {
+        thread_signal(thread, sig);
+    }
+
+    return 0;
+}
+
+int32_t syscall_gettid()
+{
+    return thread_get_current()->threadId;
+}
+
+int32_t syscall_getrandom(uint8_t* buffer, uint32_t length, uint32_t flags)
+{
+    if (flags & ~0x7)
+    {
+        return -EINVAL;
+    }
+
+    if (length > 0)
+    {
+        if (!check_user_access(buffer) ||
+            !check_user_access(buffer + length - 1))
+        {
+            return -EFAULT;
+        }
+    }
+
+    return random_fill(buffer, length);
+}
+
+int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument)
+{
+    Process* process = thread_get_current()->owner;
+
+    if (fd < 0 || fd >= SOSO_MAX_OPENED_FILES || process->fd[fd] == NULL)
+    {
+        return -EBADF;
+    }
+
+    File* file = process->fd[fd];
+
+    switch (command)
+    {
+        case F_GETFD:
+            return file->descriptor_flags;
+        case F_SETFD:
+            file->descriptor_flags = argument & FD_CLOEXEC;
+            return 0;
+        case F_GETFL:
+            return file->flags;
+        case F_SETFL:
+            file->flags &= ~O_NONBLOCK;
+            file->flags |= argument & O_NONBLOCK;
+            return 0;
+        default:
+            return -EINVAL;
+    }
+}
+
+int syscall_sigaltstack(const struct sigaltstack *ss, struct sigaltstack *old_ss)
+{
+    if (ss != NULL && !check_user_access((void*)ss))
+    {
+        return -EFAULT;
+    }
+
+    if (old_ss != NULL && !check_user_access(old_ss))
+    {
+        return -EFAULT;
+    }
+
+    Thread* thread = thread_get_current();
+    struct sigaltstack new_stack;
+    if (ss != NULL)
+    {
+        new_stack = *ss;
+    }
+
+    if (old_ss != NULL)
+    {
+        old_ss->ss_sp = thread->signal_stack_pointer;
+        old_ss->ss_size = thread->signal_stack_size;
+        old_ss->ss_flags = thread->signal_stack_pointer == 0 ?
+            SS_DISABLE : thread->signal_stack_flags;
+    }
+
+    if (ss != NULL)
+    {
+        if (thread->signal_stack_flags & SS_ONSTACK)
+        {
+            return -EPERM;
+        }
+
+        if (new_stack.ss_flags == SS_DISABLE)
+        {
+            thread->signal_stack_pointer = 0;
+            thread->signal_stack_size = 0;
+            thread->signal_stack_flags = SS_DISABLE;
+        }
+        else
+        {
+            if (new_stack.ss_flags != 0)
+            {
+                return -EINVAL;
+            }
+
+            if (new_stack.ss_size < MINSIGSTKSZ)
+            {
+                return -ENOMEM;
+            }
+
+            thread->signal_stack_pointer = new_stack.ss_sp;
+            thread->signal_stack_size = new_stack.ss_size;
+            thread->signal_stack_flags = 0;
+        }
+    }
+
+    return 0;
+}
+
+int32_t syscall_mprotect(void* addr, uint32_t length, int32_t prot)
+{
+    uint32_t address = (uint32_t)addr;
+
+    if (address & (PAGESIZE_4K - 1))
+    {
+        return -EINVAL;
+    }
+
+    if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC))
+    {
+        return -EINVAL;
+    }
+
+    if (length == 0)
+    {
+        return 0;
+    }
+
+    uint32_t page_count = PAGE_COUNT(length);
+    BOOL user = prot != 0;
+    BOOL writable = (prot & PROT_WRITE) != 0;
+
+    if (!vmm_protect_memory(address, page_count, user, writable))
+    {
+        return -ENOMEM;
+    }
+
+    return 0;
 }
 
 int syscall_mount(const char *source, const char *target, const char *fs_type, unsigned long flags, void *data)//non-posix

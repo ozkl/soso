@@ -54,5 +54,6 @@ BOOL vmm_is_address_mappable(Process* process, uint32_t address, uint32_t page_c
 void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own);
 BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size);
 BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count);
+BOOL vmm_protect_memory(uint32_t v_address, uint32_t page_count, BOOL user, BOOL writable);
 
 #endif // VMM_H

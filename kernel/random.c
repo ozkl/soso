@@ -37,30 +37,22 @@ static BOOL random_open(File *file, uint32_t flags)
 
 static int32_t random_read(File *file, uint32_t size, uint8_t *buffer)
 {
-    if (size == 0)
+    return random_fill(buffer, size);
+}
+
+int32_t random_fill(uint8_t* buffer, uint32_t size)
+{
+    uint32_t offset = 0;
+
+    while (offset < size)
     {
-        return 0;
+        uint32_t number = rand();
+
+        for (uint32_t byte = 0; byte < sizeof(number) && offset < size; ++byte)
+        {
+            buffer[offset++] = (uint8_t)(number >> (byte * 8));
+        }
     }
 
-    uint32_t number = rand();
-
-    if (size == 1)
-    {
-        *buffer = (uint8_t)number;
-        return 1;
-    }
-    else if (size == 2 || size == 3)
-    {
-        *((uint16_t*)buffer) = (uint16_t)number;
-        return 2;
-    }
-    else if (size >= 4)
-    {
-        //Screen_PrintF("random_read: buffer is %x, writing %x to buffer\n", buffer, number);
-
-        *((uint32_t*)buffer) = number;
-        return 4;
-    }
-
-    return 0;
+    return size;
 }

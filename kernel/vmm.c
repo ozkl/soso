@@ -839,3 +839,57 @@ BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count)
     return TRUE;
 }
 
+BOOL vmm_protect_memory(uint32_t v_address, uint32_t page_count, BOOL user, BOOL writable)
+{
+    if (page_count == 0 || (v_address & 0xFFF))
+    {
+        return FALSE;
+    }
+
+    if (v_address >= KERNEL_VIRTUAL_BASE ||
+        page_count > (KERNEL_VIRTUAL_BASE - v_address) / PAGESIZE_4K)
+    {
+        return FALSE;
+    }
+
+    uint32_t end_address = v_address + page_count * PAGESIZE_4K;
+    uint32_t* pd = (uint32_t*)0xFFFFF000;
+
+    for (uint32_t address = v_address; address < end_address; address += PAGESIZE_4K)
+    {
+        uint32_t pd_index = address >> 22;
+        uint32_t pt_index = (address >> 12) & 0x03FF;
+
+        if ((pd[pd_index] & PG_PRESENT) == 0)
+        {
+            return FALSE;
+        }
+
+        uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+        if ((pt[pt_index] & PG_PRESENT) == 0)
+        {
+            return FALSE;
+        }
+    }
+
+    for (uint32_t address = v_address; address < end_address; address += PAGESIZE_4K)
+    {
+        uint32_t pd_index = address >> 22;
+        uint32_t pt_index = (address >> 12) & 0x03FF;
+        uint32_t* pt = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+
+        pt[pt_index] &= ~(PG_USER | PG_WRITE);
+        if (user)
+        {
+            pt[pt_index] |= PG_USER;
+        }
+        if (writable)
+        {
+            pt[pt_index] |= PG_WRITE;
+        }
+
+        INVALIDATE(address);
+    }
+
+    return TRUE;
+}
