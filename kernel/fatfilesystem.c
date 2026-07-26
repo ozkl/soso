@@ -649,24 +649,24 @@ DRESULT disk_ioctl (
         dr = RES_OK;
         break;
     case GET_SECTOR_COUNT:
-        f = fs_open(g_mounted_block_devices[pdrv], 0);
+        f = fs_open_kernel(g_mounted_block_devices[pdrv], 0);
         if (f)
         {
             fs_ioctl(f, IC_GET_SECTOR_COUNT, &value);
             *(DWORD*)buff = value;
             dr = RES_OK;
-            fs_close(f);
+            fs_release(f);
         }
         printkf("disk_ioctl GET_SECTOR_COUNT: %d\n", value);
         break;
     case GET_BLOCK_SIZE:
-        f = fs_open(g_mounted_block_devices[pdrv], 0);
+        f = fs_open_kernel(g_mounted_block_devices[pdrv], 0);
         if (f)
         {
             fs_ioctl(f, IC_GET_SECTOR_SIZE_BYTES, &value);
             *(DWORD*)buff = value;
             dr = RES_OK;
-            fs_close(f);
+            fs_release(f);
         }
         printkf("disk_ioctl GET_BLOCK_SIZE: %d\n", value);
         *(DWORD*)buff = value;

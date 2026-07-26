@@ -16,11 +16,13 @@
 #include "process.h"
 #include "list.h"
 #include "serial.h"
+#include "waitqueue.h"
+#include "errno.h"
 
 #define PORT 0x3f8   //COM1
 
 static FifoBuffer* g_buffer_com1 = NULL;
-static List* g_accessing_threads = NULL;
+static WaitQueue g_read_waiters;
 
 static void handle_serial_interrupt(Registers *regs);
 
@@ -52,7 +54,7 @@ void serial_initialize_file_device()
     interrupt_register(IRQ4, handle_serial_interrupt);
 
     g_buffer_com1 = fifobuffer_create(4096);
-    g_accessing_threads = list_create(); 
+    waitqueue_initialize(&g_read_waiters);
 
     Device device;
     memset((uint8_t*)&device, 0, sizeof(Device));
@@ -107,18 +109,7 @@ static void handle_serial_interrupt(Registers *regs)
     //if buffer is full, we miss the data
     fifobuffer_enqueue(g_buffer_com1, &c, 1);
 
-    list_foreach (n, g_accessing_threads)
-    {
-        Thread* reader = n->data;
-
-        if (reader->state == TS_WAITIO)
-        {
-            if (reader->state_privateData == serial_read)
-            {
-                thread_resume(reader);
-            }
-        }
-    }
+    waitqueue_wake_all(&g_read_waiters, serial_read);
 }
 
 void serial_printf(const char *format, ...)
@@ -181,14 +172,11 @@ void serial_printf(const char *format, ...)
 
 static BOOL serial_open(File *file, uint32_t flags)
 {
-    list_append(g_accessing_threads, file->thread);
-
     return TRUE;
 }
 
 static void serial_close(File *file)
 {
-    list_remove_first_occurrence(g_accessing_threads, file->thread);
 }
 
 static BOOL serial_read_test_ready(File *file)
@@ -208,16 +196,27 @@ static int32_t serial_read(File *file, uint32_t size, uint8_t *buffer)
         return -1;
     }
 
-    while (serial_read_test_ready(file) == FALSE)
+    while (TRUE)
     {
-        thread_change_state(file->thread, TS_WAITIO, serial_read);
-        enable_interrupts();
-        halt();
+        disable_interrupts();
+
+        if (serial_read_test_ready(file))
+        {
+            break;
+        }
+
+        if (file->status_flags & O_NONBLOCK)
+        {
+            return -EAGAIN;
+        }
+
+        if (g_current_thread->pending_signal_count > 0)
+        {
+            return -EINTR;
+        }
+
+        waitqueue_wait(&g_read_waiters, serial_read);
     }
-
-    disable_interrupts();
-
-    thread_resume(file->thread);
 
     int32_t read_bytes = fifobuffer_dequeue(g_buffer_com1, buffer, size);
 

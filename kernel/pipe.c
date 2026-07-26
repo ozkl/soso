@@ -14,6 +14,7 @@
 #include "alloc.h"
 #include "fifobuffer.h"
 #include "errno.h"
+#include "waitqueue.h"
 
 static List* g_pipe_list = NULL;
 
@@ -28,12 +29,25 @@ typedef struct Pipe
     FileSystemNode* fsNode;
     List* readers;
     List* writers;
-    BOOL isBroken;
+    WaitQueue reader_waiters;
+    WaitQueue writer_waiters;
 } Pipe;
 
 static BOOL pipes_open(File *file, uint32_t flags);
 static FileSystemDirent *pipes_readdir(FileSystemNode *node, uint32_t index);
 static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name);
+
+static BOOL pipe_can_read(File* file)
+{
+    return CHECK_ACCESS(file->status_flags, O_RDONLY) ||
+           CHECK_ACCESS(file->status_flags, O_RDWR);
+}
+
+static BOOL pipe_can_write(File* file)
+{
+    return CHECK_ACCESS(file->status_flags, O_WRONLY) ||
+           CHECK_ACCESS(file->status_flags, O_RDWR);
+}
 
 void pipe_initialize()
 {
@@ -94,66 +108,27 @@ static FileSystemNode *pipes_finddir(FileSystemNode *node, char *name)
     return NULL;
 }
 
-static void block_accessing_threads(Pipe* pipe, List* list)
-{
-    disable_interrupts();
-
-    list_foreach (n, list)
-    {
-        Thread* reader = n->data;
-
-        thread_change_state(reader, TS_WAITIO, pipe);
-    }
-
-    enable_interrupts();
-
-    halt();
-}
-
-static void wakeup_accessing_threads(Pipe* pipe, List* list)
-{
-    begin_critical_section();
-
-    list_foreach (n, list)
-    {
-        Thread* reader = n->data;
-
-        if (reader->state == TS_WAITIO)
-        {
-            if (reader->state_privateData == pipe)
-            {
-                thread_resume(reader);
-            }
-        }
-    }
-
-    end_critical_section();
-}
-
 static BOOL pipe_open(File *file, uint32_t flags)
 {
-    if (CHECK_ACCESS(file->flags, O_RDONLY) || CHECK_ACCESS(file->flags, O_WRONLY))
+    if (pipe_can_read(file) || pipe_can_write(file))
     {
         begin_critical_section();
 
-        g_current_thread->state = TS_CRITICAL;
-
         Pipe* pipe = file->node->private_node_data;
 
-        pipe->isBroken = FALSE;
-
-        if (CHECK_ACCESS(file->flags, O_RDONLY))
+        if (pipe_can_read(file))
         {
-            list_append(pipe->readers, file->thread);
+            list_append(pipe->readers, file);
 
-            wakeup_accessing_threads(pipe, pipe->writers);
-        }
-        else if (CHECK_ACCESS(file->flags, O_WRONLY))
-        {
-            list_append(pipe->writers, file->thread);
+            waitqueue_wake_all(&pipe->writer_waiters, pipe);
         }
 
-        g_current_thread->state = TS_RUN;
+        if (pipe_can_write(file))
+        {
+            list_append(pipe->writers, file);
+
+            waitqueue_wake_all(&pipe->reader_waiters, pipe);
+        }
 
         end_critical_section();
 
@@ -169,21 +144,23 @@ static void pipe_close(File *file)
 
     Pipe* pipe = file->node->private_node_data;
 
-    if (CHECK_ACCESS(file->flags, O_RDONLY))
+    if (pipe_can_read(file))
     {
-        list_remove_first_occurrence(pipe->readers, file->thread);
-    }
-    else if (CHECK_ACCESS(file->flags, O_WRONLY))
-    {
-        list_remove_first_occurrence(pipe->writers, file->thread);
-    }
+        list_remove_first_occurrence(pipe->readers, file);
 
-    if (list_is_empty(pipe->readers))
+        if (list_is_empty(pipe->readers))
+        {
+            waitqueue_wake_all(&pipe->writer_waiters, pipe);
+        }
+    }
+    if (pipe_can_write(file))
     {
-        //No readers left
-        pipe->isBroken = TRUE;
+        list_remove_first_occurrence(pipe->writers, file);
 
-        wakeup_accessing_threads(pipe, pipe->writers);
+        if (list_is_empty(pipe->writers))
+        {
+            waitqueue_wake_all(&pipe->reader_waiters, pipe);
+        }
     }
 
     end_critical_section();
@@ -193,30 +170,40 @@ static BOOL pipe_read_test_ready(File *file)
 {
     Pipe* pipe = file->node->private_node_data;
 
-    if (fifobuffer_get_size(pipe->buffer) > 0)
-    {
-        return TRUE;
-    }
+    begin_critical_section();
+    BOOL ready = fifobuffer_get_size(pipe->buffer) > 0 ||
+                 list_is_empty(pipe->writers);
+    end_critical_section();
 
-    return FALSE;
+    return ready;
 }
 
 static int32_t pipe_read(File *file, uint32_t size, uint8_t *buffer)
 {
-    if (0 == size || NULL == buffer || !CHECK_ACCESS(file->flags, O_RDONLY))
+    if (0 == size || NULL == buffer || !pipe_can_read(file))
     {
         return -1;
     }
 
     Pipe* pipe = file->node->private_node_data;
 
-    uint32_t used = 0;
-    while (pipe_read_test_ready(file) == FALSE)
+    while (TRUE)
     {
-        if (pipe->isBroken)
+        disable_interrupts();
+
+        if (fifobuffer_get_size(pipe->buffer) > 0)
         {
-            disable_interrupts();
-            return -EPIPE;
+            break;
+        }
+
+        if (list_is_empty(pipe->writers))
+        {
+            return 0;
+        }
+
+        if (file->status_flags & O_NONBLOCK)
+        {
+            return -EAGAIN;
         }
 
         if (g_current_thread->pending_signal_count > 0)
@@ -224,21 +211,12 @@ static int32_t pipe_read(File *file, uint32_t size, uint8_t *buffer)
             return -EINTR;
         }
 
-        block_accessing_threads(pipe, pipe->readers);
+        waitqueue_wait(&pipe->reader_waiters, pipe);
     }
-
-    if (g_current_thread->pending_signal_count > 0)
-    {
-        return -EINTR;
-    }
-
-    disable_interrupts();
-
-
 
     int32_t readBytes = fifobuffer_dequeue(pipe->buffer, buffer, size);
 
-    wakeup_accessing_threads(pipe, pipe->writers);
+    waitqueue_wake_all(&pipe->writer_waiters, pipe);
 
     return readBytes;
 }
@@ -248,33 +226,42 @@ static BOOL pipe_write_test_ready(File *file)
     Pipe* pipe = file->node->private_node_data;
 
     begin_critical_section();
-    int readerCount = list_get_count(pipe->readers);
+    BOOL ready = list_is_empty(pipe->readers) ||
+                 fifobuffer_get_free(pipe->buffer) > 0;
     end_critical_section();
 
-    if (fifobuffer_get_free(pipe->buffer) > 0 && readerCount > 0)
-    {
-        return TRUE;
-    }
-
-    return FALSE;
+    return ready;
 }
 
 static int32_t pipe_write(File *file, uint32_t size, uint8_t *buffer)
 {
-    if (0 == size || NULL == buffer || !CHECK_ACCESS(file->flags, O_WRONLY))
+    if (0 == size || NULL == buffer || !pipe_can_write(file))
     {
         return -1;
     }
 
     Pipe* pipe = file->node->private_node_data;
+    BOOL atomic_write = size <= fifobuffer_get_capacity(pipe->buffer);
 
-    uint32_t free = 0;
-    while (pipe_write_test_ready(file) == FALSE)
+    while (TRUE)
     {
-        if (pipe->isBroken)
+        disable_interrupts();
+
+        if (list_is_empty(pipe->readers))
         {
-            disable_interrupts();
             return -EPIPE;
+        }
+
+        uint32_t free = fifobuffer_get_free(pipe->buffer);
+        if ((atomic_write && free >= size) ||
+            (!atomic_write && free > 0))
+        {
+            break;
+        }
+
+        if (file->status_flags & O_NONBLOCK)
+        {
+            return -EAGAIN;
         }
 
         if (g_current_thread->pending_signal_count > 0)
@@ -282,25 +269,23 @@ static int32_t pipe_write(File *file, uint32_t size, uint8_t *buffer)
             return -EINTR;
         }
 
-        block_accessing_threads(pipe, pipe->writers);
+        waitqueue_wait(&pipe->writer_waiters, pipe);
     }
-
-    if (g_current_thread->pending_signal_count > 0)
-    {
-        return -EINTR;
-    }
-
-    disable_interrupts();
 
     int32_t bytesWritten = fifobuffer_enqueue(pipe->buffer, buffer, size);
 
-    wakeup_accessing_threads(pipe, pipe->readers);
+    waitqueue_wake_all(&pipe->reader_waiters, pipe);
 
     return bytesWritten;
 }
 
 BOOL pipe_create(const char* name, uint32_t bufferSize)
 {
+    if (name == NULL || strlen(name) >= sizeof(((Pipe*)0)->name) || bufferSize == 0)
+    {
+        return FALSE;
+    }
+
     list_foreach (n, g_pipe_list)
     {
         Pipe* p = (Pipe*)n->data;
@@ -313,13 +298,13 @@ BOOL pipe_create(const char* name, uint32_t bufferSize)
     Pipe* pipe = (Pipe*)kmalloc(sizeof(Pipe));
     memset((uint8_t*)pipe, 0, sizeof(Pipe));
 
-    pipe->isBroken = FALSE;
-
-    strcpy(pipe->name, name);
+    strncpy_null(pipe->name, name, sizeof(pipe->name));
     pipe->buffer = fifobuffer_create(bufferSize);
 
     pipe->readers = list_create();
     pipe->writers = list_create();
+    waitqueue_initialize(&pipe->reader_waiters);
+    waitqueue_initialize(&pipe->writer_waiters);
 
     pipe->fsNode = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8_t*)pipe->fsNode, 0, sizeof(FileSystemNode));
@@ -343,13 +328,27 @@ BOOL pipe_destroy(const char* name)
         Pipe* p = (Pipe*)n->data;
         if (strcmp(name, p->name) == 0)
         {
+            begin_critical_section();
+
+            if (!list_is_empty(p->readers) ||
+                !list_is_empty(p->writers) ||
+                !waitqueue_is_empty(&p->reader_waiters) ||
+                !waitqueue_is_empty(&p->writer_waiters))
+            {
+                end_critical_section();
+                return FALSE;
+            }
+
             list_remove_first_occurrence(g_pipe_list, p);
             fifobuffer_destroy(p->buffer);
             list_destroy(p->readers);
             list_destroy(p->writers);
+            waitqueue_destroy(&p->reader_waiters);
+            waitqueue_destroy(&p->writer_waiters);
             kfree(p->fsNode);
             kfree(p);
 
+            end_critical_section();
             return TRUE;
         }
     }

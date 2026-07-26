@@ -33,7 +33,7 @@ void log_initialize(const char* file_name)
 
     if (node)
     {
-      g_file = fs_open(node, 0);
+      g_file = fs_open_kernel(node, 0);
 
       if (g_file)
       {

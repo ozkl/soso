@@ -17,10 +17,11 @@
 #include "devfs.h"
 #include "list.h"
 #include "console.h"
+#include "waitqueue.h"
+#include "errno.h"
 
 static uint8_t* g_key_buffer = NULL;
-static uint32_t g_key_buffer_write_index = 0;
-static uint32_t g_key_buffer_read_index = 0;
+static uint64_t g_key_buffer_write_sequence = 0;
 
 #define KEYBUFFER_SIZE 128
 
@@ -38,8 +39,9 @@ typedef enum ReadMode
 
 typedef struct Reader
 {
-    uint32_t read_index;
+    uint64_t read_sequence;
     ReadMode read_mode;
+    WaitQueue waiters;
 } Reader;
 
 static List* g_readers = NULL;
@@ -68,27 +70,21 @@ void keyboard_initialize()
     interrupt_register(IRQ1, handle_keyboard_interrupt);
 }
 
-# define O_NONBLOCK	  04000
-
 static BOOL keyboard_open(File *file, uint32_t flags)
 {
     Reader* reader = (Reader*)kmalloc(sizeof(Reader));
-    reader->read_index = 0;
+    memset((uint8_t*)reader, 0, sizeof(Reader));
     reader->read_mode = RM_BLOCKING;
+    waitqueue_initialize(&reader->waiters);
 
-    if (flags & O_NONBLOCK)
-    {
-        reader->read_mode = RM_NON_BLOCKING;
-        //printkf("keyboard opened as non blocking by %d\n", g_current_thread->owner->pid);
-    }
+    begin_critical_section();
 
-    if (g_key_buffer_write_index > 0)
-    {
-        reader->read_index = g_key_buffer_write_index;
-    }
+    reader->read_sequence = g_key_buffer_write_sequence;
     file->private_data = (void*)reader;
 
     list_append(g_readers, file);
+
+    end_critical_section();
 
     return TRUE;
 }
@@ -97,41 +93,69 @@ static void keyboard_close(File *file)
 {
     Reader* reader = (Reader*)file->private_data;
 
-    kfree(reader);
+    begin_critical_section();
 
     list_remove_first_occurrence(g_readers, file);
+    waitqueue_destroy(&reader->waiters);
+    kfree(reader);
+    file->private_data = NULL;
+
+    end_critical_section();
 }
 
 static int32_t keyboard_read(File *file, uint32_t size, uint8_t *buffer)
 {
+    if (size == 0 || buffer == NULL)
+    {
+        return -1;
+    }
+
     Reader* reader = (Reader*)file->private_data;
 
-    uint32_t read_index = reader->read_index;
-
-    if (reader->read_mode == RM_BLOCKING)
+    if (reader->read_mode == RM_BLOCKING &&
+        !(file->status_flags & O_NONBLOCK))
     {
-        while (read_index == g_key_buffer_write_index)
+        while (TRUE)
         {
-            thread_change_state(file->thread, TS_WAITIO, keyboard_read);
-            
-            enable_interrupts();
-            halt();
+            disable_interrupts();
+
+            if (reader->read_sequence != g_key_buffer_write_sequence)
+            {
+                break;
+            }
+
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
+
+            waitqueue_wait(&reader->waiters, keyboard_read);
         }
     }
-
-    disable_interrupts();
-
-    if (read_index == g_key_buffer_write_index)
+    else
     {
-        //non-blocking return here
-        return 0;
+        disable_interrupts();
     }
 
-    buffer[0] = g_key_buffer[read_index];
-    read_index++;
-    read_index %= KEYBUFFER_SIZE;
+    if (reader->read_sequence == g_key_buffer_write_sequence)
+    {
+        return -EAGAIN;
+    }
 
-    reader->read_index = read_index;
+    uint64_t oldest_sequence = 0;
+    if (g_key_buffer_write_sequence > KEYBUFFER_SIZE)
+    {
+        oldest_sequence = g_key_buffer_write_sequence - KEYBUFFER_SIZE;
+    }
+
+    if (reader->read_sequence < oldest_sequence)
+    {
+        reader->read_sequence = oldest_sequence;
+    }
+
+    uint32_t read_index = (uint32_t)(reader->read_sequence & (KEYBUFFER_SIZE - 1));
+    buffer[0] = g_key_buffer[read_index];
+    ++reader->read_sequence;
 
     return 1;
 }
@@ -140,14 +164,11 @@ static BOOL keyboard_read_test_ready(File *file)
 {
     Reader* reader = (Reader*)file->private_data;
 
-    uint32_t read_index = reader->read_index;
+    begin_critical_section();
+    BOOL ready = reader->read_sequence != g_key_buffer_write_sequence;
+    end_critical_section();
 
-    if (read_index == g_key_buffer_write_index)
-    {
-        return FALSE;
-    }
-
-    return TRUE;
+    return ready;
 }
 
 static int32_t keyboard_ioctl(File *file, int32_t request, void * argp)
@@ -193,22 +214,17 @@ static void handle_keyboard_interrupt(Registers *regs)
 
     scancode = inb(0x60);
 
-    g_key_buffer[g_key_buffer_write_index] = scancode;
-    g_key_buffer_write_index++;
-    g_key_buffer_write_index %= KEYBUFFER_SIZE;
+    uint32_t write_index = (uint32_t)(g_key_buffer_write_sequence & (KEYBUFFER_SIZE - 1));
+    g_key_buffer[write_index] = scancode;
+    ++g_key_buffer_write_sequence;
 
     //Wake readers
     list_foreach(n, g_readers)
     {
         File* file = n->data;
+        Reader* reader = (Reader*)file->private_data;
 
-        if (file->thread->state == TS_WAITIO)
-        {
-            if (file->thread->state_privateData == keyboard_read)
-            {
-                thread_resume(file->thread);
-            }
-        }
+        waitqueue_wake_all(&reader->waiters, keyboard_read);
     }
 
     console_send_key(scancode);

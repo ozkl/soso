@@ -130,7 +130,7 @@ static void* fb_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
         physical_pages_array[i] = (uint32_t)(g_fb_physical) + i * PAGESIZE_4K;
     }
 
-    void* result = vmm_map_memory(file->thread->owner, USER_MMAP_START, physical_pages_array, page_count, FALSE);
+    void* result = vmm_map_memory(thread_get_current()->owner, USER_MMAP_START, physical_pages_array, page_count, FALSE);
 
     kfree(physical_pages_array);
 
@@ -139,5 +139,5 @@ static void* fb_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 
 static BOOL fb_munmap(File* file, void* address, uint32_t size)
 {
-    return vmm_unmap_memory(file->thread->owner, (uint32_t)address, PAGE_COUNT(size));
+    return vmm_unmap_memory(thread_get_current()->owner, (uint32_t)address, PAGE_COUNT(size));
 }

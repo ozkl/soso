@@ -80,7 +80,7 @@ Terminal* terminal_create(BOOL graphic_mode)
     ozterm_reset_attributes(terminal->term);
     ozterm_clear_full(terminal->term);
 
-    terminal->opened_master = fs_open_for_process(thread_get_first(), tty->master_node, 0);
+    terminal->opened_master = fs_open_kernel(tty->master_node, 0);
     terminal->disabled = FALSE;
     tty->private_data = terminal;
 
@@ -91,7 +91,7 @@ Terminal* terminal_create(BOOL graphic_mode)
 
 void terminal_destroy(Terminal* terminal)
 {
-    fs_close(terminal->opened_master);
+    fs_release(terminal->opened_master);
 
     ozterm_destroy(terminal->term);
 

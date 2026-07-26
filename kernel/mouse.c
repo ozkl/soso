@@ -18,6 +18,7 @@
 #include "fifobuffer.h"
 #include "spinlock.h"
 #include "errno.h"
+#include "waitqueue.h"
 
 static uint8_t g_mouse_byte_counter = 0;
 
@@ -38,6 +39,12 @@ uint8_t g_mouse_packet[MOUSE_PACKET_SIZE];
 static List* g_readers = NULL;
 
 static Spinlock g_readers_lock;
+
+typedef struct MouseReader
+{
+    FifoBuffer* fifo;
+    WaitQueue waiters;
+} MouseReader;
 
 void initialize_mouse()
 {
@@ -76,74 +83,87 @@ void initialize_mouse()
 
 static BOOL mouse_open(File *file, uint32_t flags)
 {
-    FifoBuffer* fifo = fifobuffer_create(60);
+    MouseReader* reader = kmalloc(sizeof(MouseReader));
+    memset((uint8_t*)reader, 0, sizeof(MouseReader));
+    reader->fifo = fifobuffer_create(60);
+    waitqueue_initialize(&reader->waiters);
 
-    file->private_data = (void*)fifo;
+    file->private_data = reader;
 
+    begin_critical_section();
     spinlock_lock(&g_readers_lock);
 
     list_append(g_readers, file);
 
     spinlock_unlock(&g_readers_lock);
+    end_critical_section();
 
     return TRUE;
 }
 
 static void mouse_close(File *file)
 {
+    begin_critical_section();
     spinlock_lock(&g_readers_lock);
 
     list_remove_first_occurrence(g_readers, file);
 
     spinlock_unlock(&g_readers_lock);
 
-    FifoBuffer* fifo = (FifoBuffer*)file->private_data;
+    MouseReader* reader = (MouseReader*)file->private_data;
 
-    fifobuffer_destroy(fifo);
+    waitqueue_destroy(&reader->waiters);
+    fifobuffer_destroy(reader->fifo);
+    kfree(reader);
+    file->private_data = NULL;
+
+    end_critical_section();
 }
 
 static BOOL mouse_read_test_ready(File *file)
 {
-    FifoBuffer* fifo = (FifoBuffer*)file->private_data;
+    MouseReader* reader = (MouseReader*)file->private_data;
 
-    if (fifobuffer_get_size(fifo) > 0)
-    {
-        return TRUE;
-    }
+    begin_critical_section();
+    BOOL ready = fifobuffer_get_size(reader->fifo) > 0;
+    end_critical_section();
 
-    return FALSE;
+    return ready;
 }
 
 static int32_t mouse_read(File *file, uint32_t size, uint8_t *buffer)
 {
-    FifoBuffer* fifo = (FifoBuffer*)file->private_data;
-
-    uint32_t available = fifobuffer_get_size(fifo);
-
-    if (file->flags & O_NONBLOCK)
+    if (size == 0 || buffer == NULL)
     {
-        if (available == 0)
+        return -1;
+    }
+
+    MouseReader* reader = (MouseReader*)file->private_data;
+    FifoBuffer* fifo = reader->fifo;
+
+    disable_interrupts();
+
+    if (file->status_flags & O_NONBLOCK)
+    {
+        if (fifobuffer_get_size(fifo) == 0)
         {
-            return 0;
+            return -EAGAIN;
         }
     }
     else
     {
         while (fifobuffer_get_size(fifo) == 0)
         {
-            thread_change_state(file->thread, TS_WAITIO, mouse_read);
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
 
-            enable_interrupts();
-            halt();
+            waitqueue_wait(&reader->waiters, mouse_read);
         }
     }
 
-    
-    disable_interrupts();
-
-    available = fifobuffer_get_size(fifo);
-
-    
+    uint32_t available = fifobuffer_get_size(fifo);
     uint32_t smaller = MIN(available, size);
 
     fifobuffer_dequeue(fifo, buffer, smaller);
@@ -224,16 +244,13 @@ static void handle_mouse_interrupt(Registers *regs)
         {
             File* file = n->data;
 
-            FifoBuffer* fifo = (FifoBuffer*)file->private_data;
+            MouseReader* reader = (MouseReader*)file->private_data;
+            FifoBuffer* fifo = reader->fifo;
 
-            fifobuffer_enqueue(fifo, g_mouse_packet, MOUSE_PACKET_SIZE);
-
-            if (file->thread->state == TS_WAITIO)
+            if (fifobuffer_get_free(fifo) >= MOUSE_PACKET_SIZE)
             {
-                if (file->thread->state_privateData == mouse_read)
-                {
-                    thread_resume(file->thread);
-                }
+                fifobuffer_enqueue(fifo, g_mouse_packet, MOUSE_PACKET_SIZE);
+                waitqueue_wake_all(&reader->waiters, mouse_read);
             }
         }
 

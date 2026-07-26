@@ -77,14 +77,12 @@ FileSystemNode* ttydev_create(uint16_t column_count, uint16_t row_count)
     tty_dev->buffer_master_write = fifobuffer_create(4096);
     tty_dev->buffer_master_read = fifobuffer_create(4096);
     tty_dev->buffer_echo = fifobuffer_create(4096);
-    tty_dev->slave_readers = list_create();
+    waitqueue_initialize(&tty_dev->slave_readers);
+    waitqueue_initialize(&tty_dev->master_readers);
 
     
     spinlock_init(&tty_dev->buffer_master_write_lock);
     spinlock_init(&tty_dev->buffer_master_read_lock);
-    spinlock_init(&tty_dev->slave_readers_lock);
-
-
     tty_dev->is_closed = FALSE;
     tty_dev->pty_number = (int32_t)++g_name_generator;
 
@@ -132,7 +130,8 @@ static void check_and_destroy(TtyDev* tty)
         fifobuffer_destroy(tty->buffer_master_write);
         fifobuffer_destroy(tty->buffer_master_read);
         fifobuffer_destroy(tty->buffer_echo);
-        list_destroy(tty->slave_readers);
+        waitqueue_destroy(&tty->slave_readers);
+        waitqueue_destroy(&tty->master_readers);
         
         kfree(tty);
     }
@@ -140,16 +139,16 @@ static void check_and_destroy(TtyDev* tty)
 
 static void wake_slave_readers(TtyDev* tty)
 {
-    spinlock_lock(&tty->slave_readers_lock);
-    list_foreach(n, tty->slave_readers)
-    {
-        Thread* thread = (Thread*)n->data;
-        if (thread->state == TS_WAITIO && thread->state_privateData == tty)
-        {
-            thread_resume(thread);
-        }
-    }
-    spinlock_unlock(&tty->slave_readers_lock);
+    begin_critical_section();
+    waitqueue_wake_all(&tty->slave_readers, tty);
+    end_critical_section();
+}
+
+static void wake_master_readers(TtyDev* tty)
+{
+    begin_critical_section();
+    waitqueue_wake_all(&tty->master_readers, tty);
+    end_critical_section();
 }
 
 static BOOL master_open(File *file, uint32_t flags)
@@ -162,6 +161,7 @@ static void master_close(File *file)
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
     tty->is_closed = TRUE;
+    wake_slave_readers(tty);
 
     if (tty->foreground_process > 0)
     {
@@ -222,11 +222,17 @@ static int32_t master_read(File *file, uint32_t size, uint8_t *buffer)
                 return read_size;
             }
 
-            tty->master_reader = file->thread;
-            thread_change_state(file->thread, TS_WAITIO, tty);
+            if (file->status_flags & O_NONBLOCK)
+            {
+                return -EAGAIN;
+            }
 
-            enable_interrupts();
-            halt();
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
+
+            waitqueue_wait(&tty->master_readers, tty);
         }
     }
 
@@ -453,13 +459,7 @@ static int32_t master_write(File *file, uint32_t size, uint8_t *buffer)
 
         if (w > 0)
         {
-            if (tty->master_reader)
-            {
-                if (tty->master_reader->state == TS_WAITIO && tty->master_reader->state_privateData == tty)
-                {
-                    thread_resume(tty->master_reader);
-                }
-            }
+            wake_master_readers(tty);
         }
     }
 
@@ -484,10 +484,6 @@ static BOOL slave_open(File *file, uint32_t flags)
 static void slave_close(File *file)
 {
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
-
-    spinlock_lock(&tty->slave_readers_lock);
-    list_remove_first_occurrence(tty->slave_readers, file->thread);
-    spinlock_unlock(&tty->slave_readers_lock);
 
     tty->slave_open_count -= 1;
 
@@ -609,7 +605,7 @@ static BOOL slave_read_test_ready(File *file)
 
     if (tty->is_closed)
     {
-        return FALSE;
+        return TRUE;
     }
 
     if (spinlock_try_lock(&tty->buffer_master_write_lock))
@@ -637,11 +633,6 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
 {
     TtyDev* tty = (TtyDev*)file->node->private_node_data;
 
-    if (tty->is_closed)
-    {
-        return -1;
-    }
-
     //TODO: implement VTIME
     //uint32_t timer = get_uptime_milliseconds();
 
@@ -667,7 +658,7 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
 
             int read_size = -1;
 
-            if (buffer_len >= needed_size)
+            if (buffer_len >= needed_size || (tty->is_closed && buffer_len > 0))
             {
                 read_size = fifobuffer_dequeue(tty->buffer_master_write, buffer, MIN(buffer_len, size));
             }
@@ -678,25 +669,29 @@ static int32_t slave_read(File *file, uint32_t size, uint8_t *buffer)
             {
                 return read_size;
             }
-            else
+
+            if (tty->is_closed)
             {
-                if (needed_size == 0)
-                {
-                    //polling read because MIN==0
-                    return 0;
-                }
+                return 0;
             }
 
-            //TODO: remove reader from list
-            spinlock_lock(&tty->slave_readers_lock);
-            list_remove_first_occurrence(tty->slave_readers, file->thread);
-            list_append(tty->slave_readers, file->thread);
-            spinlock_unlock(&tty->slave_readers_lock);
+            if (needed_size == 0)
+            {
+                //polling read because MIN==0
+                return 0;
+            }
 
-            thread_change_state(file->thread, TS_WAITIO, tty);
+            if (file->status_flags & O_NONBLOCK)
+            {
+                return -EAGAIN;
+            }
 
-            enable_interrupts();
-            halt();
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
+
+            waitqueue_wait(&tty->slave_readers, tty);
         }
     }
 
@@ -794,6 +789,7 @@ static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer)
     uint32_t bytes_usable = fifobuffer_get_size(tty->buffer_master_read);
 
     spinlock_unlock(&tty->buffer_master_read_lock);
+    disable_interrupts();
 
     if (bytes_usable > 0 && tty->master_read_ready)
     {
@@ -802,13 +798,7 @@ static int32_t slave_write(File *file, uint32_t size, uint8_t *buffer)
 
     if (written > 0)
     {
-        if (tty->master_reader)
-        {
-            if (tty->master_reader->state == TS_WAITIO && tty->master_reader->state_privateData == tty)
-            {
-                thread_resume(tty->master_reader);
-            }
-        }
+        wake_master_readers(tty);
         
         return written;
     }

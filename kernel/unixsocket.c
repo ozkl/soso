@@ -31,6 +31,7 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
 static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags);
 
 static BOOL unixsocket_fs_read_test_ready(File *file);
+static BOOL unixsocket_fs_write_test_ready(File *file);
 static int32_t unixsocket_fs_read(File *file, uint32_t len, uint8_t *buf);
 static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf);
 
@@ -53,6 +54,7 @@ void unixsocket_setup(Socket* socket)
     socket->socket_recv = unixsocket_recv;
 
     socket->node->read_test_ready = unixsocket_fs_read_test_ready;
+    socket->node->write_test_ready = unixsocket_fs_write_test_ready;
     socket->node->read = unixsocket_fs_read;
     socket->node->write = unixsocket_fs_write;
 }
@@ -76,6 +78,11 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
     list_foreach (n, g_socket_list)
     {
         Socket* s = (Socket*)n->data;
+        if (s->domain != AF_UNIX || s->custom_socket == NULL)
+        {
+            continue;
+        }
+
         UnixSocket* us = (UnixSocket*)s->custom_socket;
 
         if (strcmp(addr->sa_data, us->name) == 0)
@@ -84,7 +91,7 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
         }
     }
 
-    snprintf(unix_socket->name, SOCKET_NAME_SIZE, addr->sa_data);
+    snprintf(unix_socket->name, SOCKET_NAME_SIZE, "%s", addr->sa_data);
 
     return 0; //success
 }
@@ -126,7 +133,7 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
 
             if (new_socket_fd >= 0 && new_socket_fd < SOSO_MAX_OPENED_FILES)
             {
-                File* file = g_current_thread->owner->fd[new_socket_fd];
+                File* file = process_get_file(g_current_thread->owner, new_socket_fd);
 
                 if (file)
                 {
@@ -134,15 +141,29 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
 
                     new_socket->connection = other_end;
                     other_end->connection = new_socket;
+                    other_end->connecting_to = NULL;
+                    waitqueue_wake_all(&other_end->connect_waiters, other_end);
 
                     return new_socket_fd;
                 }
             }
+
+            queue_enqueue(socket->accept_queue, other_end);
+            return new_socket_fd < 0 ? new_socket_fd : -EMFILE;
         }
 
-        thread_change_state(g_current_thread, TS_WAITIO, unixsocket_accept);
-        enable_interrupts();
-        halt();
+        File* file = process_get_file(g_current_thread->owner, sockfd);
+        if (file && (file->status_flags & O_NONBLOCK))
+        {
+            return -EAGAIN;
+        }
+
+        if (g_current_thread->pending_signal_count > 0)
+        {
+            return -EINTR;
+        }
+
+        waitqueue_wait(&socket->accept_waiters, socket);
     }
 
     return -1;
@@ -160,10 +181,20 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
         return -EISCONN; //The socket is already connected.
     }
 
+    if (socket->connecting_to != NULL)
+    {
+        return -EALREADY;
+    }
+
     Socket* accepting_socket = NULL;
     list_foreach (n, g_socket_list)
     {
         Socket* s = (Socket*)n->data;
+        if (s->domain != AF_UNIX || s->custom_socket == NULL)
+        {
+            continue;
+        }
+
         UnixSocket* us = (UnixSocket*)s->custom_socket;
 
         if (strcmp(addr->sa_data, us->name) == 0)
@@ -175,19 +206,38 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
 
     if (accepting_socket && BITMAP_CHECK(accepting_socket->opts, SO_ACCEPTCONN))
     {
+        socket->connecting_to = accepting_socket;
         queue_enqueue(accepting_socket->accept_queue, socket);
 
-        if (accepting_socket->last_thread->state == TS_WAITIO && accepting_socket->last_thread->state_privateData == unixsocket_accept)
+        waitqueue_wake_all(&accepting_socket->accept_waiters, accepting_socket);
+
+        File* file = process_get_file(g_current_thread->owner, sockfd);
+        if (file && (file->status_flags & O_NONBLOCK))
         {
-            thread_resume(accepting_socket->last_thread);
+            return -EINPROGRESS;
         }
 
-        while (socket->connection == NULL)
+        while (TRUE)
         {
-            enable_interrupts();
-            halt();
+            disable_interrupts();
+
+            if (socket->connection != NULL)
+            {
+                return 0;
+            }
+
+            if (socket->disconnected)
+            {
+                return -ECONNREFUSED;
+            }
+
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
+
+            waitqueue_wait(&socket->connect_waiters, socket);
         }
-        return 0;
     }
 
     return -1;
@@ -197,7 +247,7 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
 {
     if (len == 0)
     {
-        return -1;
+        return 0;
     }
 
 
@@ -207,7 +257,7 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
 
         if (!socket->connection)
         {
-            return -1;
+            return -EPIPE;
         }
 
         uint32_t free = fifobuffer_get_free(socket->connection->buffer_in);
@@ -217,19 +267,27 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
             uint32_t smaller = MIN(free, len);
 
             uint32_t written = fifobuffer_enqueue(socket->connection->buffer_in, (uint8_t*)buf, smaller);
+            socket->connection->bytes_enqueued += written;
 
-            if (socket->connection->last_thread->state == TS_WAITIO && socket->connection->last_thread->state_privateData == unixsocket_recv)
-            {
-                thread_resume(socket->connection->last_thread);
-            }
+            waitqueue_wake_all(&socket->connection->read_waiters, socket->connection);
 
             return written;
         }
         else
         {
-            thread_change_state(g_current_thread, TS_WAITIO, unixsocket_send);
-            enable_interrupts();
-            halt();
+            File* file = process_get_file(g_current_thread->owner, sockfd);
+            if ((flags & MSG_DONTWAIT) ||
+                (file && (file->status_flags & O_NONBLOCK)))
+            {
+                return -EAGAIN;
+            }
+
+            if (g_current_thread->pending_signal_count > 0)
+            {
+                return -EINTR;
+            }
+
+            waitqueue_wait(&socket->write_waiters, socket);
         }
     }
 
@@ -240,17 +298,12 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
 {
     if (len == 0)
     {
-        return -1;
+        return 0;
     }
 
     while (TRUE)
     {
         disable_interrupts();
-
-        if (socket->disconnected)
-        {
-            return 0;
-        }
 
         uint32_t size = fifobuffer_get_size(socket->buffer_in);
 
@@ -259,18 +312,39 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
             uint32_t smaller = MIN(size, len);
 
             uint32_t read = fifobuffer_dequeue(socket->buffer_in, (uint8_t*)buf, smaller);
+            socket->bytes_dequeued += read;
 
-            if (socket->connection->last_thread->state == TS_WAITIO && socket->connection->last_thread->state_privateData == unixsocket_send)
+            if (!socket->receiving_control)
             {
-                thread_resume(socket->connection->last_thread);
+                socket_discard_consumed_control(socket);
+            }
+
+            if (socket->connection)
+            {
+                waitqueue_wake_all(&socket->connection->write_waiters, socket->connection);
             }
 
             return read;
         }
 
-        thread_change_state(g_current_thread, TS_WAITIO, unixsocket_recv);
-        enable_interrupts();
-        halt();
+        if (socket->disconnected)
+        {
+            return 0;
+        }
+
+        File* file = process_get_file(g_current_thread->owner, sockfd);
+        if ((flags & MSG_DONTWAIT) ||
+            (file && (file->status_flags & O_NONBLOCK)))
+        {
+            return -EAGAIN;
+        }
+
+        if (g_current_thread->pending_signal_count > 0)
+        {
+            return -EINTR;
+        }
+
+        waitqueue_wait(&socket->read_waiters, socket);
     }
 
     return -1;
@@ -311,16 +385,30 @@ static BOOL unixsocket_fs_read_test_ready(File *file)
     return FALSE;
 }
 
+static BOOL unixsocket_fs_write_test_ready(File *file)
+{
+    Socket* socket = (Socket*)file->node->private_node_data;
+
+    if (socket->connection == NULL)
+    {
+        return socket->connecting_to == NULL || socket->disconnected;
+    }
+
+    return fifobuffer_get_free(socket->connection->buffer_in) > 0;
+}
+
 static int32_t unixsocket_fs_read(File *file, uint32_t len, uint8_t *buf)
 {
     Socket* socket = (Socket*)file->node->private_node_data;
 
-    return unixsocket_recv(socket, file->fd, buf, len, 0);
+    int32_t flags = (file->status_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+    return unixsocket_recv(socket, -1, buf, len, flags);
 }
 
 static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf)
 {
     Socket* socket = (Socket*)file->node->private_node_data;
 
-    return unixsocket_send(socket, file->fd, (const uint8_t *)buf, len, 0);
+    int32_t flags = (file->status_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+    return unixsocket_send(socket, -1, (const uint8_t *)buf, len, flags);
 }

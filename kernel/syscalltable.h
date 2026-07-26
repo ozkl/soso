@@ -30,9 +30,11 @@ enum
     SYS_kill = 37,
     SYS_mkdir = 39,
     SYS_rmdir = 40,
+    SYS_dup = 41,
     SYS_brk = 45,
     SYS_ioctl = 54,
     SYS_setpgid = 57,
+    SYS_dup2 = 63,
     SYS_mmap = 90,
     SYS_munmap = 91,
     SYS_ftruncate = 93,
@@ -60,6 +62,7 @@ enum
     SYS_set_thread_area = 243,
     SYS_exit_group = 252,
     SYS_set_tid_address = 258,
+    SYS_dup3 = 330,
 
     SYS_getrandom = 355,
     

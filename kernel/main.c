@@ -73,7 +73,7 @@ int execute_file(const char *path, char *const argv[], char *const envp[], FileS
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
         if (node)
         {
-            File* f = fs_open(node, 0);
+            File* f = fs_open_kernel(node, 0);
             if (f)
             {
                 void* image = kmalloc(node->length);
@@ -94,7 +94,7 @@ int execute_file(const char *path, char *const argv[], char *const envp[], FileS
                         result = new_process->pid;
                     }
                 }
-                fs_close(f);
+                fs_release(f);
 
                 kfree(image);
             }
@@ -120,10 +120,14 @@ void print_ascii_art()
 
 int kmain(struct Multiboot *mboot_ptr)
 {
-    descriptor_tables_initialize();
-    fpu_initialize();
-
     serial_initialize();
+    serial_printf("Entering kmain()\n");
+
+    descriptor_tables_initialize();
+    serial_printf("Descriptor tables initialized\n");
+
+    fpu_initialize();
+    serial_printf("FPU initialized\n");
 
     if (0 != mboot_ptr->cmdline && strstr((char*)mboot_ptr->cmdline, "logserial"))
     {
@@ -140,6 +144,7 @@ int kmain(struct Multiboot *mboot_ptr)
 
     uint32_t memory_kb = mboot_ptr->mem_upper;
     vmm_initialize(memory_kb);
+    serial_printf("VMM initialized\n");
 
     struct Multiboot* mboot_clone = kmalloc(sizeof(struct Multiboot));
     memcpy((uint8_t*)mboot_clone, (uint8_t*)mboot_ptr, sizeof(struct Multiboot));
@@ -153,6 +158,7 @@ int kmain(struct Multiboot *mboot_ptr)
     devfs_initialize();
 
     serial_initialize_file_device();
+    serial_printf("Filesystems initialized\n");
 
     BOOL graphics_mode = (MULTIBOOT_FRAMEBUFFER_TYPE_RGB == mboot_ptr->framebuffer_type);
 
@@ -164,8 +170,10 @@ int kmain(struct Multiboot *mboot_ptr)
     }
 
     tasking_initialize();
+    serial_printf("Tasking initialized\n");
     
     console_initialize(graphics_mode);
+    serial_printf("Console initialized\n");
 
     log_initialize("/dev/pts/8");
 

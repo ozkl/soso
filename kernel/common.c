@@ -16,6 +16,7 @@
 #include "log.h"
 
 static BOOL g_interrupts_were_enabled = FALSE;
+static uint32_t g_critical_section_depth = 0;
 
 // Write a byte out to the specified port.
 void outb(uint16_t port, uint8_t value)
@@ -730,14 +731,28 @@ BOOL is_interrupts_enabled()
 
 void begin_critical_section()
 {
-    g_interrupts_were_enabled = is_interrupts_enabled();
+    BOOL interrupts_were_enabled = is_interrupts_enabled();
 
     disable_interrupts();
+
+    if (g_critical_section_depth == 0)
+    {
+        g_interrupts_were_enabled = interrupts_were_enabled;
+    }
+
+    ++g_critical_section_depth;
 }
 
 void end_critical_section()
 {
-    if (g_interrupts_were_enabled)
+    if (g_critical_section_depth == 0)
+    {
+        return;
+    }
+
+    --g_critical_section_depth;
+
+    if (g_critical_section_depth == 0 && g_interrupts_were_enabled)
     {
         enable_interrupts();
     }

@@ -22,6 +22,7 @@
 #include "ttydev.h"
 #include "sharedmemory.h"
 #include "fpu.h"
+#include "waitqueue.h"
 
 #define MESSAGE_QUEUE_SIZE 64
 
@@ -635,6 +636,7 @@ Process * process_fork(Thread *parent_thread)
     memcpy((uint8_t*)child_thread, (uint8_t*)parent_thread, sizeof(Thread));
     fpu_clone_thread(child_thread, parent_thread);
     child_thread->next = NULL;
+    child_thread->wait_queue = NULL;
     child_thread->owner = process;
     child_thread->threadId = thread_id;
     child_thread->user_mode = 1;
@@ -708,10 +710,15 @@ Process * process_fork(Thread *parent_thread)
 
     p->next = child_thread;
 
-    //TODO: duplicate file descriptors
-    fs_open_for_process(child_thread, process->tty, 0);//0: standard input
-    fs_open_for_process(child_thread, process->tty, 0);//1: standard output
-    fs_open_for_process(child_thread, process->tty, 0);//2: standard error
+    for (int32_t fd = 0; fd < SOSO_MAX_OPENED_FILES; ++fd)
+    {
+        FileDescriptor* descriptor = &parent->fd[fd];
+        if (descriptor->file != NULL)
+        {
+            fs_acquire(descriptor->file);
+            process->fd[fd] = *descriptor;
+        }
+    }
 
     return process;
 }
@@ -720,6 +727,8 @@ Process * process_fork(Thread *parent_thread)
 void thread_destroy(Thread* thread)
 {
     //TODO: signal the process somehow
+    waitqueue_remove_thread(thread);
+
     Thread* previous_thread = thread_get_previous(thread);
     if (NULL != previous_thread)
     {
@@ -752,6 +761,24 @@ void thread_destroy(Thread* thread)
 void process_destroy(Process* process, BOOL wake_parent)
 {
     sharedmemory_unmap_for_process_all(process);
+
+    Thread* waiting_thread = g_first_thread;
+    while (waiting_thread)
+    {
+        if (waiting_thread->owner == process)
+        {
+            waitqueue_remove_thread(waiting_thread);
+        }
+        waiting_thread = waiting_thread->next;
+    }
+
+    for (int32_t fd = 0; fd < SOSO_MAX_OPENED_FILES; ++fd)
+    {
+        if (process->fd[fd].file != NULL)
+        {
+            process_close_file(process, fd);
+        }
+    }
     
     Thread* thread = g_first_thread;
     Thread* previous = NULL;
@@ -786,15 +813,6 @@ void process_destroy(Process* process, BOOL wake_parent)
 
         previous = thread;
         thread = thread->next;
-    }
-
-    //Cleanup opened files
-    for (int i = 0; i < SOSO_MAX_OPENED_FILES; ++i)
-    {
-        if (process->fd[i] != NULL)
-        {
-            fs_close(process->fd[i]);
-        }
     }
 
     if (wake_parent && process->parent)
@@ -840,8 +858,20 @@ void process_change_state(Process* process, ThreadState state)
 
 void process_inherit_files_for_exec(Process* destination, Process* source)
 {
-    //TODO: Implement inheritance with ref-counted open-file descriptions.
-    //File objects currently contain process and thread pointers and cannot be safely transferred.
+    for (int32_t fd = 0; fd < SOSO_MAX_OPENED_FILES; ++fd)
+    {
+        process_close_file(destination, fd);
+    }
+
+    for (int32_t fd = 0; fd < SOSO_MAX_OPENED_FILES; ++fd)
+    {
+        FileDescriptor* descriptor = &source->fd[fd];
+        if (descriptor->file != NULL && !(descriptor->flags & FD_CLOEXEC))
+        {
+            fs_acquire(descriptor->file);
+            destination->fd[fd] = *descriptor;
+        }
+    }
 }
 
 void thread_change_state(Thread* thread, ThreadState state, void* private_data)
@@ -852,6 +882,7 @@ void thread_change_state(Thread* thread, ThreadState state, void* private_data)
 
 void thread_resume(Thread* thread)
 {
+    waitqueue_remove_thread(thread);
     thread->state = TS_RUN;
     thread->state_privateData = NULL;
 }
@@ -916,8 +947,7 @@ BOOL thread_signal(Thread* thread, uint8_t signal)
 
             if (thread->state == TS_WAITIO)
             {
-                thread->state = TS_RUN;
-                //it should wake and it should return -EINTR
+                thread_resume(thread);
             }
 
             result = TRUE;
@@ -1019,13 +1049,23 @@ void wait_for_schedule()
 
 int32_t process_get_empty_fd(Process* process)
 {
+    return process_get_empty_fd_from(process, 0);
+}
+
+int32_t process_get_empty_fd_from(Process* process, int32_t minimum_fd)
+{
     int32_t result = -1;
+
+    if (process == NULL || minimum_fd < 0)
+    {
+        return -1;
+    }
 
     begin_critical_section();
 
-    for (int i = 0; i < SOSO_MAX_OPENED_FILES; ++i)
+    for (int32_t i = minimum_fd; i < SOSO_MAX_OPENED_FILES; ++i)
     {
-        if (process->fd[i] == NULL)
+        if (process->fd[i].file == NULL)
         {
             result = i;
             break;
@@ -1037,22 +1077,29 @@ int32_t process_get_empty_fd(Process* process)
     return result;
 }
 
-int32_t process_add_file(Process* process, File* file)
+int32_t process_install_file(Process* process, File* file, uint32_t descriptor_flags)
+{
+    return process_install_file_from(process, file, descriptor_flags, 0);
+}
+
+int32_t process_install_file_from(Process* process, File* file, uint32_t descriptor_flags, int32_t minimum_fd)
 {
     int32_t result = -1;
 
+    if (process == NULL || file == NULL || minimum_fd < 0)
+    {
+        return -1;
+    }
+
     begin_critical_section();
 
-    //Screen_PrintF("process_add_file: pid:%d\n", process->pid);
-
-    for (int i = 0; i < SOSO_MAX_OPENED_FILES; ++i)
+    for (int32_t i = minimum_fd; i < SOSO_MAX_OPENED_FILES; ++i)
     {
-        //Screen_PrintF("process_add_file: i:%d fd[%d]:%x\n", i, i, process->fd[i]);
-        if (process->fd[i] == NULL)
+        if (process->fd[i].file == NULL)
         {
             result = i;
-            file->fd = i;
-            process->fd[i] = file;
+            process->fd[i].file = file;
+            process->fd[i].flags = descriptor_flags;
             break;
         }
     }
@@ -1062,41 +1109,88 @@ int32_t process_add_file(Process* process, File* file)
     return result;
 }
 
-int32_t process_remove_file(Process* process, File* file)
+int32_t process_duplicate_file(Process* process, File* file, uint32_t descriptor_flags, int32_t minimum_fd)
 {
-    int32_t result = -1;
+    fs_acquire(file);
+
+    int32_t fd = process_install_file_from(process, file, descriptor_flags, minimum_fd);
+    if (fd < 0)
+    {
+        fs_release(file);
+    }
+
+    return fd;
+}
+
+int32_t process_duplicate_file_at(Process* process, File* file, uint32_t descriptor_flags, int32_t fd)
+{
+    if (process == NULL || file == NULL || fd < 0 || fd >= SOSO_MAX_OPENED_FILES)
+    {
+        return -1;
+    }
+
+    fs_acquire(file);
 
     begin_critical_section();
 
-    for (int i = 0; i < SOSO_MAX_OPENED_FILES; ++i)
-    {
-        if (process->fd[i] == file)
-        {
-            result = i;
-            process->fd[i] = NULL;
-            break;
-        }
-    }
+    File* replaced_file = process->fd[fd].file;
+    process->fd[fd].file = file;
+    process->fd[fd].flags = descriptor_flags;
 
     end_critical_section();
 
-    return result;
-}
-
-File* process_find_file(Process* process, FileSystemNode* node)
-{
-    File* result = NULL;
-
-    for (int i = 0; i < SOSO_MAX_OPENED_FILES; ++i)
+    if (replaced_file != NULL)
     {
-        if (process->fd[i] && process->fd[i]->node == node)
-        {
-            result = process->fd[i];
-            break;
-        }
+        fs_release(replaced_file);
     }
 
-    return result;
+    return fd;
+}
+
+int32_t process_close_file(Process* process, int32_t fd)
+{
+    if (process == NULL || fd < 0 || fd >= SOSO_MAX_OPENED_FILES)
+    {
+        return -1;
+    }
+
+    begin_critical_section();
+
+    File* file = process->fd[fd].file;
+    process->fd[fd].file = NULL;
+    process->fd[fd].flags = 0;
+
+    end_critical_section();
+
+    if (file == NULL)
+    {
+        return -1;
+    }
+
+    fs_release(file);
+
+    return 0;
+}
+
+FileDescriptor* process_get_file_descriptor(Process* process, int32_t fd)
+{
+    if (process == NULL || fd < 0 || fd >= SOSO_MAX_OPENED_FILES)
+    {
+        return NULL;
+    }
+
+    if (process->fd[fd].file == NULL)
+    {
+        return NULL;
+    }
+
+    return &process->fd[fd];
+}
+
+File* process_get_file(Process* process, int32_t fd)
+{
+    FileDescriptor* descriptor = process_get_file_descriptor(process, fd);
+    return descriptor ? descriptor->file : NULL;
 }
 
 Thread* thread_get_by_id(uint32_t threadId)

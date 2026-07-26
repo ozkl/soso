@@ -103,7 +103,7 @@ int32_t syscall_getprocs(ProcInfo* procs, uint32_t max_count, uint32_t flags)
 
             for (uint32_t k = 0; k < SOSO_MAX_OPENED_FILES; ++k)
             {
-                File* file = process->fd[k];
+                File* file = process_get_file(process, k);
                 if (file && file->node)
                 {
                     info->fd[k] = file->node->node_type;

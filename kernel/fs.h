@@ -51,7 +51,9 @@ typedef struct FileSystemNode FileSystemNode;
 typedef struct FileSystemDirent FileSystemDirent;
 typedef struct Process Process;
 typedef struct Thread Thread;
-typedef struct File File;
+typedef struct OpenFileDescription OpenFileDescription;
+typedef OpenFileDescription File;
+typedef struct FileDescriptor FileDescriptor;
 
 struct stat;
 
@@ -124,18 +126,21 @@ typedef struct FileSystemDirent
     uint32_t inode;
 } FileSystemDirent;
 
-//Per open
-typedef struct File
+//Per open file description
+struct OpenFileDescription
 {
     FileSystemNode* node;
-    Process* process;
-    Thread* thread;
-    int32_t fd;
-    uint32_t flags;
-    uint32_t descriptor_flags;
+    uint32_t reference_count;
+    uint32_t status_flags;
     int32_t offset;
     void* private_data;
-} File;
+};
+
+typedef struct FileDescriptor
+{
+    File* file;
+    uint32_t flags;
+} FileDescriptor;
 
 struct stat
 {
@@ -162,9 +167,11 @@ struct stat
 
 uint32_t fs_read(File* file, uint32_t size, uint8_t* buffer);
 uint32_t fs_write(File* file, uint32_t size, uint8_t* buffer);
-File* fs_open(FileSystemNode* node, uint32_t flags);
 File* fs_open_for_process(Thread* thread, FileSystemNode* node, uint32_t flags);
-void fs_close(File* file);
+int32_t fs_open_fd_for_process(Thread* thread, FileSystemNode* node, uint32_t flags, File** opened_file);
+File* fs_open_kernel(FileSystemNode* node, uint32_t flags);
+void fs_acquire(File* file);
+void fs_release(File* file);
 int32_t fs_unlink(FileSystemNode* node, uint32_t flags);
 int32_t fs_ioctl(File* file, int32_t request, void* argp);
 int32_t fs_lseek(File* file, int32_t offset, int32_t whence);

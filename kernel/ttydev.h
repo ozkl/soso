@@ -15,12 +15,12 @@
 #include "spinlock.h"
 #include "termios.h"
 #include "fs.h"
+#include "waitqueue.h"
 
 #define TTYDEV_LINEBUFFER_SIZE 4096
 
 typedef struct FileSystemNode FileSystemNode;
 typedef struct FifoBuffer FifoBuffer;
-typedef struct List List;
 typedef struct Thread Thread;
 
 typedef struct winsize_t
@@ -48,10 +48,9 @@ typedef struct TtyDev
     FifoBuffer* buffer_master_read;
     Spinlock buffer_master_read_lock;
     FifoBuffer* buffer_echo; //used in only echoing by master_write, no need lock
-    List* slave_readers;
-    Spinlock slave_readers_lock;
+    WaitQueue slave_readers;
     int32_t slave_open_count;
-    Thread* master_reader;
+    WaitQueue master_readers;
     TtyIOReady master_read_ready; //used for kernel terminal, because it does not read like a user process
     uint8_t line_buffer[TTYDEV_LINEBUFFER_SIZE];
     uint32_t line_buffer_index;

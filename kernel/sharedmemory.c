@@ -237,7 +237,7 @@ static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint3
 
             ++i;
         }
-        result = vmm_map_memory(file->thread->owner, USER_MMAP_START, physical_address_array, count, FALSE);
+        result = vmm_map_memory(thread_get_current()->owner, USER_MMAP_START, physical_address_array, count, FALSE);
 
         MapInfo* info = (MapInfo*)kmalloc(sizeof(MapInfo));
         memset((uint8_t*)info, 0, sizeof(MapInfo));

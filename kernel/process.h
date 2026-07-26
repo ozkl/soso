@@ -69,6 +69,8 @@ typedef enum SyscallState
     SYSCALL_ERROR
 } SyscallState;
 
+typedef struct WaitQueue WaitQueue;
+
 struct Process
 {
     char name[SOSO_PROCESS_NAME_MAX];
@@ -90,7 +92,7 @@ struct Process
 
     Process* parent;
 
-    File* fd[SOSO_MAX_OPENED_FILES];
+    FileDescriptor fd[SOSO_MAX_OPENED_FILES];
 
     BOOL exiting;
 
@@ -144,6 +146,7 @@ struct Thread
     ThreadState state;
     void* state_privateData;
     void* state_privateData2;
+    WaitQueue* wait_queue;
 
     Process* owner;
 
@@ -209,9 +212,14 @@ void process_signal_group(uint32_t pgrp, uint8_t signal);
 void thread_state_to_string(ThreadState state, uint8_t* buffer, uint32_t buffer_size);
 void wait_for_schedule();
 int32_t process_get_empty_fd(Process* process);
-int32_t process_add_file(Process* process, File* file);
-int32_t process_remove_file(Process* process, File* file);
-File* process_find_file(Process* process, FileSystemNode* node);
+int32_t process_get_empty_fd_from(Process* process, int32_t minimum_fd);
+int32_t process_install_file(Process* process, File* file, uint32_t descriptor_flags);
+int32_t process_install_file_from(Process* process, File* file, uint32_t descriptor_flags, int32_t minimum_fd);
+int32_t process_duplicate_file(Process* process, File* file, uint32_t descriptor_flags, int32_t minimum_fd);
+int32_t process_duplicate_file_at(Process* process, File* file, uint32_t descriptor_flags, int32_t fd);
+int32_t process_close_file(Process* process, int32_t fd);
+FileDescriptor* process_get_file_descriptor(Process* process, int32_t fd);
+File* process_get_file(Process* process, int32_t fd);
 Thread* thread_get_by_id(uint32_t thread_id);
 Thread* thread_get_previous(Thread* thread);
 Thread* thread_get_first();

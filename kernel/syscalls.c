@@ -35,11 +35,6 @@
 #include "syscall_getthreads.h"
 #include "random.h"
 
-struct iovec {
-               void  *iov_base;    /* Starting address */
-               size_t iov_len;     /* Number of bytes to transfer */
-           };
-
 struct statx {
     uint32_t stx_mask;
     uint32_t stx_blksize;
@@ -112,10 +107,12 @@ struct sigaltstack {
 #define PROT_WRITE 0x2
 #define PROT_EXEC  0x4
 
+#define F_DUPFD 0
 #define F_GETFD 1
 #define F_SETFD 2
 #define F_GETFL 3
 #define F_SETFL 4
+#define F_DUPFD_CLOEXEC 1030
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -196,6 +193,9 @@ int syscall_sigaltstack(const struct sigaltstack *ss, struct sigaltstack *old_ss
 int32_t syscall_gettid();
 int32_t syscall_getrandom(uint8_t* buffer, uint32_t length, uint32_t flags);
 int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument);
+int32_t syscall_dup(int32_t old_fd);
+int32_t syscall_dup2(int32_t old_fd, int32_t new_fd);
+int32_t syscall_dup3(int32_t old_fd, int32_t new_fd, int32_t flags);
 
 void syscalls_initialize()
 {
@@ -282,6 +282,9 @@ void syscalls_initialize()
     g_syscall_table[SYS_gettid] = syscall_gettid;
     g_syscall_table[SYS_getrandom] = syscall_getrandom;
     g_syscall_table[SYS_fcntl64] = syscall_fcntl64;
+    g_syscall_table[SYS_dup] = syscall_dup;
+    g_syscall_table[SYS_dup2] = syscall_dup2;
+    g_syscall_table[SYS_dup3] = syscall_dup3;
     g_syscall_table[SYS_getthreads] = syscall_getthreads;
     g_syscall_table[SYS_getprocs] = syscall_getprocs;
 
@@ -407,12 +410,7 @@ int syscall_open(const char *pathname, int flags)
 
         if (node)
         {
-            File* file = fs_open(node, flags);
-
-            if (file)
-            {
-                return file->fd;
-            }
+            return fs_open_fd_for_process(thread_get_current(), node, flags, NULL);
         }
     }
 
@@ -426,13 +424,11 @@ int syscall_close(int fd)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
-                fs_close(file);
-
-                return 0;
+                return process_close_file(process, fd);
             }
             else
             {
@@ -466,7 +462,7 @@ int syscall_read(int fd, void *buf, int nbytes)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -513,7 +509,7 @@ int syscall_write(int fd, void *buf, int nbytes)
 
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -666,7 +662,7 @@ int syscall_lseek(int fd, int offset, int whence)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -765,7 +761,7 @@ int syscall_fstat(int fd, struct stat *buf)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -802,7 +798,7 @@ int syscall_ioctl(int fd, int32_t request, void *arg)
 
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -974,7 +970,7 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
         FileSystemNode* node = fs_get_node_absolute_or_relative(path, process);
         if (node)
         {
-            File* f = fs_open(node, 0);
+            File* f = fs_open_kernel(node, 0);
             if (f)
             {
                 void* image = kmalloc(node->length);
@@ -999,7 +995,7 @@ int syscall_execute(const char *path, char *const argv[], char *const envp[])
                         result = new_process->pid;
                     }
                 }
-                fs_close(f);
+                fs_release(f);
 
                 kfree(image);
             }
@@ -1054,7 +1050,7 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
 
         if (node)
         {
-            File* f = fs_open(node, 0);
+            File* f = fs_open_kernel(node, 0);
             if (f)
             {
                 void* image = kmalloc(node->length);
@@ -1079,7 +1075,7 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
                         result = new_process->pid;
                     }
                 }
-                fs_close(f);
+                fs_release(f);
 
                 kfree(image);
             }
@@ -1116,7 +1112,7 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
     FileSystemNode* node = fs_get_node(path);
     if (node)
     {
-        File* f = fs_open(node, 0);
+        File* f = fs_open_kernel(node, 0);
         if (f)
         {
             void* image = kmalloc(node->length);
@@ -1126,15 +1122,17 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
                 disable_interrupts(); //just in case if a file operation left interrupts enabled.
 
                 Process* new_process = process_create_ex(argv[0], calling_process->pid, 0, NULL, image, argv, envp, calling_process->parent, calling_process->tty);
-                new_process->pgid = calling_process->pgid;
-                new_process->working_directory = calling_process->working_directory;
-
-                fs_close(f);
-
-                kfree(image);
-
                 if (new_process)
                 {
+                    new_process->pgid = calling_process->pgid;
+                    new_process->working_directory = calling_process->working_directory;
+
+                    fs_release(f);
+                    f = NULL;
+
+                    kfree(image);
+                    image = NULL;
+
                     process_inherit_files_for_exec(new_process, calling_process);
 
                     process_destroy(calling_process, FALSE);
@@ -1145,9 +1143,15 @@ int syscall_execve(const char *path, char *const argv[], char *const envp[])
                 }
             }
 
-            fs_close(f);
+            if (f)
+            {
+                fs_release(f);
+            }
 
-            kfree(image);
+            if (image)
+            {
+                kfree(image);
+            }
         }
     }
 
@@ -1338,29 +1342,89 @@ int32_t syscall_getrandom(uint8_t* buffer, uint32_t length, uint32_t flags)
     return random_fill(buffer, length);
 }
 
-int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument)
+int32_t syscall_dup(int32_t old_fd)
 {
     Process* process = thread_get_current()->owner;
-
-    if (fd < 0 || fd >= SOSO_MAX_OPENED_FILES || process->fd[fd] == NULL)
+    File* file = process_get_file(process, old_fd);
+    if (file == NULL)
     {
         return -EBADF;
     }
 
-    File* file = process->fd[fd];
+    int32_t fd = process_duplicate_file(process, file, 0, 0);
+    return fd >= 0 ? fd : -EMFILE;
+}
+
+int32_t syscall_dup2(int32_t old_fd, int32_t new_fd)
+{
+    Process* process = thread_get_current()->owner;
+    File* file = process_get_file(process, old_fd);
+    if (file == NULL || new_fd < 0 || new_fd >= SOSO_MAX_OPENED_FILES)
+    {
+        return -EBADF;
+    }
+
+    if (old_fd == new_fd)
+    {
+        return new_fd;
+    }
+
+    return process_duplicate_file_at(process, file, 0, new_fd);
+}
+
+int32_t syscall_dup3(int32_t old_fd, int32_t new_fd, int32_t flags)
+{
+    if (old_fd == new_fd || (flags & ~O_CLOEXEC))
+    {
+        return -EINVAL;
+    }
+
+    Process* process = thread_get_current()->owner;
+    File* file = process_get_file(process, old_fd);
+    if (file == NULL || new_fd < 0 || new_fd >= SOSO_MAX_OPENED_FILES)
+    {
+        return -EBADF;
+    }
+
+    uint32_t descriptor_flags = (flags & O_CLOEXEC) ? FD_CLOEXEC : 0;
+    return process_duplicate_file_at(process, file, descriptor_flags, new_fd);
+}
+
+int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument)
+{
+    Process* process = thread_get_current()->owner;
+
+    FileDescriptor* descriptor = process_get_file_descriptor(process, fd);
+    if (descriptor == NULL)
+    {
+        return -EBADF;
+    }
+
+    File* file = descriptor->file;
 
     switch (command)
     {
+        case F_DUPFD:
+        case F_DUPFD_CLOEXEC:
+            if ((int32_t)argument < 0 || argument >= SOSO_MAX_OPENED_FILES)
+            {
+                return -EINVAL;
+            }
+
+            descriptor = process_get_file_descriptor(process, fd);
+            uint32_t descriptor_flags = command == F_DUPFD_CLOEXEC ? FD_CLOEXEC : 0;
+            int32_t new_fd = process_duplicate_file(process, descriptor->file, descriptor_flags, argument);
+            return new_fd >= 0 ? new_fd : -EMFILE;
         case F_GETFD:
-            return file->descriptor_flags;
+            return descriptor->flags;
         case F_SETFD:
-            file->descriptor_flags = argument & FD_CLOEXEC;
+            descriptor->flags = argument & FD_CLOEXEC;
             return 0;
         case F_GETFL:
-            return file->flags;
+            return file->status_flags;
         case F_SETFL:
-            file->flags &= ~O_NONBLOCK;
-            file->flags |= argument & O_NONBLOCK;
+            file->status_flags &= ~O_NONBLOCK;
+            file->status_flags |= argument & O_NONBLOCK;
             return 0;
         default:
             return -EINVAL;
@@ -1637,7 +1701,7 @@ int syscall_getdents(int fd, void * dirp, uint32_t count)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -1721,7 +1785,7 @@ int syscall_getdents64(int fd, struct linux_dirent64 * dirp, uint32_t count)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -1805,7 +1869,7 @@ int syscall_soso_read_dir(int fd, void *dirent, int index)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -2111,7 +2175,7 @@ void* syscall_mmap_internal(void *addr, int length, int prot, int flags, int fd,
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -2243,8 +2307,8 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
                 }
                 else if (dirfd >= 0 && dirfd < SOSO_MAX_OPENED_FILES)
                 {
-                    File* dir_fd_dir = process->fd[dirfd];
-                    if ((dir_fd_dir->node->node_type & FT_DIRECTORY) == FT_DIRECTORY) //pathname is relative to the directory that dirfd refers to
+                    File* dir_fd_dir = process_get_file(process, dirfd);
+                    if (dir_fd_dir && (dir_fd_dir->node->node_type & FT_DIRECTORY) == FT_DIRECTORY) //pathname is relative to the directory that dirfd refers to
                     {
                         node = fs_get_node_relative_to_node(pathname, dir_fd_dir->node);
                     }
@@ -2257,7 +2321,11 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
             {
                 if (dirfd >= 0 && dirfd < SOSO_MAX_OPENED_FILES)
                 {
-                    node = process->fd[dirfd]->node;
+                    File* file = process_get_file(process, dirfd);
+                    if (file)
+                    {
+                        node = file->node;
+                    }
                 }
             }
         }
@@ -2318,7 +2386,7 @@ int syscall_ftruncate(int fd, int size)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -2351,7 +2419,7 @@ int syscall_ftruncate64(int fd, uint32_t len_lo, uint32_t len_hi)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {
@@ -2414,9 +2482,9 @@ int syscall_shmget(int32_t key, size_t size, int flag)
             BOOL already_opened = FALSE;
             for (size_t i = 0; i < SOSO_MAX_OPENED_FILES; i++)
             {
-                File* file = process->fd[i];
+                File* file = process_get_file(process, i);
 
-                if (file->node == node)
+                if (file && file->node == node)
                 {
                     already_opened = TRUE;
                     break;
@@ -2425,10 +2493,10 @@ int syscall_shmget(int32_t key, size_t size, int flag)
             
             if (already_opened == FALSE)
             {
-                File* file = fs_open(node, O_RDWR);
-                if (file)
+                int32_t fd = fs_open_fd_for_process(thread_get_current(), node, O_RDWR, NULL);
+                if (fd >= 0)
                 {
-                    syscall_ftruncate(file->fd, size);
+                    syscall_ftruncate(fd, size);
                 }
             }
         }
@@ -2462,11 +2530,11 @@ void * syscall_shmat(int shmid, const void *shmaddr, int shmflg)
         {
             for (size_t i = 0; i < SOSO_MAX_OPENED_FILES; i++)
             {
-                File* file = process->fd[i];
+                File* file = process_get_file(process, i);
 
-                if (file->node == node)
+                if (file && file->node == node)
                 {
-                    return syscall_mmap((void*)shmaddr, file->node->length, 0, shmflg, file->fd, 0);
+                    return syscall_mmap((void*)shmaddr, file->node->length, 0, shmflg, i, 0);
                 }
             }
         }
@@ -2499,12 +2567,7 @@ int syscall_posix_openpt(int flags)
             tty_dev->controlling_process = process->pid;
             tty_dev->foreground_process = process->pid;
 
-            File* file = fs_open(node, flags);
-
-            if (file)
-            {
-                return file->fd;
-            }
+            return fs_open_fd_for_process(thread_get_current(), node, flags, NULL);
         }
     }
     else
@@ -2527,7 +2590,7 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
     {
         if (fd < SOSO_MAX_OPENED_FILES)
         {
-            File* file = process->fd[fd];
+            File* file = process_get_file(process, fd);
 
             if (file)
             {

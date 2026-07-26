@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "alloc.h"
 #include "rootfs.h"
+#include "process.h"
 
 FileSystemNode *g_fs_root = NULL; // The root of the filesystem.
 
@@ -202,19 +203,8 @@ uint32_t fs_write(File *file, uint32_t size, uint8_t *buffer)
     return -1;
 }
 
-File *fs_open(FileSystemNode *node, uint32_t flags)
+File *fs_open_kernel(FileSystemNode *node, uint32_t flags)
 {
-    return fs_open_for_process(thread_get_current(), node, flags);
-}
-
-File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
-{
-    Process* process = NULL;
-    if (thread)
-    {
-        process = thread->owner;
-    }
-
     if ( (node->node_type & FT_MOUNT_POINT) == FT_MOUNT_POINT && node->mount_point != NULL )
     {
         node = node->mount_point;
@@ -225,31 +215,15 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
         File* file = kmalloc(sizeof(File));
         memset((uint8_t*)file, 0, sizeof(File));
         file->node = node;
-        file->process = process;
-        file->thread = thread;
-        file->flags = flags & ~O_CLOEXEC;
-        file->descriptor_flags = (flags & O_CLOEXEC) ? 1 : 0;
+        file->reference_count = 1;
+        file->status_flags = flags & ~O_CLOEXEC;
 
         BOOL success = node->open(file, flags);
 
-        if (success)
-        {
-            //Screen_PrintF("Opened:%s\n", file->node->name);
-            int32_t fd = process_add_file(file->process, file);
-
-            if (fd < 0)
-            {
-                //TODO: sett errno max files opened already
-                printkf("Maxfiles opened already!!\n");
-
-                fs_close(file);
-                file = NULL;
-            }
-        }
-        else
+        if (!success)
         {
             kfree(file);
-            file = NULL;
+            return NULL;
         }
 
         return file;
@@ -258,16 +232,73 @@ File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
     return NULL;
 }
 
-void fs_close(File *file)
+File *fs_open_for_process(Thread* thread, FileSystemNode *node, uint32_t flags)
 {
-    if (file->node->close != NULL)
+    File* file = NULL;
+    int32_t fd = fs_open_fd_for_process(thread, node, flags, &file);
+    return fd >= 0 ? file : NULL;
+}
+
+int32_t fs_open_fd_for_process(Thread* thread, FileSystemNode *node, uint32_t flags, File** opened_file)
+{
+    if (thread == NULL || thread->owner == NULL)
     {
-        file->node->close(file);
+        return -1;
     }
 
-    process_remove_file(file->process, file);
+    File* file = fs_open_kernel(node, flags);
+    if (file == NULL)
+    {
+        return -1;
+    }
 
-    kfree(file);
+    uint32_t descriptor_flags = (flags & O_CLOEXEC) ? FD_CLOEXEC : 0;
+    int32_t fd = process_install_file(thread->owner, file, descriptor_flags);
+    if (fd < 0)
+    {
+        printkf("Maxfiles opened already!!\n");
+        fs_release(file);
+        return -1;
+    }
+
+    if (opened_file != NULL)
+    {
+        *opened_file = file;
+    }
+
+    return fd;
+}
+
+void fs_release(File *file)
+{
+    BOOL destroy = FALSE;
+
+    begin_critical_section();
+
+    if (file->reference_count > 0)
+    {
+        --file->reference_count;
+        destroy = file->reference_count == 0;
+    }
+
+    end_critical_section();
+
+    if (destroy)
+    {
+        if (file->node->close != NULL)
+        {
+            file->node->close(file);
+        }
+
+        kfree(file);
+    }
+}
+
+void fs_acquire(File *file)
+{
+    begin_critical_section();
+    ++file->reference_count;
+    end_critical_section();
 }
 
 int32_t fs_unlink(FileSystemNode* node, uint32_t flags)

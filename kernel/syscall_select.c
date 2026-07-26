@@ -30,7 +30,7 @@ void select_update(Thread* thread)
 
     for (uint32_t fd = 0; fd < count; ++fd)
     {
-        File* file = process->fd[fd];
+        File* file = process_get_file(process, fd);
 
         if (file)
         {
@@ -202,14 +202,14 @@ int32_t syscall_poll(struct pollfd* fds, uint32_t nfds, int32_t timeout)
             }
 
             if (poll_fd->fd >= SOSO_MAX_OPENED_FILES ||
-                process->fd[poll_fd->fd] == NULL)
+                process_get_file(process, poll_fd->fd) == NULL)
             {
                 poll_fd->revents = POLLNVAL;
                 ++ready_count;
                 continue;
             }
 
-            File* file = process->fd[poll_fd->fd];
+            File* file = process_get_file(process, poll_fd->fd);
             if (poll_fd->events & POLLIN)
             {
                 if (file->node->read_test_ready == NULL ||

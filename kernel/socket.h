@@ -16,6 +16,7 @@
 #include "spinlock.h"
 #include "process.h"
 #include "list.h"
+#include "waitqueue.h"
 
 #define SOCKET_NAME_SIZE 64
 #define SOCKET_BUFFER_SIZE (1024*1024)
@@ -25,7 +26,29 @@ typedef uint32_t socklen_t;
 
 typedef int32_t ssize_t;
 
-struct msghdr;
+struct iovec
+{
+    void* iov_base;
+    size_t iov_len;
+};
+
+struct msghdr
+{
+    void* msg_name;
+    socklen_t msg_namelen;
+    struct iovec* msg_iov;
+    size_t msg_iovlen;
+    void* msg_control;
+    size_t msg_controllen;
+    uint32_t msg_flags;
+};
+
+struct cmsghdr
+{
+    size_t cmsg_len;
+    int32_t cmsg_level;
+    int32_t cmsg_type;
+};
 
 
 #define SHUT_RD 0
@@ -246,6 +269,8 @@ struct msghdr;
 #define SOL_SOCKET      1
 #endif
 
+#define SCM_RIGHTS      1
+
 #define SOL_IP          0
 #define SOL_IPV6        41
 #define SOL_ICMPV6      58
@@ -356,8 +381,16 @@ typedef struct Socket
     FifoBuffer* buffer_in;
     BOOL disconnected;
     Socket* connection;
+    Socket* connecting_to;
     int32_t domain;
-    Thread* last_thread;
+    WaitQueue accept_waiters;
+    WaitQueue connect_waiters;
+    WaitQueue read_waiters;
+    WaitQueue write_waiters;
+    Queue* control_queue;
+    uint64_t bytes_enqueued;
+    uint64_t bytes_dequeued;
+    BOOL receiving_control;
     BITMAP_DEFINE(opts, 128);
 
     Queue* accept_queue; //no lock required
@@ -375,5 +408,7 @@ typedef struct Socket
 typedef struct List List;
 
 extern List* g_socket_list;
+
+void socket_discard_consumed_control(Socket* socket);
 
 #endif //SOCKET_H
