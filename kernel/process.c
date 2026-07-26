@@ -883,6 +883,7 @@ void thread_change_state(Thread* thread, ThreadState state, void* private_data)
 void thread_resume(Thread* thread)
 {
     waitqueue_remove_thread(thread);
+    thread->wait_target_time = 0;
     thread->state = TS_RUN;
     thread->state_privateData = NULL;
 }
@@ -1326,6 +1327,13 @@ static void thread_update_state(Thread* t)
         select_update(t);
 
         if (t->select.select_state == SS_FINISHED)
+        {
+            thread_resume(t);
+        }
+    }
+    else if (t->state == TS_WAITIO && t->wait_target_time > 0)
+    {
+        if (get_uptime_milliseconds64() >= t->wait_target_time)
         {
             thread_resume(t);
         }

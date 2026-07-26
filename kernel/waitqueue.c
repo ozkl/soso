@@ -38,7 +38,7 @@ void waitqueue_remove_thread(Thread* thread)
     end_critical_section();
 }
 
-void waitqueue_wait(WaitQueue* queue, void* private_data)
+static void waitqueue_wait_internal(WaitQueue* queue, void* private_data, uint64_t target_time)
 {
     disable_interrupts();
 
@@ -46,6 +46,7 @@ void waitqueue_wait(WaitQueue* queue, void* private_data)
     waitqueue_remove_thread(thread);
     list_append(queue->threads, thread);
     thread->wait_queue = queue;
+    thread->wait_target_time = target_time;
     thread_change_state(thread, TS_WAITIO, private_data);
 
     enable_interrupts();
@@ -53,6 +54,16 @@ void waitqueue_wait(WaitQueue* queue, void* private_data)
 
     disable_interrupts();
     waitqueue_remove_thread(thread);
+}
+
+void waitqueue_wait(WaitQueue* queue, void* private_data)
+{
+    waitqueue_wait_internal(queue, private_data, 0);
+}
+
+void waitqueue_wait_until(WaitQueue* queue, void* private_data, uint64_t target_time)
+{
+    waitqueue_wait_internal(queue, private_data, target_time);
 }
 
 void waitqueue_wake_all(WaitQueue* queue, void* private_data)

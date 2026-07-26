@@ -24,6 +24,7 @@ typedef struct WaitQueue
 void waitqueue_initialize(WaitQueue* queue);
 void waitqueue_destroy(WaitQueue* queue);
 void waitqueue_wait(WaitQueue* queue, void* private_data);
+void waitqueue_wait_until(WaitQueue* queue, void* private_data, uint64_t target_time);
 void waitqueue_wake_all(WaitQueue* queue, void* private_data);
 void waitqueue_remove_thread(Thread* thread);
 BOOL waitqueue_is_empty(WaitQueue* queue);

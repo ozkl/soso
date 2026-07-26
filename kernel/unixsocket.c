@@ -16,6 +16,8 @@
 #include "common.h"
 #include "socket.h"
 #include "errno.h"
+#include "timer.h"
+
 typedef struct
 {
     Socket* owner;
@@ -27,8 +29,8 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
 static int unixsocket_listen(Socket* socket, int sockfd, int backlog);
 static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags);
-static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags);
+static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags, uint64_t target_time);
+static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags, uint64_t target_time);
 
 static BOOL unixsocket_fs_read_test_ready(File *file);
 static BOOL unixsocket_fs_write_test_ready(File *file);
@@ -330,7 +332,7 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
     return accepting_socket == NULL ? -ENOENT : -ECONNREFUSED;
 }
 
-static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags)
+static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags, uint64_t target_time)
 {
     if (len == 0)
     {
@@ -374,14 +376,26 @@ static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size
                 return -EINTR;
             }
 
-            waitqueue_wait(&socket->write_waiters, socket);
+            if (target_time > 0 && get_uptime_milliseconds64() >= target_time)
+            {
+                return -EAGAIN;
+            }
+
+            if (target_time > 0)
+            {
+                waitqueue_wait_until(&socket->write_waiters, socket, target_time);
+            }
+            else
+            {
+                waitqueue_wait(&socket->write_waiters, socket);
+            }
         }
     }
 
     return -1;
 }
 
-static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags)
+static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len, int flags, uint64_t target_time)
 {
     if (len == 0)
     {
@@ -426,7 +440,19 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
             return -EINTR;
         }
 
-        waitqueue_wait(&socket->read_waiters, socket);
+        if (target_time > 0 && get_uptime_milliseconds64() >= target_time)
+        {
+            return -EAGAIN;
+        }
+
+        if (target_time > 0)
+        {
+            waitqueue_wait_until(&socket->read_waiters, socket, target_time);
+        }
+        else
+        {
+            waitqueue_wait(&socket->read_waiters, socket);
+        }
     }
 
     return -1;
@@ -484,7 +510,8 @@ static int32_t unixsocket_fs_read(File *file, uint32_t len, uint8_t *buf)
     Socket* socket = (Socket*)file->node->private_node_data;
 
     int32_t flags = (file->status_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-    int32_t result = unixsocket_recv(socket, -1, buf, len, flags);
+    uint64_t target_time = socket_timeout_deadline(socket->receive_timeout_ms);
+    int32_t result = unixsocket_recv(socket, -1, buf, len, flags, target_time);
     if (result > 0)
     {
         socket_discard_consumed_control(socket);
@@ -497,5 +524,6 @@ static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf)
     Socket* socket = (Socket*)file->node->private_node_data;
 
     int32_t flags = (file->status_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-    return unixsocket_send(socket, -1, (const uint8_t *)buf, len, flags);
+    uint64_t target_time = socket_timeout_deadline(socket->send_timeout_ms);
+    return unixsocket_send(socket, -1, (const uint8_t *)buf, len, flags, target_time);
 }

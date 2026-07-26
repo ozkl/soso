@@ -147,6 +147,7 @@ struct Thread
     void* state_privateData;
     void* state_privateData2;
     WaitQueue* wait_queue;
+    uint64_t wait_target_time;
 
     Process* owner;
 

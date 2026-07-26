@@ -25,4 +25,16 @@ struct timeval
     uint32_t tv_usec;        /* microseconds */
 };
 
+struct timeval32
+{
+    int32_t tv_sec;
+    int32_t tv_usec;
+};
+
+struct timeval64
+{
+    int64_t tv_sec;
+    int64_t tv_usec;
+};
+
 #endif //TIME_H

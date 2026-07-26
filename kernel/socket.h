@@ -199,14 +199,14 @@ struct cmsghdr
 #define SO_DOMAIN       39
 #endif
 
+#define SO_RCVTIMEO_OLD 20
+#define SO_SNDTIMEO_OLD 21
+#define SO_RCVTIMEO_NEW 66
+#define SO_SNDTIMEO_NEW 67
+
 #ifndef SO_RCVTIMEO
-#if __LONG_MAX == 0x7fffffff
-#define SO_RCVTIMEO     66
-#define SO_SNDTIMEO     67
-#else
-#define SO_RCVTIMEO     20
-#define SO_SNDTIMEO     21
-#endif
+#define SO_RCVTIMEO     SO_RCVTIMEO_OLD
+#define SO_SNDTIMEO     SO_SNDTIMEO_OLD
 #endif
 
 #ifndef SO_TIMESTAMP
@@ -371,8 +371,8 @@ typedef void (*SocketFunction)(Socket* socket);
 typedef int (*SocketICAddrLen)(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 typedef int (*SocketIIFunction)(Socket* socket, int, int);
 typedef int (*SocketIAddrLen)(Socket* socket, int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-typedef ssize_t (*SocketSend)(Socket* socket, int sockfd, const void *buf, size_t len, int flags);
-typedef ssize_t (*SocketRecv)(Socket* socket, int sockfd, void *buf, size_t len, int flags);
+typedef ssize_t (*SocketSend)(Socket* socket, int sockfd, const void *buf, size_t len, int flags, uint64_t target_time);
+typedef ssize_t (*SocketRecv)(Socket* socket, int sockfd, void *buf, size_t len, int flags, uint64_t target_time);
 
 typedef struct Socket
 {
@@ -390,6 +390,8 @@ typedef struct Socket
     Queue* control_queue;
     uint64_t bytes_enqueued;
     uint64_t bytes_dequeued;
+    uint32_t receive_timeout_ms;
+    uint32_t send_timeout_ms;
     BITMAP_DEFINE(opts, 128);
 
     Queue* accept_queue; //no lock required
@@ -409,5 +411,6 @@ typedef struct List List;
 extern List* g_socket_list;
 
 void socket_discard_consumed_control(Socket* socket);
+uint64_t socket_timeout_deadline(uint32_t timeout_ms);
 
 #endif //SOCKET_H

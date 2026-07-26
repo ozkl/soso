@@ -16,6 +16,7 @@
 #include "list.h"
 #include "fs.h"
 #include "alloc.h"
+#include "timer.h"
 
 #define DOMAIN_SIZE 3
 #define SOCKET_MAX_RIGHTS SOSO_MAX_OPENED_FILES
@@ -33,6 +34,22 @@ List* g_socket_list = NULL;
 
 
 static SocketFunction g_domain_setup_functions[DOMAIN_SIZE];
+
+uint64_t socket_timeout_deadline(uint32_t timeout_ms)
+{
+    if (timeout_ms == 0)
+    {
+        return 0;
+    }
+
+    uint64_t now = get_uptime_milliseconds64();
+    if (timeout_ms > 0xFFFFFFFFFFFFFFFFULL - now)
+    {
+        return 0xFFFFFFFFFFFFFFFFULL;
+    }
+
+    return now + timeout_ms;
+}
 
 static void socket_control_message_destroy(SocketControlMessage* message)
 {
@@ -417,7 +434,8 @@ ssize_t syscall_send(int sockfd, const void *buf, size_t len, int flags)
 
     if (socket && socket->socket_send)
     {
-        return socket->socket_send(socket, sockfd, buf, len, flags);
+        uint64_t target_time = socket_timeout_deadline(socket->send_timeout_ms);
+        return socket->socket_send(socket, sockfd, buf, len, flags, target_time);
     }
 
     return error;
@@ -430,7 +448,8 @@ ssize_t syscall_recv(int sockfd, void *buf, size_t len, int flags)
 
     if (socket && socket->socket_recv)
     {
-        ssize_t result = socket->socket_recv(socket, sockfd, buf, len, flags);
+        uint64_t target_time = socket_timeout_deadline(socket->receive_timeout_ms);
+        ssize_t result = socket->socket_recv(socket, sockfd, buf, len, flags, target_time);
         if (result > 0)
         {
             socket_discard_consumed_control(socket);
@@ -674,6 +693,7 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
     }
 
     int32_t total = 0;
+    uint64_t target_time = socket_timeout_deadline(socket->send_timeout_ms);
 
     if (socket->socket_send == NULL)
     {
@@ -692,7 +712,7 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
             continue;
         }
 
-        int32_t written = socket->socket_send(socket, sockfd, iov->iov_base, iov->iov_len, flags);
+        int32_t written = socket->socket_send(socket, sockfd, iov->iov_base, iov->iov_len, flags, target_time);
         if (written <= 0)
         {
             if (control != NULL)
@@ -778,6 +798,7 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
     }
 
     int32_t total = 0;
+    uint64_t target_time = socket_timeout_deadline(socket->receive_timeout_ms);
     for (uint32_t i = 0; i < msg->msg_iovlen; ++i)
     {
         struct iovec* iov = &msg->msg_iov[i];
@@ -791,7 +812,7 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
             break;
         }
 
-        int32_t read = socket->socket_recv(socket, sockfd, iov->iov_base, iov->iov_len, flags);
+        int32_t read = socket->socket_recv(socket, sockfd, iov->iov_base, iov->iov_len, flags, target_time);
         if (read <= 0)
         {
             if (total == 0)
@@ -818,12 +839,175 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
 }
 
 
+static int32_t socket_timeout_from_timeval(int64_t seconds, int64_t microseconds, uint32_t* timeout_ms)
+{
+    if (seconds < 0 || microseconds < 0 || microseconds > 999999)
+    {
+        return -EINVAL;
+    }
+
+    uint32_t extra_ms = ((uint32_t)microseconds + 999) / 1000;
+    if (seconds > (int64_t)((0xFFFFFFFFU - extra_ms) / 1000))
+    {
+        return -EDOM;
+    }
+
+    *timeout_ms = (uint32_t)seconds * 1000 + extra_ms;
+    return 0;
+}
+
+static int32_t socket_get_timeout_value(int optname, const void* optval, socklen_t optlen, uint32_t* timeout_ms)
+{
+    if (optname == SO_RCVTIMEO_OLD || optname == SO_SNDTIMEO_OLD)
+    {
+        if (optlen < sizeof(struct timeval32))
+        {
+            return -EINVAL;
+        }
+
+        if (optval == NULL ||
+            !check_user_access((void*)optval) ||
+            !check_user_access((uint8_t*)optval + sizeof(struct timeval32) - 1))
+        {
+            return -EFAULT;
+        }
+
+        struct timeval32 value;
+        memcpy((uint8_t*)&value, (const uint8_t*)optval, sizeof(value));
+        return socket_timeout_from_timeval(value.tv_sec, value.tv_usec, timeout_ms);
+    }
+
+    if (optname == SO_RCVTIMEO_NEW || optname == SO_SNDTIMEO_NEW)
+    {
+        if (optlen < sizeof(struct timeval64))
+        {
+            return -EINVAL;
+        }
+
+        if (optval == NULL ||
+            !check_user_access((void*)optval) ||
+            !check_user_access((uint8_t*)optval + sizeof(struct timeval64) - 1))
+        {
+            return -EFAULT;
+        }
+
+        struct timeval64 value;
+        memcpy((uint8_t*)&value, (const uint8_t*)optval, sizeof(value));
+        return socket_timeout_from_timeval(value.tv_sec, value.tv_usec, timeout_ms);
+    }
+
+    return -ENOPROTOOPT;
+}
+
+static int32_t socket_put_timeout_value(int optname, void* optval, socklen_t* optlen, uint32_t timeout_ms)
+{
+    if (optlen == NULL ||
+        !check_user_access(optlen) ||
+        !check_user_access((uint8_t*)optlen + sizeof(socklen_t) - 1))
+    {
+        return -EFAULT;
+    }
+
+    uint32_t value_size;
+    uint8_t value[sizeof(struct timeval64)];
+    if (optname == SO_RCVTIMEO_OLD || optname == SO_SNDTIMEO_OLD)
+    {
+        struct timeval32 timeout;
+        timeout.tv_sec = (int32_t)(timeout_ms / 1000);
+        timeout.tv_usec = (int32_t)((timeout_ms % 1000) * 1000);
+        value_size = sizeof(timeout);
+        memcpy(value, (const uint8_t*)&timeout, value_size);
+    }
+    else if (optname == SO_RCVTIMEO_NEW || optname == SO_SNDTIMEO_NEW)
+    {
+        struct timeval64 timeout;
+        timeout.tv_sec = (int64_t)(timeout_ms / 1000);
+        timeout.tv_usec = (int64_t)((timeout_ms % 1000) * 1000);
+        value_size = sizeof(timeout);
+        memcpy(value, (const uint8_t*)&timeout, value_size);
+    }
+    else
+    {
+        return -ENOPROTOOPT;
+    }
+
+    uint32_t copy_size = MIN(*optlen, value_size);
+    if (copy_size > 0)
+    {
+        if (optval == NULL ||
+            !check_user_access(optval) ||
+            !check_user_access((uint8_t*)optval + copy_size - 1))
+        {
+            return -EFAULT;
+        }
+
+        memcpy((uint8_t*)optval, value, copy_size);
+    }
+
+    *optlen = copy_size;
+    return 0;
+}
+
 int syscall_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
-    return -EPERM;
+    int32_t error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+    if (socket == NULL)
+    {
+        return error;
+    }
+
+    if (level != SOL_SOCKET)
+    {
+        return -ENOPROTOOPT;
+    }
+
+    uint32_t timeout_ms;
+    if (optname == SO_RCVTIMEO_OLD || optname == SO_RCVTIMEO_NEW)
+    {
+        timeout_ms = socket->receive_timeout_ms;
+    }
+    else if (optname == SO_SNDTIMEO_OLD || optname == SO_SNDTIMEO_NEW)
+    {
+        timeout_ms = socket->send_timeout_ms;
+    }
+    else
+    {
+        return -ENOPROTOOPT;
+    }
+
+    return socket_put_timeout_value(optname, optval, optlen, timeout_ms);
 }
 
 int syscall_setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
-    return -EPERM;
+    int32_t error = -1;
+    Socket* socket = get_socket(sockfd, &error);
+    if (socket == NULL)
+    {
+        return error;
+    }
+
+    if (level != SOL_SOCKET)
+    {
+        return -ENOPROTOOPT;
+    }
+
+    uint32_t timeout_ms;
+    error = socket_get_timeout_value(optname, optval, optlen, &timeout_ms);
+    if (error < 0)
+    {
+        return error;
+    }
+
+    if (optname == SO_RCVTIMEO_OLD || optname == SO_RCVTIMEO_NEW)
+    {
+        socket->receive_timeout_ms = timeout_ms;
+    }
+    else
+    {
+        socket->send_timeout_ms = timeout_ms;
+    }
+
+    return 0;
 }
