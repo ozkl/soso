@@ -168,7 +168,7 @@ struct Thread
     {
         uint32_t number;
         uint32_t user_ip;
-        uint32_t arguments[5];
+        uint32_t arguments[6];
         uint32_t return_value;
         SyscallState state;
     } last_syscall;

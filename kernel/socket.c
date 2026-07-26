@@ -20,6 +20,7 @@
 #define DOMAIN_SIZE 3
 #define SOCKET_MAX_RIGHTS SOSO_MAX_OPENED_FILES
 #define CMSG_ALIGN(length) (((length) + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1))
+#define FIONBIO 0x5421
 
 typedef struct SocketControlMessage
 {
@@ -178,6 +179,32 @@ static BOOL socket_fs_open(File* file, uint32_t flags)
     return TRUE;
 }
 
+static int32_t socket_fs_ioctl(File* file, int32_t request, void* argp)
+{
+    if (request != FIONBIO)
+    {
+        return -ENOTTY;
+    }
+
+    if (argp == NULL ||
+        !check_user_access(argp) ||
+        !check_user_access((uint8_t*)argp + sizeof(int32_t) - 1))
+    {
+        return -EFAULT;
+    }
+
+    if (*(int32_t*)argp)
+    {
+        file->status_flags |= O_NONBLOCK;
+    }
+    else
+    {
+        file->status_flags &= ~O_NONBLOCK;
+    }
+
+    return 0;
+}
+
 static void socket_fs_close(File* file)
 {
     Socket* socket = (Socket*)file->node->private_node_data;
@@ -232,6 +259,7 @@ int syscall_socket(int domain, int type, int protocol)
 
         node->open = socket_fs_open;
         node->close = socket_fs_close;
+        node->ioctl = socket_fs_ioctl;
 
         uint32_t open_flags = O_RDWR;
         if (type & SOCK_CLOEXEC)
@@ -402,7 +430,12 @@ ssize_t syscall_recv(int sockfd, void *buf, size_t len, int flags)
 
     if (socket && socket->socket_recv)
     {
-        return socket->socket_recv(socket, sockfd, buf, len, flags);
+        ssize_t result = socket->socket_recv(socket, sockfd, buf, len, flags);
+        if (result > 0)
+        {
+            socket_discard_consumed_control(socket);
+        }
+        return result;
     }
 
     return error;
@@ -411,13 +444,39 @@ ssize_t syscall_recv(int sockfd, void *buf, size_t len, int flags)
 ssize_t syscall_sendto(int sockfd, const void *buf, size_t len, int flags,
                       const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-    return -EPERM;
+    if (len > 0 &&
+        (buf == NULL ||
+         !check_user_access((void*)buf) ||
+         !check_user_access((uint8_t*)buf + len - 1)))
+    {
+        return -EFAULT;
+    }
+
+    if (dest_addr != NULL || addrlen != 0)
+    {
+        return -EOPNOTSUPP;
+    }
+
+    return syscall_send(sockfd, buf, len, flags);
 }
 
 ssize_t syscall_recvfrom(int sockfd, void *buf, size_t len, int flags,
                         struct sockaddr *src_addr, socklen_t *addrlen)
 {
-    return -EPERM;
+    if (len > 0 &&
+        (buf == NULL ||
+         !check_user_access(buf) ||
+         !check_user_access((uint8_t*)buf + len - 1)))
+    {
+        return -EFAULT;
+    }
+
+    if (src_addr != NULL || addrlen != NULL)
+    {
+        return -EOPNOTSUPP;
+    }
+
+    return syscall_recv(sockfd, buf, len, flags);
 }
 
 static SocketControlMessage* socket_get_send_control(const struct msghdr* msg, int32_t* error)
@@ -429,7 +488,9 @@ static SocketControlMessage* socket_get_send_control(const struct msghdr* msg, i
         return NULL;
     }
 
-    if (!check_user_access(msg->msg_control) ||
+    if (msg->msg_control == NULL ||
+        msg->msg_controllen > 4096 ||
+        !check_user_access(msg->msg_control) ||
         !check_user_access((uint8_t*)msg->msg_control + msg->msg_controllen - 1))
     {
         *error = -EFAULT;
@@ -566,7 +627,9 @@ static void socket_receive_control(Socket* socket, struct msghdr* msg, int32_t f
 
 ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-    if (!check_user_access((void*)msg))
+    if (msg == NULL ||
+        !check_user_access((void*)msg) ||
+        !check_user_access((uint8_t*)msg + sizeof(struct msghdr) - 1))
     {
         return -EFAULT;
     }
@@ -583,7 +646,8 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
     {
         struct iovec* iov = &msg->msg_iov[i];
         if (iov->iov_len > 0 &&
-            (!check_user_access(iov->iov_base) ||
+            (iov->iov_base == NULL ||
+             !check_user_access(iov->iov_base) ||
              !check_user_access((uint8_t*)iov->iov_base + iov->iov_len - 1)))
         {
             return -EFAULT;
@@ -609,7 +673,6 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
         return -ENOTCONN;
     }
 
-    uint64_t control_offset = socket->connection ? socket->connection->bytes_enqueued : 0;
     int32_t total = 0;
 
     if (socket->socket_send == NULL)
@@ -643,7 +706,7 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 
         if (control != NULL)
         {
-            control->byte_offset = control_offset;
+            control->byte_offset = socket->connection->bytes_enqueued - written;
             queue_enqueue(socket->connection->control_queue, control);
             control = NULL;
         }
@@ -664,7 +727,9 @@ ssize_t syscall_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 
 ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
 {
-    if (!check_user_access(msg))
+    if (msg == NULL ||
+        !check_user_access(msg) ||
+        !check_user_access((uint8_t*)msg + sizeof(struct msghdr) - 1))
     {
         return -EFAULT;
     }
@@ -679,7 +744,8 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
          (!check_user_access(msg->msg_iov) ||
           !check_user_access(msg->msg_iov + msg->msg_iovlen - 1))) ||
         (msg->msg_controllen > 0 &&
-         (!check_user_access(msg->msg_control) ||
+         (msg->msg_control == NULL ||
+          !check_user_access(msg->msg_control) ||
           !check_user_access((uint8_t*)msg->msg_control + msg->msg_controllen - 1))))
     {
         return -EFAULT;
@@ -689,7 +755,8 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
     {
         struct iovec* iov = &msg->msg_iov[i];
         if (iov->iov_len > 0 &&
-            (!check_user_access(iov->iov_base) ||
+            (iov->iov_base == NULL ||
+             !check_user_access(iov->iov_base) ||
              !check_user_access((uint8_t*)iov->iov_base + iov->iov_len - 1)))
         {
             return -EFAULT;
@@ -710,8 +777,6 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
         return -EOPNOTSUPP;
     }
 
-    socket->receiving_control = TRUE;
-
     int32_t total = 0;
     for (uint32_t i = 0; i < msg->msg_iovlen; ++i)
     {
@@ -731,7 +796,6 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
         {
             if (total == 0)
             {
-                socket->receiving_control = FALSE;
                 return read;
             }
             break;
@@ -744,8 +808,6 @@ ssize_t syscall_recvmsg(int sockfd, struct msghdr *msg, int flags)
             break;
         }
     }
-
-    socket->receiving_control = FALSE;
 
     if (total > 0)
     {

@@ -112,13 +112,17 @@ static void* fb_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 {
     uint32_t framebuffer_size_bytes = gfx_get_width() * gfx_get_height() * gfx_get_bytes_per_pixel();
     uint32_t framebuffer_page_count = PAGE_COUNT(framebuffer_size_bytes);
-
     uint32_t page_count = PAGE_COUNT(size);
+    uint32_t first_page = offset / PAGESIZE_4K;
 
-    if (page_count > framebuffer_page_count)
+    if ((offset % PAGESIZE_4K) != 0 ||
+        offset >= framebuffer_size_bytes ||
+        first_page >= framebuffer_page_count ||
+        page_count > framebuffer_page_count - first_page)
     {
         return NULL;
     }
+
     uint32_t* physical_pages_array = (uint32_t*)kmalloc(page_count * sizeof(uint32_t));
 
 
@@ -127,10 +131,10 @@ static void* fb_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 
     for (uint32_t i = 0; i < page_count; ++i)
     {
-        physical_pages_array[i] = (uint32_t)(g_fb_physical) + i * PAGESIZE_4K;
+        physical_pages_array[i] = (uint32_t)(g_fb_physical) + (first_page + i) * PAGESIZE_4K;
     }
 
-    void* result = vmm_map_memory(thread_get_current()->owner, USER_MMAP_START, physical_pages_array, page_count, FALSE);
+    void* result = vmm_map_memory_no_clear(thread_get_current()->owner, USER_MMAP_START, physical_pages_array, page_count, FALSE);
 
     kfree(physical_pages_array);
 

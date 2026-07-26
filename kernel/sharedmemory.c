@@ -16,6 +16,7 @@
 #include "vmm.h"
 #include "serial.h"
 #include "sharedmemory.h"
+#include "errno.h"
 
 static List* g_shm_list = NULL;
 //static Spinlock g_shm_list_lock;
@@ -40,13 +41,16 @@ typedef struct SharedMemory
 {
     FileSystemNode* node;
     List* physical_address_list;
-    //Spinlock physical_address_list_lock;
     List* mmapped_list;
     BOOL marked_unlink;
-    //TODO: permissions
+    BOOL anonymous;
+    BOOL allow_sealing;
+    uint32_t seals;
+    uint32_t open_count;
 } SharedMemory;
 
-void sharedmemory_destroy(SharedMemory* shared_mem);
+static void sharedmemory_destroy(SharedMemory* shared_mem);
+static FileSystemNode* sharedmemory_create_internal(const char* name, BOOL anonymous, BOOL allow_sealing);
 
 void sharedmemory_initialize()
 {
@@ -110,6 +114,10 @@ static FileSystemDirent *sharedmemorydir_readdir(FileSystemNode *node, uint32_t 
     list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
+        if (p->marked_unlink || p->anonymous)
+        {
+            continue;
+        }
 
         if (counter == index)
         {
@@ -138,7 +146,9 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
-        if (strcmp(name, p->node->name) == 0)
+        if (!p->marked_unlink &&
+            !p->anonymous &&
+            strcmp(name, p->node->name) == 0)
         {
             result = p->node;
             break;
@@ -152,24 +162,32 @@ static FileSystemNode *sharedmemorydir_finddir(FileSystemNode *node, char *name)
 
 static BOOL sharedmemory_open(File *file, uint32_t flags)
 {
+    SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
+    ++shared_mem->open_count;
+
     return TRUE;
 }
 
 static void sharedmemory_destroy_if_suitable(SharedMemory* shared_memory)
 {
-    if (shared_memory->marked_unlink && list_get_count(shared_memory->mmapped_list) == 0)
+    if (shared_memory->marked_unlink &&
+        shared_memory->open_count == 0 &&
+        list_is_empty(shared_memory->mmapped_list))
     {
-        //printkf("DESTORYING sharedmem (pid:%d)\n", g_current_thread->owner->pid);
-
-        list_foreach (e, shared_memory->physical_address_list)
-        {
-            uint32_t p_address = (uint32_t)e->data;
-
-            vmm_release_page_frame_4k(p_address);
-        }
-
         sharedmemory_destroy(shared_memory);
     }
+}
+
+static void sharedmemory_close(File *file)
+{
+    SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
+
+    if (shared_mem->open_count > 0)
+    {
+        --shared_mem->open_count;
+    }
+
+    sharedmemory_destroy_if_suitable(shared_mem);
 }
 
 static int32_t sharedmemory_unlink(FileSystemNode* node, uint32_t flags)
@@ -187,75 +205,148 @@ static int32_t sharedmemory_unlink(FileSystemNode* node, uint32_t flags)
 
 static int32_t sharedmemory_ftruncate(File *file, int32_t length)
 {
-    if (length <= 0)
+    if (length < 0)
     {
-        return -1;
+        return -EINVAL;
     }
 
     SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
+    uint32_t old_length = file->node->length;
 
-    if (0 != file->node->length)
+    if ((uint32_t)length < old_length && (shared_mem->seals & SHM_SEAL_SHRINK))
     {
-        //already set
-        return -1;
+        return -EPERM;
     }
 
-    int page_count = PAGE_COUNT(length);
-
-    //spinlock_lock(&shared_mem->physical_address_list_lock);
-
-    for (int i = 0; i < page_count; ++i)
+    if ((uint32_t)length > old_length && (shared_mem->seals & SHM_SEAL_GROW))
     {
-        uint32_t p_address = vmm_acquire_page_frame_4k();
+        return -EPERM;
+    }
 
-        list_append(shared_mem->physical_address_list, (void*)p_address);
+    uint32_t old_page_count = old_length == 0 ? 0 : PAGE_COUNT(old_length);
+    uint32_t new_page_count = length == 0 ? 0 : PAGE_COUNT((uint32_t)length);
+
+    if (new_page_count < old_page_count && !list_is_empty(shared_mem->mmapped_list))
+    {
+        return -EBUSY;
+    }
+
+    if (new_page_count > old_page_count)
+    {
+        uint32_t added_page_count = new_page_count - old_page_count;
+
+        for (uint32_t i = 0; i < added_page_count; ++i)
+        {
+            uint32_t physical_address = vmm_acquire_page_frame_4k();
+            list_append(shared_mem->physical_address_list, (void*)physical_address);
+        }
+    }
+
+    if ((uint32_t)length > old_length)
+    {
+        uint32_t first_page = old_length / PAGESIZE_4K;
+        uint32_t clear_page_count = new_page_count - first_page;
+        uint32_t* physical_addresses = kmalloc(clear_page_count * sizeof(uint32_t));
+        uint32_t source_index = 0;
+        uint32_t target_index = 0;
+        list_foreach (n, shared_mem->physical_address_list)
+        {
+            if (source_index >= first_page && target_index < clear_page_count)
+            {
+                physical_addresses[target_index++] = (uint32_t)n->data;
+            }
+            ++source_index;
+        }
+
+        Process* process = thread_get_current()->owner;
+        void* mapped = vmm_map_memory_no_clear(process, USER_MMAP_START, physical_addresses, clear_page_count, FALSE);
+        if (mapped == NULL)
+        {
+            uint32_t added_page_count = new_page_count - old_page_count;
+            for (uint32_t i = 0; i < added_page_count; ++i)
+            {
+                ListNode* node = list_get_last_node(shared_mem->physical_address_list);
+                vmm_release_page_frame_4k((uint32_t)node->data);
+                list_remove_node(shared_mem->physical_address_list, node);
+            }
+
+            kfree(physical_addresses);
+            return -ENOMEM;
+        }
+
+        uint32_t clear_offset = old_length & (PAGESIZE_4K - 1);
+        memset((uint8_t*)mapped + clear_offset, 0, clear_page_count * PAGESIZE_4K - clear_offset);
+        vmm_unmap_memory(process, (uint32_t)mapped, clear_page_count);
+        kfree(physical_addresses);
+    }
+
+    if (new_page_count < old_page_count)
+    {
+        uint32_t removed_page_count = old_page_count - new_page_count;
+        for (uint32_t i = 0; i < removed_page_count; ++i)
+        {
+            ListNode* node = list_get_last_node(shared_mem->physical_address_list);
+            vmm_release_page_frame_4k((uint32_t)node->data);
+            list_remove_node(shared_mem->physical_address_list, node);
+        }
     }
 
     file->node->length = length;
-
-    //spinlock_unlock(&shared_mem->physical_address_list_lock);
 
     return 0;
 }
 
 static void* sharedmemory_mmap(File* file, uint32_t size, uint32_t offset, uint32_t flags)
 {
-    void* result = NULL;
-
     SharedMemory* shared_mem = (SharedMemory*)file->node->private_node_data;
 
-    //spinlock_lock(&shared_mem->physical_address_list_lock);
-
-    int count = list_get_count(shared_mem->physical_address_list);
-    if (count > 0)
+    if (size == 0 ||
+        (flags & MAP_PRIVATE) ||
+        (offset & (PAGESIZE_4K - 1)) ||
+        offset >= file->node->length)
     {
-        uint32_t* physical_address_array = (uint32_t*)kmalloc(count * sizeof(uint32_t));
-        int i = 0;
-        list_foreach(n, shared_mem->physical_address_list)
+        return NULL;
+    }
+
+    uint32_t first_page = offset / PAGESIZE_4K;
+    uint32_t page_count = PAGE_COUNT(size);
+    uint32_t physical_page_count = (uint32_t)list_get_count(shared_mem->physical_address_list);
+    if (first_page + page_count > physical_page_count)
+    {
+        return NULL;
+    }
+
+    uint32_t* physical_address_array = kmalloc(page_count * sizeof(uint32_t));
+    uint32_t source_index = 0;
+    uint32_t target_index = 0;
+    list_foreach(n, shared_mem->physical_address_list)
+    {
+        if (source_index >= first_page && target_index < page_count)
         {
-            physical_address_array[i] = (uint32_t)n->data;
-
-            ++i;
+            physical_address_array[target_index++] = (uint32_t)n->data;
         }
-        result = vmm_map_memory(thread_get_current()->owner, USER_MMAP_START, physical_address_array, count, FALSE);
 
+        ++source_index;
+    }
+
+    void* result = vmm_map_memory_no_clear(thread_get_current()->owner, USER_MMAP_START, physical_address_array, page_count, FALSE);
+    kfree(physical_address_array);
+
+    if (result != NULL)
+    {
         MapInfo* info = (MapInfo*)kmalloc(sizeof(MapInfo));
         memset((uint8_t*)info, 0, sizeof(MapInfo));
         info->process = g_current_thread->owner;
         info->v_address = (uint32_t)result;
-        info->page_count = count;
+        info->page_count = page_count;
 
         list_append(shared_mem->mmapped_list, info);
-
-        kfree(physical_address_array);
     }
-
-    //spinlock_unlock(&shared_mem->physical_address_list_lock);
 
     return result;
 }
 
-BOOL sharedmemory_unmap_if_exists(Process* process, uint32_t address)
+int32_t sharedmemory_unmap_if_exists(Process* process, uint32_t address, uint32_t page_count)
 {
     list_foreach (n, g_shm_list)
     {
@@ -269,24 +360,35 @@ BOOL sharedmemory_unmap_if_exists(Process* process, uint32_t address)
             {
                 if (info->v_address == address)
                 {
+                    if (info->page_count != page_count)
+                    {
+                        return -EINVAL;
+                    }
+
                     list_remove_first_occurrence(p->mmapped_list, info);
 
                     kfree(info);
 
                     sharedmemory_destroy_if_suitable(p);
 
-                    return TRUE;
+                    return 1;
                 }
             }
         }
     }
 
-    return FALSE;
+    return 0;
 }
 
 void sharedmemory_unmap_for_process_all(Process* process)
 {
-    List* process_shared_mapped_list = list_create();
+    typedef struct PendingUnmap
+    {
+        uint32_t address;
+        uint32_t page_count;
+    } PendingUnmap;
+
+    List* pending_unmaps = list_create();
 
     list_foreach (n, g_shm_list)
     {
@@ -298,19 +400,23 @@ void sharedmemory_unmap_for_process_all(Process* process)
 
             if (info->process == process)
             {
-                list_append(process_shared_mapped_list, (void*)info->v_address);
+                PendingUnmap* pending = kmalloc(sizeof(PendingUnmap));
+                pending->address = info->v_address;
+                pending->page_count = info->page_count;
+                list_append(pending_unmaps, pending);
             }
         }
     }
 
-    list_foreach (n, process_shared_mapped_list)
+    list_foreach (n, pending_unmaps)
     {
-        uint32_t address = (uint32_t)n->data;
+        PendingUnmap* pending = (PendingUnmap*)n->data;
 
-        sharedmemory_unmap_if_exists(process, address);
+        sharedmemory_unmap_if_exists(process, pending->address, pending->page_count);
+        kfree(pending);
     }
 
-    list_destroy(process_shared_mapped_list);
+    list_destroy(pending_unmaps);
 }
 
 FileSystemNode* sharedmemory_get_node(const char* name)
@@ -323,7 +429,9 @@ FileSystemNode* sharedmemory_get_node(const char* name)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
-        if (strcmp(name, p->node->name) == 0)
+        if (!p->marked_unlink &&
+            !p->anonymous &&
+            strcmp(name, p->node->name) == 0)
         {
             result = p->node;
             break;
@@ -337,7 +445,22 @@ FileSystemNode* sharedmemory_get_node(const char* name)
 
 FileSystemNode* sharedmemory_create(const char* name)
 {
-    if (sharedmemory_get_node(name) != NULL)
+    return sharedmemory_create_internal(name, FALSE, FALSE);
+}
+
+FileSystemNode* sharedmemory_create_anonymous(const char* name, BOOL allow_sealing)
+{
+    return sharedmemory_create_internal(name, TRUE, allow_sealing);
+}
+
+static FileSystemNode* sharedmemory_create_internal(const char* name, BOOL anonymous, BOOL allow_sealing)
+{
+    if (name == NULL || strlen(name) >= sizeof(((FileSystemNode*)0)->name))
+    {
+        return NULL;
+    }
+
+    if (!anonymous && sharedmemory_get_node(name) != NULL)
     {
         return NULL;
     }
@@ -348,17 +471,21 @@ FileSystemNode* sharedmemory_create(const char* name)
     FileSystemNode* node = (FileSystemNode*)kmalloc(sizeof(FileSystemNode));
     memset((uint8_t*)node, 0, sizeof(FileSystemNode));
 
-    strcpy(node->name, name);
-    node->node_type = FT_CHARACTER_DEVICE;
+    strncpy_null(node->name, name, sizeof(node->name));
+    node->node_type = FT_FILE;
     node->open = sharedmemory_open;
+    node->close = sharedmemory_close;
     node->unlink = sharedmemory_unlink;
     node->ftruncate = sharedmemory_ftruncate;
     node->mmap = sharedmemory_mmap;
     node->private_node_data = shared_mem;
 
     shared_mem->node = node;
+    shared_mem->anonymous = anonymous;
+    shared_mem->marked_unlink = anonymous;
+    shared_mem->allow_sealing = allow_sealing;
+    shared_mem->seals = allow_sealing ? 0 : SHM_SEAL_SEAL;
     shared_mem->physical_address_list = list_create();
-    //spinlock_init(&shared_mem->physical_address_list_lock);
 
     shared_mem->mmapped_list = list_create();
 
@@ -369,13 +496,77 @@ FileSystemNode* sharedmemory_create(const char* name)
     return node;
 }
 
-SharedMemory* sharedmemory_find(const char* name)
+static SharedMemory* sharedmemory_from_file(File* file)
+{
+    if (file == NULL)
+    {
+        return NULL;
+    }
+
+    list_foreach (n, g_shm_list)
+    {
+        SharedMemory* shared_mem = (SharedMemory*)n->data;
+        if (shared_mem->node == file->node)
+        {
+            return shared_mem;
+        }
+    }
+
+    return NULL;
+}
+
+int32_t sharedmemory_add_seals(File* file, uint32_t seals)
+{
+    SharedMemory* shared_mem = sharedmemory_from_file(file);
+    if (shared_mem == NULL)
+    {
+        return -EINVAL;
+    }
+
+    if (!shared_mem->anonymous)
+    {
+        return -EINVAL;
+    }
+
+    if (!shared_mem->allow_sealing || (shared_mem->seals & SHM_SEAL_SEAL))
+    {
+        return -EPERM;
+    }
+
+    if (seals & ~(SHM_SEAL_SEAL | SHM_SEAL_SHRINK | SHM_SEAL_GROW))
+    {
+        return -EINVAL;
+    }
+
+    shared_mem->seals |= seals;
+    return 0;
+}
+
+int32_t sharedmemory_get_seals(File* file)
+{
+    SharedMemory* shared_mem = sharedmemory_from_file(file);
+    if (shared_mem == NULL)
+    {
+        return -EINVAL;
+    }
+
+    if (!shared_mem->anonymous)
+    {
+        return -EINVAL;
+    }
+
+    return (int32_t)shared_mem->seals;
+}
+
+static SharedMemory* sharedmemory_find(const char* name)
 {
     list_foreach (n, g_shm_list)
     {
         SharedMemory* p = (SharedMemory*)n->data;
 
-        if (strcmp(name, p->node->name) == 0)
+        if (!p->marked_unlink &&
+            !p->anonymous &&
+            strcmp(name, p->node->name) == 0)
         {
             return (SharedMemory*)p;
         }
@@ -384,14 +575,18 @@ SharedMemory* sharedmemory_find(const char* name)
     return NULL;
 }
 
-void sharedmemory_destroy(SharedMemory* shared_mem)
+static void sharedmemory_destroy(SharedMemory* shared_mem)
 {
     //spinlock_lock(&g_shm_list_lock);
 
     //spinlock_lock(&shared_mem->physical_address_list_lock);
 
-    kfree(shared_mem->node);
+    list_foreach (n, shared_mem->physical_address_list)
+    {
+        vmm_release_page_frame_4k((uint32_t)n->data);
+    }
 
+    kfree(shared_mem->node);
     list_destroy(shared_mem->physical_address_list);
 
     list_destroy(shared_mem->mmapped_list);
@@ -411,7 +606,8 @@ BOOL sharedmemory_destroy_by_name(const char* name)
 
     if (shared_mem)
     {
-        sharedmemory_destroy(shared_mem);
+        shared_mem->marked_unlink = TRUE;
+        sharedmemory_destroy_if_suitable(shared_mem);
 
         return TRUE;
     }

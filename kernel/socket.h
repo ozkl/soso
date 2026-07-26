@@ -18,7 +18,7 @@
 #include "list.h"
 #include "waitqueue.h"
 
-#define SOCKET_NAME_SIZE 64
+#define SOCKET_NAME_SIZE 108
 #define SOCKET_BUFFER_SIZE (1024*1024)
 
 typedef uint16_t sa_family_t;
@@ -390,7 +390,6 @@ typedef struct Socket
     Queue* control_queue;
     uint64_t bytes_enqueued;
     uint64_t bytes_dequeued;
-    BOOL receiving_control;
     BITMAP_DEFINE(opts, 128);
 
     Queue* accept_queue; //no lock required

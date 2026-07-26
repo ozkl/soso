@@ -113,6 +113,11 @@ struct sigaltstack {
 #define F_GETFL 3
 #define F_SETFL 4
 #define F_DUPFD_CLOEXEC 1030
+#define F_ADD_SEALS 1033
+#define F_GET_SEALS 1034
+
+#define MFD_CLOEXEC 0x0001
+#define MFD_ALLOW_SEALING 0x0002
 
 /**************
  * All of syscall entered with interrupts disabled!
@@ -123,6 +128,8 @@ struct sigaltstack {
 static void handle_syscall(Registers* regs);
 
 static void* g_syscall_table[SYSCALL_COUNT];
+
+typedef int32_t (*SyscallFunction)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 
 struct rusage;
 
@@ -159,8 +166,8 @@ int syscall_execute_on_tty(const char *path, char *const argv[], char *const env
 int syscall_manage_message(int command, void* message);
 int syscall_rt_sigaction(int signum, const struct k_sigaction *act, struct k_sigaction *oldact, uint32_t sigsetsize);
 int syscall_rt_sigprocmask(int how, const uint32_t *set, uint32_t *oldset, uint32_t sigsetsize);
-void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset);
-void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset);
+void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, uint32_t offset);
+void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, uint32_t page_offset);
 int32_t syscall_mprotect(void* addr, uint32_t length, int32_t prot);
 int syscall_munmap(void *addr, int length);
 int syscall_unlink(const char *name);
@@ -187,11 +194,13 @@ int syscall_shmget(int32_t key, size_t size, int flag);
 void * syscall_shmat(int shmid, const void *shmaddr, int shmflg);
 int syscall_shmdt(const void *shmaddr);
 int syscall_shmctl(int shmid, int cmd, struct shmid_ds *buf);
-int syscall_nanosleep(const struct timespec *req, struct timespec *rem);
+int syscall_nanosleep(const struct timespec32 *req, struct timespec32 *rem);
+int syscall_clock_nanosleep(int32_t clockid, int32_t flags, const struct timespec32 *req, struct timespec32 *rem);
 int syscall_tkill(int tid, int sig);
 int syscall_sigaltstack(const struct sigaltstack *ss, struct sigaltstack *old_ss);
 int32_t syscall_gettid();
 int32_t syscall_getrandom(uint8_t* buffer, uint32_t length, uint32_t flags);
+int32_t syscall_memfd_create(const char* name, uint32_t flags);
 int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument);
 int32_t syscall_dup(int32_t old_fd);
 int32_t syscall_dup2(int32_t old_fd, int32_t new_fd);
@@ -277,10 +286,12 @@ void syscalls_initialize()
     g_syscall_table[SYS_shutdown] = syscall_shutdown;
     g_syscall_table[SYS_accept] = syscall_accept;
     g_syscall_table[SYS_nanosleep] = syscall_nanosleep;
+    g_syscall_table[SYS_clock_nanosleep] = syscall_clock_nanosleep;
     g_syscall_table[SYS_poll] = syscall_poll;
     g_syscall_table[SYS_tkill] = syscall_tkill;
     g_syscall_table[SYS_gettid] = syscall_gettid;
     g_syscall_table[SYS_getrandom] = syscall_getrandom;
+    g_syscall_table[SYS_memfd_create] = syscall_memfd_create;
     g_syscall_table[SYS_fcntl64] = syscall_fcntl64;
     g_syscall_table[SYS_dup] = syscall_dup;
     g_syscall_table[SYS_dup2] = syscall_dup2;
@@ -307,6 +318,7 @@ static void handle_syscall(Registers* regs)
     thread->last_syscall.arguments[2] = regs->edx;
     thread->last_syscall.arguments[3] = regs->esi;
     thread->last_syscall.arguments[4] = regs->edi;
+    thread->last_syscall.arguments[5] = regs->ebp;
     thread->last_syscall.state = SYSCALL_NOTSTARTED;
     thread->last_syscall.return_value = 0;
 
@@ -318,12 +330,13 @@ static void handle_syscall(Registers* regs)
     
     if (regs->eax >= SYSCALL_COUNT || NULL == location)
     {
-        log_printf("Unknown SYSCALL:%d (pid:%d) - %d, %d, %d, %d, %d\n", regs->eax, process->pid,
+        log_printf("Unknown SYSCALL:%d (pid:%d) - %d, %d, %d, %d, %d, %d\n", regs->eax, process->pid,
             thread->last_syscall.arguments[0],
             thread->last_syscall.arguments[1],
             thread->last_syscall.arguments[2],
             thread->last_syscall.arguments[3],
-            thread->last_syscall.arguments[4]);
+            thread->last_syscall.arguments[4],
+            thread->last_syscall.arguments[5]);
             
 
         thread->last_syscall.state = SYSCALL_ERROR;
@@ -339,20 +352,8 @@ static void handle_syscall(Registers* regs)
     thread->last_syscall.state = SYSCALL_STARTED;
 
 
-    int ret;
-    asm volatile (" \
-      pushl %1; \
-      pushl %2; \
-      pushl %3; \
-      pushl %4; \
-      pushl %5; \
-      call *%6; \
-      popl %%ebx; \
-      popl %%ebx; \
-      popl %%ebx; \
-      popl %%ebx; \
-      popl %%ebx; \
-    " : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
+    SyscallFunction syscall = (SyscallFunction)location;
+    int32_t ret = syscall(regs->ebx, regs->ecx, regs->edx, regs->esi, regs->edi, regs->ebp);
     regs->eax = ret;
 
     thread->last_syscall.state = SYSCALL_FINISHED;
@@ -1390,6 +1391,64 @@ int32_t syscall_dup3(int32_t old_fd, int32_t new_fd, int32_t flags)
     return process_duplicate_file_at(process, file, descriptor_flags, new_fd);
 }
 
+int32_t syscall_memfd_create(const char* name, uint32_t flags)
+{
+    if (name == NULL || !check_user_access((void*)name))
+    {
+        return -EFAULT;
+    }
+
+    if (flags & ~(MFD_CLOEXEC | MFD_ALLOW_SEALING))
+    {
+        return -EINVAL;
+    }
+
+    char name_buffer[128];
+    uint32_t name_length = 0;
+    BOOL name_terminated = FALSE;
+    while (name_length < sizeof(name_buffer))
+    {
+        if (!check_user_access((void*)(name + name_length)))
+        {
+            return -EFAULT;
+        }
+
+        name_buffer[name_length] = name[name_length];
+        if (name_buffer[name_length] == '\0')
+        {
+            name_terminated = TRUE;
+            break;
+        }
+
+        ++name_length;
+    }
+
+    if (!name_terminated)
+    {
+        return -ENAMETOOLONG;
+    }
+
+    FileSystemNode* node = sharedmemory_create_anonymous(name_buffer, flags & MFD_ALLOW_SEALING);
+    if (node == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    uint32_t open_flags = O_RDWR;
+    if (flags & MFD_CLOEXEC)
+    {
+        open_flags |= O_CLOEXEC;
+    }
+
+    int32_t fd = fs_open_fd_for_process(thread_get_current(), node, open_flags, NULL);
+    if (fd < 0)
+    {
+        return -EMFILE;
+    }
+
+    return fd;
+}
+
 int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument)
 {
     Process* process = thread_get_current()->owner;
@@ -1426,6 +1485,10 @@ int32_t syscall_fcntl64(int32_t fd, int32_t command, uint32_t argument)
             file->status_flags &= ~O_NONBLOCK;
             file->status_flags |= argument & O_NONBLOCK;
             return 0;
+        case F_ADD_SEALS:
+            return sharedmemory_add_seals(file, argument);
+        case F_GET_SEALS:
+            return sharedmemory_get_seals(file);
         default:
             return -EINVAL;
     }
@@ -2106,12 +2169,8 @@ int syscall_rt_sigprocmask(int how, const uint32_t *set, uint32_t *oldset, uint3
     return 0;
 }
 
-//we don't support mmap offset argument
-void* syscall_mmap_internal(void *addr, int length, int prot, int flags, int fd, int offset)
+void* syscall_mmap_internal(void *addr, int length, int prot, int flags, int fd, uint32_t offset)
 {
-    //TODO: syscall support for 6th argument
-    offset = 0;
-
     if (length <= 0)
     {
         return (void*)-1;
@@ -2200,7 +2259,7 @@ void* syscall_mmap_internal(void *addr, int length, int prot, int flags, int fd,
     return (void*)-1;
 }
 
-void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offset)
+void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, uint32_t offset)
 {
     int pid = thread_get_current()->owner->pid;
 
@@ -2211,14 +2270,23 @@ void* syscall_mmap(void *addr, int length, int prot, int flags, int fd, int offs
     return result;
 }
 
-void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, int offset)
+void* syscall_mmap2(void *addr, int length, int prot, int flags, int fd, uint32_t page_offset)
 {
-    //TODO: mmap2
-    return syscall_mmap(addr, length, prot, flags, fd, offset);
+    if (page_offset > 0xFFFFFFFFU / PAGESIZE_4K)
+    {
+        return (void*)-EOVERFLOW;
+    }
+
+    return syscall_mmap_internal(addr, length, prot, flags, fd, page_offset * PAGESIZE_4K);
 }
 
 int syscall_munmap_internal(void *addr, int length)
 {
+    if (length <= 0)
+    {
+        return -EINVAL;
+    }
+
     if (!check_user_access(addr))
     {
         return -EFAULT;
@@ -2233,7 +2301,11 @@ int syscall_munmap_internal(void *addr, int length)
             return -1;
         }
 
-        sharedmemory_unmap_if_exists(process, (uint32_t)addr);
+        int32_t shared_result = sharedmemory_unmap_if_exists(process, (uint32_t)addr, PAGE_COUNT(length));
+        if (shared_result < 0)
+        {
+            return shared_result;
+        }
 
         if (TRUE == vmm_unmap_memory(process, (uint32_t)addr, PAGE_COUNT(length)))
         {
@@ -2273,6 +2345,7 @@ int syscall_munmap(void *addr, int length)
 #define AT_STATX_FORCE_SYNC 0x2000
 #define AT_STATX_DONT_SYNC 0x4000
 #define AT_RECURSIVE 0x8000
+#define STATX_BASIC_STATS 0x000007FF
 
 int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf)
 {
@@ -2281,7 +2354,8 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
         return -EFAULT;
     }
 
-    if (!check_user_access(statxbuf))
+    if (!check_user_access(statxbuf) ||
+        !check_user_access((uint8_t*)statxbuf + sizeof(struct statx) - 1))
     {
         return -EFAULT;
     }
@@ -2336,11 +2410,23 @@ int syscall_statx(int dirfd, const char *pathname, int flags, unsigned int mask,
             memset((uint8_t*)&st, 0, sizeof(st));
 
             int statResult = fs_stat(node, &st);
+            if (statResult != 0)
+            {
+                return statResult;
+            }
 
+            memset((uint8_t*)statxbuf, 0, sizeof(struct statx));
+            statxbuf->stx_mask = STATX_BASIC_STATS;
+            statxbuf->stx_blksize = PAGESIZE_4K;
+            statxbuf->stx_nlink = 1;
+            statxbuf->stx_uid = node->user_id;
+            statxbuf->stx_gid = node->group_id;
             statxbuf->stx_mode = st.st_mode;
+            statxbuf->stx_ino = node->inode;
             statxbuf->stx_size = st.st_size;
+            statxbuf->stx_blocks = (st.st_size + 511) / 512;
 
-            return statResult;
+            return 0;
         }
 
 
@@ -2413,6 +2499,11 @@ int syscall_ftruncate(int fd, int size)
 int syscall_ftruncate64(int fd, uint32_t len_lo, uint32_t len_hi)
 {
     uint64_t length = ((uint64_t)len_hi << 32) | len_lo;
+
+    if (length > 0x7FFFFFFF)
+    {
+        return -EFBIG;
+    }
 
     Process* process = thread_get_current()->owner;
     if (process)
@@ -2626,44 +2717,66 @@ int syscall_ptsname_r(int fd, char *buf, int buflen)
 #define NSEC_IN_SEC 1000000000
 #define MSEC_IN_SEC 1000
 #define NSEC_IN_MSEC 1000000
-int syscall_nanosleep(const struct timespec *req, struct timespec *rem)
+static int32_t syscall_sleep_timespec32(const struct timespec32 *req, struct timespec32 *rem)
 {
     if (req == NULL)
     {
         return -EINVAL;
     }
 
-    if (!check_user_access((void*)req))
+    if (!check_user_access((void*)req) ||
+        !check_user_access((uint8_t*)req + sizeof(struct timespec32) - 1))
     {
         return -EFAULT;
     }
 
-    if (rem != NULL && !check_user_access(rem))
+    if (rem != NULL &&
+        (!check_user_access(rem) ||
+         !check_user_access((uint8_t*)rem + sizeof(struct timespec32) - 1)))
     {
         return -EFAULT;
     }
 
-    if (req->tv_nsec < 0 || req->tv_nsec >= NSEC_IN_SEC || req->tv_sec < 0)
+    int32_t seconds = req->tv_sec;
+    int32_t nanoseconds = req->tv_nsec;
+
+    if (nanoseconds < 0 || nanoseconds >= NSEC_IN_SEC || seconds < 0)
     {
         return -EINVAL;
     }
 
-    if (req->tv_sec > 1000000)
+    uint64_t milliseconds = (uint64_t)seconds * MSEC_IN_SEC;
+    milliseconds += ((uint32_t)nanoseconds + NSEC_IN_MSEC - 1) / NSEC_IN_MSEC;
+    if (milliseconds > 0xFFFFFFFF)
     {
         return -EINVAL;
     }
 
-    uint32_t ms = req->tv_sec * MSEC_IN_SEC;
-    ms += req->tv_nsec / NSEC_IN_MSEC;
-
-    sleep_ms(g_current_thread, ms);
+    if (milliseconds > 0)
+    {
+        sleep_ms(g_current_thread, (uint32_t)milliseconds);
+    }
 
     if (rem)
     {
-        // We don't support interruption yet, so remaining time is zero.
         rem->tv_sec = 0;
         rem->tv_nsec = 0;
     }
 
     return 0;
+}
+
+int syscall_nanosleep(const struct timespec32 *req, struct timespec32 *rem)
+{
+    return syscall_sleep_timespec32(req, rem);
+}
+
+int syscall_clock_nanosleep(int32_t clockid, int32_t flags, const struct timespec32 *req, struct timespec32 *rem)
+{
+    if ((clockid != 0 && clockid != 1) || flags != 0)
+    {
+        return -EINVAL;
+    }
+
+    return syscall_sleep_timespec32(req, rem);
 }

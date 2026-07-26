@@ -62,9 +62,11 @@ enum
     SYS_set_thread_area = 243,
     SYS_exit_group = 252,
     SYS_set_tid_address = 258,
+    SYS_clock_nanosleep = 267,
     SYS_dup3 = 330,
 
     SYS_getrandom = 355,
+    SYS_memfd_create = 356,
     
     SYS_socket = 359,
     SYS_socketpair = 360,

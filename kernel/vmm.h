@@ -13,6 +13,8 @@
 
 #include "common.h"
 
+#define MAP_SHARED     0x01
+#define MAP_PRIVATE    0x02
 #define MAP_FIXED      0x10
 
 typedef struct Process Process;
@@ -52,6 +54,7 @@ uint32_t vmm_get_free_page_count();
 void vmm_initialize_process_pages(Process* process);
 BOOL vmm_is_address_mappable(Process* process, uint32_t address, uint32_t page_count);
 void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own);
+void* vmm_map_memory_no_clear(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own);
 BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size);
 BOOL vmm_unmap_memory(Process* process, uint32_t v_address, uint32_t page_count);
 BOOL vmm_protect_memory(uint32_t v_address, uint32_t page_count, BOOL user, BOOL writable);

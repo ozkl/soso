@@ -35,6 +35,60 @@ static BOOL unixsocket_fs_write_test_ready(File *file);
 static int32_t unixsocket_fs_read(File *file, uint32_t len, uint8_t *buf);
 static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf);
 
+static int32_t unixsocket_get_name(const struct sockaddr* addr, socklen_t addrlen, char* name)
+{
+    if (addr == NULL)
+    {
+        return -EFAULT;
+    }
+
+    if (addrlen <= sizeof(sa_family_t) ||
+        addrlen > sizeof(sa_family_t) + SOCKET_NAME_SIZE)
+    {
+        return -EINVAL;
+    }
+
+    if (!check_user_access((void*)addr) ||
+        !check_user_access((uint8_t*)addr + addrlen - 1))
+    {
+        return -EFAULT;
+    }
+
+    if (addr->sa_family != AF_UNIX)
+    {
+        return -EAFNOSUPPORT;
+    }
+
+    const char* source = (const char*)addr + sizeof(sa_family_t);
+    uint32_t available = addrlen - sizeof(sa_family_t);
+    uint32_t length = 0;
+
+    if (source[0] == '\0')
+    {
+        return -EOPNOTSUPP;
+    }
+
+    while (length < available && source[length] != '\0')
+    {
+        ++length;
+    }
+
+    if (length == 0)
+    {
+        return -EINVAL;
+    }
+
+    if (length >= SOCKET_NAME_SIZE)
+    {
+        return -ENAMETOOLONG;
+    }
+
+    memcpy((uint8_t*)name, (const uint8_t*)source, length);
+    name[length] = '\0';
+
+    return 0;
+}
+
 void unixsocket_setup(Socket* socket)
 {
     //printkf("unixsocket_setup\n");
@@ -64,15 +118,16 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
     //printkf("unixsocket_bind\n");
 
     UnixSocket* unix_socket = (UnixSocket*)socket->custom_socket;
+    char name[SOCKET_NAME_SIZE];
+    int32_t result = unixsocket_get_name(addr, addrlen, name);
+    if (result < 0)
+    {
+        return result;
+    }
 
     if (strlen(unix_socket->name) > 0)
     {
         return -EINVAL; //The socket is already bound to an address.
-    }
-
-    if (strlen(addr->sa_data) == 0)
-    {
-        return -EINVAL;
     }
 
     list_foreach (n, g_socket_list)
@@ -85,13 +140,13 @@ static int unixsocket_bind(Socket* socket, int sockfd, const struct sockaddr *ad
 
         UnixSocket* us = (UnixSocket*)s->custom_socket;
 
-        if (strcmp(addr->sa_data, us->name) == 0)
+        if (strcmp(name, us->name) == 0)
         {
             return -EADDRINUSE;
         }
     }
 
-    snprintf(unix_socket->name, SOCKET_NAME_SIZE, "%s", addr->sa_data);
+    strcpy(unix_socket->name, name);
 
     return 0; //success
 }
@@ -114,6 +169,26 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
         //Socket is not listening for connections
 
         return -EINVAL;
+    }
+
+    if ((addr == NULL) != (addrlen == NULL))
+    {
+        return -EFAULT;
+    }
+
+    if (addr != NULL &&
+        (!check_user_access(addr) ||
+         !check_user_access(addrlen) ||
+         !check_user_access((uint8_t*)addrlen + sizeof(socklen_t) - 1)))
+    {
+        return -EFAULT;
+    }
+
+    if (addr != NULL &&
+        *addrlen >= sizeof(sa_family_t) &&
+        !check_user_access((uint8_t*)addr + sizeof(sa_family_t) - 1))
+    {
+        return -EFAULT;
     }
 
     while (TRUE)
@@ -144,6 +219,16 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
                     other_end->connecting_to = NULL;
                     waitqueue_wake_all(&other_end->connect_waiters, other_end);
 
+                    if (addr != NULL)
+                    {
+                        socklen_t available = *addrlen;
+                        *addrlen = sizeof(sa_family_t);
+                        if (available >= sizeof(sa_family_t))
+                        {
+                            addr->sa_family = AF_UNIX;
+                        }
+                    }
+
                     return new_socket_fd;
                 }
             }
@@ -171,9 +256,11 @@ static int unixsocket_accept(Socket* socket, int sockfd, struct sockaddr *addr, 
 
 static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-    if (strlen(addr->sa_data) == 0)
+    char name[SOCKET_NAME_SIZE];
+    int32_t result = unixsocket_get_name(addr, addrlen, name);
+    if (result < 0)
     {
-        return -EINVAL;
+        return result;
     }
 
     if (socket->connection != NULL)
@@ -197,7 +284,7 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
 
         UnixSocket* us = (UnixSocket*)s->custom_socket;
 
-        if (strcmp(addr->sa_data, us->name) == 0)
+        if (strcmp(name, us->name) == 0)
         {
             accepting_socket = s;
             break;
@@ -240,7 +327,7 @@ static int unixsocket_connect(Socket* socket, int sockfd, const struct sockaddr 
         }
     }
 
-    return -1;
+    return accepting_socket == NULL ? -ENOENT : -ECONNREFUSED;
 }
 
 static ssize_t unixsocket_send(Socket* socket, int sockfd, const void *buf, size_t len, int flags)
@@ -313,11 +400,6 @@ static ssize_t unixsocket_recv(Socket* socket, int sockfd, void *buf, size_t len
 
             uint32_t read = fifobuffer_dequeue(socket->buffer_in, (uint8_t*)buf, smaller);
             socket->bytes_dequeued += read;
-
-            if (!socket->receiving_control)
-            {
-                socket_discard_consumed_control(socket);
-            }
 
             if (socket->connection)
             {
@@ -402,7 +484,12 @@ static int32_t unixsocket_fs_read(File *file, uint32_t len, uint8_t *buf)
     Socket* socket = (Socket*)file->node->private_node_data;
 
     int32_t flags = (file->status_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-    return unixsocket_recv(socket, -1, buf, len, flags);
+    int32_t result = unixsocket_recv(socket, -1, buf, len, flags);
+    if (result > 0)
+    {
+        socket_discard_consumed_control(socket);
+    }
+    return result;
 }
 
 static int32_t unixsocket_fs_write(File *file, uint32_t len, uint8_t *buf)

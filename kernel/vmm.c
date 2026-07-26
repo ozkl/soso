@@ -585,11 +585,11 @@ static void print_page_fault_info(uint32_t faulting_address, Registers *regs)
 
 static void print_thread_syscall_info(Thread* thread)
 {
-    log_printf("Thread[%d] syscall is %d, syscall state is %d, user_ip:%x\nArgs: %x %x %x %x %x\n",
+    log_printf("Thread[%d] syscall is %d, syscall state is %d, user_ip:%x\nArgs: %x %x %x %x %x %x\n",
             thread->threadId, thread->last_syscall.number, thread->last_syscall.state, thread->last_syscall.user_ip,
             thread->last_syscall.arguments[0], thread->last_syscall.arguments[1],
             thread->last_syscall.arguments[2], thread->last_syscall.arguments[3],
-            thread->last_syscall.arguments[4]);
+            thread->last_syscall.arguments[4], thread->last_syscall.arguments[5]);
 }
 
 static void handle_page_fault(Registers *regs)
@@ -702,8 +702,7 @@ BOOL vmm_is_address_mappable(Process* process, uint32_t address, uint32_t page_c
     return TRUE;
 }
 
-//if this fails (return NULL), the caller should clean up physical page frames
-void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own)
+static void* vmm_map_memory_internal(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own, BOOL clear)
 {
     int page_index = 0;
 
@@ -763,12 +762,26 @@ void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t
             v += PAGESIZE_4K;
         }
 
-        memset((uint8_t*)v_mem, 0, page_count * PAGESIZE_4K);
+        if (clear)
+        {
+            memset((uint8_t*)v_mem, 0, page_count * PAGESIZE_4K);
+        }
 
         return (void*)v_mem;
     }
 
     return NULL;
+}
+
+//if this fails (return NULL), the caller should clean up physical page frames
+void* vmm_map_memory(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own)
+{
+    return vmm_map_memory_internal(process, v_address_search_start, p_address_array, page_count, own, TRUE);
+}
+
+void* vmm_map_memory_no_clear(Process* process, uint32_t v_address_search_start, uint32_t* p_address_array, uint32_t page_count, BOOL own)
+{
+    return vmm_map_memory_internal(process, v_address_search_start, p_address_array, page_count, own, FALSE);
 }
 
 BOOL vmm_map_memory_simple(Process * process, uint32_t v_address, uint32_t size)

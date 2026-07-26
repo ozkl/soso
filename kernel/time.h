@@ -13,6 +13,12 @@ struct timespec
     uint32_t tv_nsec;       /* nanoseconds */
 };
 
+struct timespec32
+{
+    int32_t tv_sec;
+    int32_t tv_nsec;
+};
+
 struct timeval
 {
     uint32_t tv_sec;         /* seconds */

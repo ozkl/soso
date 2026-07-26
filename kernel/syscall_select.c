@@ -171,6 +171,11 @@ int syscall_select(int n, fd_set* rfds, fd_set* wfds, fd_set* efds, struct timev
 
 int32_t syscall_poll(struct pollfd* fds, uint32_t nfds, int32_t timeout)
 {
+    if (nfds > SOSO_MAX_OPENED_FILES)
+    {
+        return -EINVAL;
+    }
+
     if (nfds > 0)
     {
         if (!check_user_access(fds) || !check_user_access(fds + nfds - 1))
